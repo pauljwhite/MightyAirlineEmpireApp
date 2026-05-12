@@ -2577,6 +2577,133 @@ class _LoadFactorLine extends StatelessWidget {
   }
 }
 
+class _RoutePreviewCard extends StatelessWidget {
+  const _RoutePreviewCard({
+    required this.current,
+    required this.preview,
+    required this.currency,
+  });
+
+  final RoutePlan current;
+  final RoutePlan? preview;
+  final CurrencyOption currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = preview;
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Estimated daily P&L',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          if (route == null)
+            const Text(
+              'Assign a compatible aircraft to preview this route.',
+              style: TextStyle(color: Color(0xff9aa4b5)),
+            )
+          else ...[
+            _LoadFactorLine(
+              label: 'Eco',
+              value: route.loadFactorEconomy,
+              color: const Color(0xff3af083),
+            ),
+            if (route.priceBusiness > 0 || route.loadFactorBusiness > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: _LoadFactorLine(
+                  label: 'Biz',
+                  value: route.loadFactorBusiness,
+                  color: const Color(0xff77c9ff),
+                ),
+              ),
+            const Divider(height: 20),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _PreviewMoneyStat(
+                  label: 'Revenue',
+                  value: route.dailyRevenue,
+                  previous: current.dailyRevenue,
+                  currency: currency,
+                  color: const Color(0xff3af083),
+                ),
+                _PreviewMoneyStat(
+                  label: 'Cost',
+                  value: route.dailyCost,
+                  previous: current.dailyCost,
+                  currency: currency,
+                  color: const Color(0xffff6b6b),
+                ),
+                _PreviewMoneyStat(
+                  label: 'Profit',
+                  value: route.dailyProfit,
+                  previous: current.dailyProfit,
+                  currency: currency,
+                  color: route.dailyProfit >= 0
+                      ? const Color(0xff3af083)
+                      : const Color(0xffff6b6b),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${route.dailyPassengers} pax/day · ${(route.flightDurationHours).toStringAsFixed(1)}h flight',
+              style: const TextStyle(color: Color(0xff9aa4b5)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewMoneyStat extends StatelessWidget {
+  const _PreviewMoneyStat({
+    required this.label,
+    required this.value,
+    required this.previous,
+    required this.currency,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final double previous;
+  final CurrencyOption currency;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = value - previous;
+    final deltaColor = delta >= 0
+        ? const Color(0xff3af083)
+        : const Color(0xffff6b6b);
+    return SizedBox(
+      width: 136,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xff8b95a8))),
+          Text(
+            money(value, currency),
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
+          ),
+          if (delta.abs() >= 1)
+            Text(
+              '${delta >= 0 ? '+' : ''}${money(delta, currency)}/day',
+              style: TextStyle(color: deltaColor, fontSize: 12),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HubsView extends StatelessWidget {
   const _HubsView({required this.game, required this.currency});
 
@@ -4841,6 +4968,28 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
             fuelPrice: widget.game.globalFuelPrice,
             gameDay: widget.game.gameDay,
           );
+    final previewRoute = route.copyWith(
+      flightsPerWeek: flights,
+      priceEconomy: _clampedFare(ecoController.text, fareGuide.maxEconomy),
+      priceBusiness: hasBusiness
+          ? _clampedFare(bizController.text, fareGuide.maxBusiness)
+          : 0,
+    );
+    final previewEconomics =
+        type == null || ac == null || origin == null || destination == null
+        ? null
+        : calculateRouteEconomics(
+            route: previewRoute,
+            aircraft: ac,
+            type: type,
+            origin: origin,
+            destination: destination,
+            airline: widget.game.player,
+            allRoutes: widget.game.routes.values.toList(growable: false),
+            allAirlines: widget.game.airlines.values.toList(growable: false),
+            globalFuelPrice: widget.game.globalFuelPrice,
+            gameDay: widget.game.gameDay,
+          );
     final eligibleAircraft = widget.game.playerFleet.where((candidate) {
       if (candidate.id == route.aircraftId) return false;
       if (candidate.status == AircraftStatus.maintenance) return false;
@@ -4909,6 +5058,12 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                 currency: widget.currency,
                 enabled: hasBusiness,
                 onChanged: () => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              _RoutePreviewCard(
+                current: route,
+                preview: previewEconomics?.route,
+                currency: widget.currency,
               ),
               const SizedBox(height: 12),
               _Card(
