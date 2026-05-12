@@ -884,22 +884,169 @@ class _FinanceView extends StatelessWidget {
   }
 }
 
-class _CompetitorsView extends StatelessWidget {
+class _CompetitorsView extends StatefulWidget {
   const _CompetitorsView({required this.game});
   final GameController game;
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      _MetricCard('Player airline', game.player.name, const Color(0xff77c9ff)),
-      _MetricCard(
-        'Market share',
-        '${game.player.marketSharePercent.toStringAsFixed(1)}%',
-        const Color(0xffffd166),
-      ),
-      const _EmptyState('AI competitors are next in the native parity port.'),
-    ],
-  );
+  State<_CompetitorsView> createState() => _CompetitorsViewState();
+}
+
+class _CompetitorsViewState extends State<_CompetitorsView> {
+  Airline? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selected != null) {
+      final airline = widget.game.airlines[selected!.id] ?? selected!;
+      final routes = widget.game.routesForAirline(airline.id);
+      final fleet = widget.game.fleetForAirline(airline.id);
+      final profitableRoutes = routes
+          .where((route) => route.dailyProfit > 0)
+          .length;
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => selected = null),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back'),
+            ),
+          ),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      airline.logoEmoji,
+                      style: const TextStyle(fontSize: 26),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        airline.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _InfoRow('Cash', money(airline.cashUSD, currencyOptions.first)),
+                _InfoRow(
+                  'Last profit',
+                  money(airline.lastDailyProfit, currencyOptions.first),
+                ),
+                _InfoRow(
+                  'Market share',
+                  '${airline.marketSharePercent.toStringAsFixed(1)}%',
+                ),
+                _InfoRow(
+                  'Reputation',
+                  airline.reputationScore.toStringAsFixed(0),
+                ),
+                _InfoRow('Fleet', '${fleet.length} aircraft'),
+                _InfoRow(
+                  'Routes',
+                  '${routes.length} routes · $profitableRoutes profitable',
+                ),
+              ],
+            ),
+          ),
+          ExpansionTile(
+            title: const Text('Fleet'),
+            initiallyExpanded: true,
+            children: fleet.map((ac) {
+              final type = aircraftTypesById[ac.typeId];
+              return ListTile(
+                title: Text(ac.name),
+                subtitle: Text(
+                  '${type?.displayName ?? ac.typeId} · ${ac.condition.toStringAsFixed(0)}% condition',
+                ),
+              );
+            }).toList(),
+          ),
+          ExpansionTile(
+            title: const Text('Routes'),
+            children: routes
+                .map(
+                  (route) => ListTile(
+                    title: Text(
+                      '${route.originIata} -> ${route.destinationIata}',
+                    ),
+                    subtitle: Text(
+                      '${route.flightsPerWeek}/week · ${money(route.dailyProfit, currencyOptions.first)}/day',
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      );
+    }
+
+    final airlines = [widget.game.player, ...widget.game.competitors]
+      ..sort((a, b) => b.marketSharePercent.compareTo(a.marketSharePercent));
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MetricCard('Airlines', '${airlines.length}', const Color(0xff77c9ff)),
+        ...airlines.map(
+          (airline) => _Card(
+            child: InkWell(
+              onTap: () => setState(() => selected = airline),
+              child: Row(
+                children: [
+                  Text(airline.logoEmoji, style: const TextStyle(fontSize: 24)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          airline.name,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft',
+                          style: const TextStyle(color: Color(0xff9aa4b5)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${airline.marketSharePercent.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Color(0xffffd166),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        money(airline.lastDailyProfit, currencyOptions.first),
+                        style: TextStyle(
+                          color: airline.lastDailyProfit >= 0
+                              ? const Color(0xff3af083)
+                              : const Color(0xffff6b6b),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _CreateRouteDialog extends StatefulWidget {

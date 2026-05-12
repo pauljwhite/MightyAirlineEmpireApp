@@ -85,4 +85,38 @@ void main() {
     expect(restored.playerFleet.length, game.playerFleet.length);
     expect(restored.player.cashUSD, game.player.cashUSD);
   });
+
+  test(
+    'AI airlines initialise, compete for market share, and expand over time',
+    () {
+      final game = GameController();
+      expect(game.competitors, isNotEmpty);
+      expect(
+        game.routes.values.where(
+          (route) => !route.airlineId.startsWith('player'),
+        ),
+        isNotEmpty,
+      );
+
+      for (var i = 0; i < 12; i += 1) {
+        game.runDailyTick();
+      }
+
+      final totalShare = game.airlines.values.fold<double>(
+        0,
+        (sum, airline) => sum + airline.marketSharePercent,
+      );
+      expect(totalShare, closeTo(100, 0.01));
+      expect(
+        game.competitors.any((airline) => airline.dailyStats.isNotEmpty),
+        isTrue,
+      );
+      expect(
+        game.routes.values
+            .where((route) => !route.airlineId.startsWith('player'))
+            .length,
+        greaterThanOrEqualTo(game.competitors.length),
+      );
+    },
+  );
 }
