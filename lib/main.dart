@@ -2335,7 +2335,7 @@ class _RoutesView extends StatelessWidget {
   }
 }
 
-class _RouteCard extends StatelessWidget {
+class _RouteCard extends StatefulWidget {
   const _RouteCard({
     required this.game,
     required this.route,
@@ -2344,20 +2344,52 @@ class _RouteCard extends StatelessWidget {
   final GameController game;
   final RoutePlan route;
   final CurrencyOption currency;
+
+  @override
+  State<_RouteCard> createState() => _RouteCardState();
+}
+
+class _RouteCardState extends State<_RouteCard> {
+  var confirmingDelete = false;
+
   @override
   Widget build(BuildContext context) {
+    final game = widget.game;
+    final route = widget.game.routes[widget.route.id] ?? widget.route;
+    final currency = widget.currency;
     final ac = route.aircraftId == null
         ? null
         : game.aircraft[route.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
     final optimisation = game.previewRouteOptimisation(route.id);
-    final loadFactor = (route.loadFactorEconomy * 100).round();
+    final inactiveReason = route.isActive
+        ? null
+        : route.aircraftId == null
+        ? 'No aircraft'
+        : ac?.status == AircraftStatus.crashed
+        ? 'Crashed'
+        : ac?.status == AircraftStatus.maintenance
+        ? 'Maintenance'
+        : ac?.isGrounded == true
+        ? 'Grounded'
+        : 'Inactive';
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: route.isActive
+                      ? const Color(0xff3af083)
+                      : const Color(0xff8b95a8),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '${route.originIata} -> ${route.destinationIata}',
@@ -2378,13 +2410,46 @@ class _RouteCard extends StatelessWidget {
               ),
             ],
           ),
+          if (inactiveReason != null) ...[
+            const SizedBox(height: 6),
+            _FleetStatusChip(
+              label: inactiveReason.toUpperCase(),
+              color: const Color(0xffffd166),
+            ),
+          ],
           const SizedBox(height: 6),
           Text(
             type == null
-                ? 'No aircraft assigned'
-                : '${type.displayName} · ${route.flightsPerWeek}/week · $loadFactor% LF',
+                ? 'No aircraft assigned · ${route.flightsPerWeek}/week'
+                : '${type.displayName} · ${route.flightsPerWeek}/week',
             style: const TextStyle(color: Color(0xff9aa4b5)),
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RouteMiniStat('Eco fare', money(route.priceEconomy, currency)),
+              _RouteMiniStat('Biz fare', money(route.priceBusiness, currency)),
+              _RouteMiniStat('Revenue', money(route.dailyRevenue, currency)),
+              _RouteMiniStat('Cost', money(route.dailyCost, currency)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _LoadFactorLine(
+            label: 'Eco',
+            value: route.loadFactorEconomy,
+            color: const Color(0xff3af083),
+          ),
+          if (route.priceBusiness > 0 || route.loadFactorBusiness > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _LoadFactorLine(
+                label: 'Biz',
+                value: route.loadFactorBusiness,
+                color: const Color(0xff77c9ff),
+              ),
+            ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -2414,10 +2479,100 @@ class _RouteCard extends StatelessWidget {
                 icon: const Icon(Icons.tune),
                 label: const Text('Details'),
               ),
+              confirmingDelete
+                  ? FilledButton.tonalIcon(
+                      onPressed: () {
+                        game.deleteRoute(route.id);
+                        setState(() => confirmingDelete = false);
+                      },
+                      icon: const Icon(Icons.delete_forever),
+                      label: const Text('Confirm delete'),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: () => setState(() => confirmingDelete = true),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete'),
+                    ),
+              if (confirmingDelete)
+                IconButton(
+                  tooltip: 'Cancel delete',
+                  onPressed: () => setState(() => confirmingDelete = false),
+                  icon: const Icon(Icons.close),
+                ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RouteMiniStat extends StatelessWidget {
+  const _RouteMiniStat(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 126,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.035),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xff8b95a8))),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+      ],
+    ),
+  );
+}
+
+class _LoadFactorLine extends StatelessWidget {
+  const _LoadFactorLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (value * 100).round();
+    return Row(
+      children: [
+        SizedBox(
+          width: 34,
+          child: Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: value.clamp(0, 1),
+              minHeight: 8,
+              color: color,
+              backgroundColor: const Color(0xff293244),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 42,
+          child: Text(
+            '$pct%',
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
     );
   }
 }
