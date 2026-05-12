@@ -10,6 +10,7 @@ import 'data/aircraft_types.dart';
 import 'data/airports.dart';
 import 'engine/demand_model.dart';
 import 'engine/finance.dart';
+import 'engine/hub_upgrades.dart';
 import 'models/models.dart';
 import 'state/game_controller.dart';
 
@@ -139,6 +140,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                         child: selectedAirport == null
                             ? const SizedBox.shrink()
                             : _AirportPanel(
+                                game: game,
                                 airport: selectedAirport!,
                                 currency: currency,
                                 onClose: () =>
@@ -935,19 +937,25 @@ class _MapPainter extends CustomPainter {
 
 class _AirportPanel extends StatelessWidget {
   const _AirportPanel({
+    required this.game,
     required this.airport,
     required this.currency,
     required this.onClose,
     required this.onCreateRoute,
   });
+  final GameController game;
   final Airport airport;
   final CurrencyOption currency;
   final VoidCallback onClose;
   final void Function(Airport origin, Airport? destination) onCreateRoute;
   @override
   Widget build(BuildContext context) {
+    final airport = game.airportByIata(this.airport.iata) ?? this.airport;
+    final isPlayerHub = game.player.hubIatas.contains(airport.iata);
+    final terminalCost = getHubTerminalUpgradeCost(airport);
+    final loungeCost = getFirstClassLoungeUpgradeCost(airport);
     final destinations =
-        airports
+        game.airportList
             .where((a) => a.iata != airport.iata)
             .map(
               (a) => (airport: a, demand: baselineDailyPassengers(airport, a)),
@@ -998,6 +1006,17 @@ class _AirportPanel extends StatelessWidget {
                 _InfoRow('IATA', airport.iata),
                 _InfoRow('ICAO', airport.icao ?? '-'),
                 _InfoRow('Size', airport.size.name),
+                _InfoRow('Hub', isPlayerHub ? 'Yes' : 'No'),
+                if (isPlayerHub)
+                  _InfoRow(
+                    'Terminal',
+                    '${getHubTerminalLevel(airport)}/$maxHubTerminalLevel',
+                  ),
+                if (isPlayerHub)
+                  _InfoRow(
+                    'First class lounges',
+                    '${getFirstClassLoungeLevel(airport)}/$maxFirstClassLoungeLevel',
+                  ),
                 _InfoRow('Landing fee', money(airport.landingFee, currency)),
                 _InfoRow(
                   'Runway',
@@ -1005,6 +1024,55 @@ class _AirportPanel extends StatelessWidget {
                       ? 'Unknown'
                       : '${airport.longestRunwayM} m',
                 ),
+                if (isPlayerHub) ...[
+                  const SizedBox(height: 12),
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Hub upgrades',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Terminals increase airport capacity. Lounges increase route demand.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: const Color(0xff9aa4b5)),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.tonalIcon(
+                          onPressed:
+                              terminalCost == null ||
+                                  game.player.cashUSD < terminalCost
+                              ? null
+                              : () => game.upgradeHubTerminal(airport.iata),
+                          icon: const Icon(Icons.apartment),
+                          label: Text(
+                            terminalCost == null
+                                ? 'Terminal maxed'
+                                : 'Upgrade terminal ${money(terminalCost, currency)}',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton.tonalIcon(
+                          onPressed:
+                              loungeCost == null ||
+                                  game.player.cashUSD < loungeCost
+                              ? null
+                              : () =>
+                                    game.upgradeFirstClassLounge(airport.iata),
+                          icon: const Icon(Icons.airline_seat_recline_extra),
+                          label: Text(
+                            loungeCost == null
+                                ? 'Lounges maxed'
+                                : 'Upgrade lounges ${money(loungeCost, currency)}',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 ExpansionTile(
                   tilePadding: EdgeInsets.zero,
@@ -1047,9 +1115,11 @@ class _AirportPanel extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: isPlayerHub
+                        ? null
+                        : () => game.setPlayerHub(airport.iata),
                     icon: const Icon(Icons.apartment),
-                    label: const Text('Set Hub'),
+                    label: Text(isPlayerHub ? 'Hub' : 'Set Hub'),
                   ),
                 ),
               ],

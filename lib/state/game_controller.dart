@@ -10,6 +10,7 @@ import '../data/airports.dart';
 import '../engine/demand_model.dart';
 import '../engine/economics_engine.dart';
 import '../engine/finance.dart';
+import '../engine/hub_upgrades.dart';
 import '../engine/route_optimizer.dart';
 import '../engine/valuation.dart';
 import '../models/models.dart';
@@ -188,6 +189,7 @@ class GameController extends ChangeNotifier {
   final airlines = <String, Airline>{};
   final aircraft = <String, Aircraft>{};
   final routes = <String, RoutePlan>{};
+  final airportUpgrades = <String, AirportUpgrade>{};
   final airportDailyPax = <String, double>{};
   final newsTicker = <String>[];
   final newsArticles = <String, NewsArticle>{};
@@ -222,6 +224,18 @@ class GameController extends ChangeNotifier {
           .whereType<Aircraft>()
           .toList(growable: false) ??
       const [];
+
+  Airport? airportByIata(String iata) {
+    final airport = airportsByIata[iata];
+    if (airport == null) return null;
+    return airportUpgrades[iata]?.apply(airport) ?? airport;
+  }
+
+  List<Airport> get airportList => airports
+      .map(
+        (airport) => airportUpgrades[airport.iata]?.apply(airport) ?? airport,
+      )
+      .toList(growable: false);
 
   double playerStakeIn(String airlineId) =>
       airlines[airlineId]?.shareholders['player'] ?? 0;
@@ -286,6 +300,56 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _markAirportHub(String iata) {
+    final current = airportUpgrades[iata] ?? const AirportUpgrade();
+    airportUpgrades[iata] = current.copyWith(isHub: true);
+  }
+
+  bool setPlayerHub(String iata) {
+    final airport = airportByIata(iata);
+    if (airport == null) return false;
+    if (!player.hubIatas.contains(iata)) {
+      airlines['player'] = player.copyWith(
+        hubIatas: [...player.hubIatas, iata],
+      );
+    }
+    _markAirportHub(iata);
+    notifyListeners();
+    return true;
+  }
+
+  bool upgradeHubTerminal(String iata) {
+    final airport = airportByIata(iata);
+    if (airport == null || !player.hubIatas.contains(iata)) return false;
+    final cost = getHubTerminalUpgradeCost(airport);
+    if (cost == null || player.cashUSD < cost) return false;
+    final current = airportUpgrades[iata] ?? const AirportUpgrade(isHub: true);
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    airportUpgrades[iata] = current.copyWith(
+      isHub: true,
+      hubTerminalLevel: getHubTerminalLevel(airport) + 1,
+    );
+    newsTicker.add('${airport.iata} terminal upgraded.');
+    notifyListeners();
+    return true;
+  }
+
+  bool upgradeFirstClassLounge(String iata) {
+    final airport = airportByIata(iata);
+    if (airport == null || !player.hubIatas.contains(iata)) return false;
+    final cost = getFirstClassLoungeUpgradeCost(airport);
+    if (cost == null || player.cashUSD < cost) return false;
+    final current = airportUpgrades[iata] ?? const AirportUpgrade(isHub: true);
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    airportUpgrades[iata] = current.copyWith(
+      isHub: true,
+      firstClassLoungeLevel: getFirstClassLoungeLevel(airport) + 1,
+    );
+    newsTicker.add('${airport.iata} first class lounge upgraded.');
+    notifyListeners();
+    return true;
+  }
+
   void startNewGame([GameSettings? nextSettings]) {
     settings = nextSettings ?? settings;
     gameDay = 0;
@@ -297,6 +361,7 @@ class GameController extends ChangeNotifier {
     airlines.clear();
     aircraft.clear();
     routes.clear();
+    airportUpgrades.clear();
     airportDailyPax.clear();
     newsTicker.clear();
     newsArticles.clear();
@@ -316,6 +381,7 @@ class GameController extends ChangeNotifier {
       foundedGameDay: 0,
       reputationScore: 55,
     );
+    _markAirportHub('LHR');
     _initAIAirlines();
     newsTicker.add(
       'Welcome to Mighty Airline Empire. Build routes, buy aircraft, and outlast the market.',
@@ -350,6 +416,7 @@ class GameController extends ChangeNotifier {
           AirlinePersonality.balanced => 52,
         },
       );
+      _markAirportHub(seed.startHub);
       try {
         final route = _createRouteForAirline(
           airlineId: airlineId,
@@ -393,8 +460,8 @@ class GameController extends ChangeNotifier {
     bool buyNewAircraft = true,
   }) {
     final airline = airlines[airlineId];
-    final origin = airportsByIata[originIata];
-    final destination = airportsByIata[destinationIata];
+    final origin = airportByIata(originIata);
+    final destination = airportByIata(destinationIata);
     final type = aircraftTypesById[aircraftTypeId];
     if (airline == null ||
         origin == null ||
@@ -480,8 +547,8 @@ class GameController extends ChangeNotifier {
       airlineId: ownerId,
       purchasedGameDay: gameDay,
       assignedRouteId: routeId,
-      currentLat: airportsByIata[owner.hubIatas.firstOrNull ?? 'LHR']?.lat ?? 0,
-      currentLon: airportsByIata[owner.hubIatas.firstOrNull ?? 'LHR']?.lon ?? 0,
+      currentLat: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lat ?? 0,
+      currentLon: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lon ?? 0,
     );
     aircraft[id] = ac;
     airlines[ownerId] = owner.copyWith(
@@ -505,8 +572,8 @@ class GameController extends ChangeNotifier {
     int? priceBusiness,
     bool buyNewAircraft = true,
   }) {
-    final origin = airportsByIata[originIata];
-    final destination = airportsByIata[destinationIata];
+    final origin = airportByIata(originIata);
+    final destination = airportByIata(destinationIata);
     final type = aircraftTypesById[aircraftTypeId];
     if (origin == null || destination == null || type == null)
       throw ArgumentError('Invalid route inputs');
@@ -596,8 +663,8 @@ class GameController extends ChangeNotifier {
         ? null
         : routes[ac.assignedRouteId!];
     final airport = route == null
-        ? airportsByIata[airline.hubIatas.firstOrNull ?? 'LHR']
-        : airportsByIata[route.originIata];
+        ? airportByIata(airline.hubIatas.firstOrNull ?? 'LHR')
+        : airportByIata(route.originIata);
     final routeLabel = route == null
         ? 'unassigned services'
         : '${route.originIata}-${route.destinationIata}';
@@ -757,8 +824,8 @@ class GameController extends ChangeNotifier {
       throw StateError('Route has no aircraft');
     final ac = aircraft[route.aircraftId];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
-    final origin = airportsByIata[route.originIata];
-    final destination = airportsByIata[route.destinationIata];
+    final origin = airportByIata(route.originIata);
+    final destination = airportByIata(route.destinationIata);
     if (ac == null || type == null || origin == null || destination == null)
       throw StateError('Route is missing data');
     final result = optimiseRouteSettings(
@@ -807,8 +874,8 @@ class GameController extends ChangeNotifier {
         if (route == null || route.aircraftId == null) continue;
         final ac = aircraft[route.aircraftId];
         final type = ac == null ? null : aircraftTypesById[ac.typeId];
-        final origin = airportsByIata[route.originIata];
-        final destination = airportsByIata[route.destinationIata];
+        final origin = airportByIata(route.originIata);
+        final destination = airportByIata(route.destinationIata);
         if (ac == null || type == null || origin == null || destination == null)
           continue;
         final result = calculateRouteEconomics(
@@ -953,7 +1020,7 @@ class GameController extends ChangeNotifier {
     if (gameDay == 0 || gameDay % 10 != 0) return;
     for (final airline in competitors) {
       if (airline.cashUSD < 18000000 || airline.routeIds.length >= 8) continue;
-      final hub = airportsByIata[airline.hubIatas.firstOrNull ?? ''];
+      final hub = airportByIata(airline.hubIatas.firstOrNull ?? '');
       if (hub == null) continue;
       final existingDestinations = airline.routeIds
           .map((id) => routes[id])
@@ -961,7 +1028,7 @@ class GameController extends ChangeNotifier {
           .map((route) => route.destinationIata)
           .toSet();
       final candidates =
-          airports
+          airportList
               .where(
                 (airport) =>
                     airport.iata != hub.iata &&
@@ -1192,6 +1259,9 @@ class GameController extends ChangeNotifier {
     'airlines': airlines.map((key, value) => MapEntry(key, value.toJson())),
     'aircraft': aircraft.map((key, value) => MapEntry(key, value.toJson())),
     'routes': routes.map((key, value) => MapEntry(key, value.toJson())),
+    'airportUpgrades': airportUpgrades.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
     'airportDailyPax': airportDailyPax,
     'newsTicker': newsTicker,
     'newsArticles': newsArticles.map(
@@ -1245,6 +1315,16 @@ class GameController extends ChangeNotifier {
           ),
         ),
       );
+    airportUpgrades
+      ..clear()
+      ..addAll(
+        (raw['airportUpgrades'] as Map? ?? const {}).map(
+          (key, value) => MapEntry(
+            key as String,
+            AirportUpgrade.fromJson(Map<String, Object?>.from(value as Map)),
+          ),
+        ),
+      );
     airportDailyPax
       ..clear()
       ..addAll(
@@ -1270,6 +1350,11 @@ class GameController extends ChangeNotifier {
         (raw['nextAircraft'] as num?)?.round() ?? aircraft.length + 1;
     _nextRoute = (raw['nextRoute'] as num?)?.round() ?? routes.length + 1;
     _nextLoan = (raw['nextLoan'] as num?)?.round() ?? 1;
+    for (final airline in airlines.values) {
+      for (final hubIata in airline.hubIatas) {
+        _markAirportHub(hubIata);
+      }
+    }
     notifyListeners();
   }
 }

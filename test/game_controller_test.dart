@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mighty_airline_empire_app/data/aircraft_types.dart';
 import 'package:mighty_airline_empire_app/data/airports.dart';
+import 'package:mighty_airline_empire_app/engine/demand_model.dart';
 import 'package:mighty_airline_empire_app/engine/economics_engine.dart';
 import 'package:mighty_airline_empire_app/engine/finance.dart';
 import 'package:mighty_airline_empire_app/models/models.dart';
@@ -127,6 +128,33 @@ void main() {
     expect(game.settings.objective, GameObjective.marketShare);
     expect(game.settings.targetMarketShare, 80);
     expect(game.settings.currency, 'EUR');
+  });
+
+  test('hub upgrades charge cash, persist, and affect demand', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 2000000000));
+    final beforeCash = game.player.cashUSD;
+    final beforeDemand = baselineDailyPassengers(
+      game.airportByIata('LHR')!,
+      game.airportByIata('JFK')!,
+    );
+
+    expect(game.upgradeHubTerminal('LHR'), isTrue);
+    expect(game.upgradeFirstClassLounge('LHR'), isTrue);
+
+    final upgraded = game.airportByIata('LHR')!;
+    expect(upgraded.isHub, isTrue);
+    expect(upgraded.hubTerminalLevel, 1);
+    expect(upgraded.firstClassLoungeLevel, 1);
+    expect(game.player.cashUSD, lessThan(beforeCash));
+    expect(
+      baselineDailyPassengers(upgraded, game.airportByIata('JFK')!),
+      greaterThan(beforeDemand),
+    );
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.airportByIata('LHR')!.hubTerminalLevel, 1);
+    expect(restored.airportByIata('LHR')!.firstClassLoungeLevel, 1);
   });
 
   test(

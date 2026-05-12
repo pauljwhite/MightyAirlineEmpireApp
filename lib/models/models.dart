@@ -86,6 +86,51 @@ class Airport {
   );
 }
 
+class AirportUpgrade {
+  const AirportUpgrade({
+    this.isHub = false,
+    this.hubTerminalLevel = 0,
+    this.firstClassLoungeLevel = 0,
+  });
+  final bool isHub;
+  final int hubTerminalLevel;
+  final int firstClassLoungeLevel;
+
+  Airport apply(Airport airport) => airport.copyWith(
+    isHub: isHub || airport.isHub,
+    hubTerminalLevel: hubTerminalLevel,
+    firstClassLoungeLevel: firstClassLoungeLevel,
+  );
+
+  AirportUpgrade copyWith({
+    bool? isHub,
+    int? hubTerminalLevel,
+    int? firstClassLoungeLevel,
+  }) => AirportUpgrade(
+    isHub: isHub ?? this.isHub,
+    hubTerminalLevel: hubTerminalLevel ?? this.hubTerminalLevel,
+    firstClassLoungeLevel: firstClassLoungeLevel ?? this.firstClassLoungeLevel,
+  );
+
+  Map<String, Object?> toJson() => {
+    'isHub': isHub,
+    'hubTerminalLevel': hubTerminalLevel,
+    'firstClassLoungeLevel': firstClassLoungeLevel,
+  };
+
+  factory AirportUpgrade.fromJson(Map<String, Object?> json) => AirportUpgrade(
+    isHub: json['isHub'] == true,
+    hubTerminalLevel:
+        (json['hubTerminalLevel'] as num?)?.round() ??
+        (json['terminalLevel'] as num?)?.round() ??
+        0,
+    firstClassLoungeLevel:
+        (json['firstClassLoungeLevel'] as num?)?.round() ??
+        (json['loungeLevel'] as num?)?.round() ??
+        0,
+  );
+}
+
 class AircraftType {
   const AircraftType({
     required this.id,
