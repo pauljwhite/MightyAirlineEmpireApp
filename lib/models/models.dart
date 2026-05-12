@@ -285,6 +285,10 @@ class Aircraft {
     String? groundedReason,
     int? lastMaintenanceGameDay,
     MaintenanceTier? activeMaintTier,
+    bool? autoMaintenanceEnabled,
+    double? autoMaintenanceThreshold,
+    MaintenanceTier? autoMaintenanceTier,
+    bool? excludedFromPolicy,
   }) => Aircraft(
     id: id,
     typeId: typeId,
@@ -307,11 +311,13 @@ class Aircraft {
     currentLon: currentLon,
     flightProgress: flightProgress,
     activeMaintTier: activeMaintTier ?? this.activeMaintTier,
-    autoMaintenanceEnabled: autoMaintenanceEnabled,
-    autoMaintenanceThreshold: autoMaintenanceThreshold,
-    autoMaintenanceTier: autoMaintenanceTier,
+    autoMaintenanceEnabled:
+        autoMaintenanceEnabled ?? this.autoMaintenanceEnabled,
+    autoMaintenanceThreshold:
+        autoMaintenanceThreshold ?? this.autoMaintenanceThreshold,
+    autoMaintenanceTier: autoMaintenanceTier ?? this.autoMaintenanceTier,
     knownFaultRiskMod: knownFaultRiskMod,
-    excludedFromPolicy: excludedFromPolicy,
+    excludedFromPolicy: excludedFromPolicy ?? this.excludedFromPolicy,
   );
   Map<String, Object?> toJson() => {
     'id': id,
@@ -575,6 +581,18 @@ class MaintenancePolicy {
   final double threshold;
   final MaintenanceTier tier;
   final bool autoMaintainIssues;
+  MaintenancePolicy copyWith({
+    bool? enabled,
+    double? threshold,
+    MaintenanceTier? tier,
+    bool? autoMaintainIssues,
+  }) => MaintenancePolicy(
+    enabled: enabled ?? this.enabled,
+    threshold: threshold ?? this.threshold,
+    tier: tier ?? this.tier,
+    autoMaintainIssues: autoMaintainIssues ?? this.autoMaintainIssues,
+  );
+
   Map<String, Object?> toJson() => {
     'enabled': enabled,
     'threshold': threshold,

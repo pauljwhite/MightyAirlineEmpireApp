@@ -1351,7 +1351,7 @@ class _MainPanel extends StatelessWidget {
               currency: currency,
               onCreateRoute: onCreateRoute,
             ),
-            _Panel.fleet => _FleetView(game: game),
+            _Panel.fleet => _FleetView(game: game, currency: currency),
             _Panel.finance => _FinanceView(game: game, currency: currency),
             _Panel.competitors => _CompetitorsView(
               game: game,
@@ -1478,15 +1478,100 @@ class _RouteCard extends StatelessWidget {
 }
 
 class _FleetView extends StatelessWidget {
-  const _FleetView({required this.game});
+  const _FleetView({required this.game, required this.currency});
   final GameController game;
+  final CurrencyOption currency;
   @override
   Widget build(BuildContext context) {
     final fleet = game.playerFleet;
+    final policy = game.player.maintenancePolicy;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _MetricCard('Fleet size', '${fleet.length}', const Color(0xff77c9ff)),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Maintenance policy',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  Switch(
+                    value: policy.enabled,
+                    onChanged: (enabled) => game.updateMaintenancePolicy(
+                      policy.copyWith(enabled: enabled),
+                    ),
+                  ),
+                ],
+              ),
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: policy.enabled ? 1 : 0.45,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Trigger below ${policy.threshold.round()}% condition',
+                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                    ),
+                    Slider(
+                      value: policy.threshold.clamp(20, 80).toDouble(),
+                      min: 20,
+                      max: 80,
+                      divisions: 12,
+                      label: '${policy.threshold.round()}%',
+                      onChanged: policy.enabled
+                          ? (value) => game.updateMaintenancePolicy(
+                              policy.copyWith(
+                                enabled: true,
+                                threshold: value.roundToDouble(),
+                              ),
+                            )
+                          : null,
+                    ),
+                    SegmentedButton<MaintenanceTier>(
+                      segments: const [
+                        ButtonSegment(
+                          value: MaintenanceTier.light,
+                          label: Text('Light'),
+                        ),
+                        ButtonSegment(
+                          value: MaintenanceTier.standard,
+                          label: Text('Standard'),
+                        ),
+                        ButtonSegment(
+                          value: MaintenanceTier.full,
+                          label: Text('Full'),
+                        ),
+                      ],
+                      selected: {policy.tier},
+                      onSelectionChanged: policy.enabled
+                          ? (value) => game.updateMaintenancePolicy(
+                              policy.copyWith(tier: value.first),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: policy.autoMaintainIssues,
+                onChanged: (value) => game.updateMaintenancePolicy(
+                  policy.copyWith(autoMaintainIssues: value ?? false),
+                ),
+                title: const Text(
+                  'Automatically maintain aircraft with issues',
+                ),
+              ),
+            ],
+          ),
+        ),
         if (fleet.isEmpty)
           const _EmptyState(
             'No aircraft owned yet. Buying a route with a new aircraft will add one.',
@@ -1541,12 +1626,25 @@ class _FleetView extends StatelessWidget {
                         onPressed: ac.status == AircraftStatus.maintenance
                             ? null
                             : () => game.startMaintenance(ac.id, tier),
-                        child: Text(
-                          '${tier.name} · ${money(cost, currencyOptions.first)}',
-                        ),
+                        child: Text('${tier.name} · ${money(cost, currency)}'),
                       );
                     }).toList(),
                   ),
+                if (!ac.excludedFromPolicy)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Fleet policy ${policy.enabled ? 'ON' : 'OFF'}',
+                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                    ),
+                  ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: ac.excludedFromPolicy,
+                  onChanged: (value) =>
+                      game.setAircraftPolicyExclusion(ac.id, value),
+                  title: const Text('Exclude from fleet policy'),
+                ),
                 if (ac.status == AircraftStatus.maintenance)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),

@@ -807,6 +807,11 @@ class GameController extends ChangeNotifier {
     newsTicker.add(
       '!! ${article.headline}: ${article.subheadline} · Read the article',
     );
+    if (airline.isPlayer &&
+        ground &&
+        airline.maintenancePolicy.autoMaintainIssues) {
+      _startMaintenanceInternal(aircraftId, airline.maintenancePolicy.tier);
+    }
     if (newsTicker.length > 20)
       newsTicker.removeRange(0, newsTicker.length - 20);
     notifyListeners();
@@ -847,9 +852,24 @@ class GameController extends ChangeNotifier {
     if (ac == null || ac.airlineId != 'player')
       throw StateError('Aircraft not found');
     if (ac.status == AircraftStatus.maintenance) return;
-    final cost = maintenanceCost(aircraftId, tier);
-    if (player.cashUSD < cost)
+    if (!_startMaintenanceInternal(aircraftId, tier)) {
       throw StateError('Not enough cash for maintenance');
+    }
+    notifyListeners();
+  }
+
+  bool _startMaintenanceInternal(String aircraftId, MaintenanceTier tier) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player') return false;
+    if (ac.status == AircraftStatus.maintenance) return true;
+    final cost = maintenanceCost(aircraftId, tier);
+    if (player.cashUSD < cost) return false;
+    if (ac.assignedRouteId != null) {
+      final route = routes[ac.assignedRouteId!];
+      if (route != null) {
+        routes[route.id] = route.copyWith(isActive: false);
+      }
+    }
     aircraft[aircraftId] = ac.copyWith(
       status: AircraftStatus.maintenance,
       isGrounded: true,
@@ -858,7 +878,7 @@ class GameController extends ChangeNotifier {
     );
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
     newsTicker.add('${ac.name} entered ${tier.name} maintenance.');
-    notifyListeners();
+    return true;
   }
 
   void completeMaintenance(String aircraftId) {
@@ -895,6 +915,58 @@ class GameController extends ChangeNotifier {
         completeMaintenance(aircraftId);
       }
     }
+  }
+
+  void _applyAutoMaintenancePolicy(String airlineId) {
+    final airline = airlines[airlineId];
+    if (airline == null || !airline.isPlayer) return;
+    final policy = airline.maintenancePolicy;
+    if (!policy.enabled) return;
+    for (final aircraftId in airline.fleetIds.toList()) {
+      final ac = aircraft[aircraftId];
+      if (ac == null ||
+          ac.excludedFromPolicy ||
+          ac.status == AircraftStatus.maintenance ||
+          ac.status == AircraftStatus.crashed ||
+          ac.condition > policy.threshold) {
+        continue;
+      }
+      _startMaintenanceInternal(aircraftId, policy.tier);
+    }
+  }
+
+  void updateMaintenancePolicy(MaintenancePolicy policy) {
+    final next = policy.copyWith(
+      threshold: policy.threshold.clamp(20, 80).toDouble(),
+    );
+    airlines['player'] = player.copyWith(maintenancePolicy: next);
+    for (final aircraftId in player.fleetIds) {
+      final ac = aircraft[aircraftId];
+      if (ac == null || ac.excludedFromPolicy) continue;
+      aircraft[aircraftId] = ac.copyWith(
+        autoMaintenanceEnabled: next.enabled,
+        autoMaintenanceThreshold: next.threshold,
+        autoMaintenanceTier: next.tier,
+      );
+    }
+    notifyListeners();
+  }
+
+  void setAircraftPolicyExclusion(String aircraftId, bool excluded) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player') return;
+    final policy = player.maintenancePolicy;
+    aircraft[aircraftId] = ac.copyWith(
+      excludedFromPolicy: excluded,
+      autoMaintenanceEnabled: excluded
+          ? ac.autoMaintenanceEnabled
+          : policy.enabled,
+      autoMaintenanceThreshold: excluded
+          ? ac.autoMaintenanceThreshold
+          : policy.threshold,
+      autoMaintenanceTier: excluded ? ac.autoMaintenanceTier : policy.tier,
+    );
+    notifyListeners();
   }
 
   void updateRouteSettings(
@@ -971,6 +1043,7 @@ class GameController extends ChangeNotifier {
       var totalPassengers = 0;
 
       _completeDueMaintenance(airlineId);
+      _applyAutoMaintenancePolicy(airlineId);
 
       for (final routeId in airline.routeIds) {
         final route = routes[routeId];

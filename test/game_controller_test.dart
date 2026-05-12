@@ -338,6 +338,36 @@ void main() {
     expect(game.aircraft[aircraftId]!.maintenanceHoursOwed, 0);
   });
 
+  test('fleet maintenance policy auto-sends eligible aircraft', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    game.aircraft[aircraftId] = game.aircraft[aircraftId]!.copyWith(
+      condition: 35,
+      maintenanceHoursOwed: 12,
+    );
+    game.updateMaintenancePolicy(
+      const MaintenancePolicy(
+        enabled: true,
+        threshold: 40,
+        tier: MaintenanceTier.standard,
+        autoMaintainIssues: true,
+      ),
+    );
+
+    game.runDailyTick();
+
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.maintenance);
+    expect(game.routes[route.id]!.isActive, isFalse);
+    expect(game.player.maintenancePolicy.autoMaintainIssues, isTrue);
+  });
+
   test('fleet incidents create persisted herald articles', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;
