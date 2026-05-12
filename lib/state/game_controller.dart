@@ -203,6 +203,7 @@ class GameController extends ChangeNotifier {
   bool isPaused = false;
   bool hasWon = false;
   bool hasLost = false;
+  ThemeModeSetting themeMode = ThemeModeSetting.dark;
   double globalFuelPrice = fuelPriceUsdPerLiter;
   final airlines = <String, Airline>{};
   final aircraft = <String, Aircraft>{};
@@ -321,6 +322,11 @@ class GameController extends ChangeNotifier {
   void dismissGameOutcome() {
     hasWon = false;
     hasLost = false;
+    notifyListeners();
+  }
+
+  void setThemeMode(ThemeModeSetting mode) {
+    themeMode = mode;
     notifyListeners();
   }
 
@@ -1676,6 +1682,7 @@ class GameController extends ChangeNotifier {
     'isPaused': isPaused,
     'hasWon': hasWon,
     'hasLost': hasLost,
+    'themeMode': themeMode.name,
     'globalFuelPrice': globalFuelPrice,
     'airlines': airlines.map((key, value) => MapEntry(key, value.toJson())),
     'aircraft': aircraft.map((key, value) => MapEntry(key, value.toJson())),
@@ -1705,6 +1712,7 @@ class GameController extends ChangeNotifier {
     isPaused = raw['isPaused'] == true;
     hasWon = raw['hasWon'] == true;
     hasLost = raw['hasLost'] == true;
+    themeMode = _themeModeFromJson(raw['themeMode']);
     globalFuelPrice =
         (raw['globalFuelPrice'] as num?)?.toDouble() ?? fuelPriceUsdPerLiter;
     airlines
@@ -1783,4 +1791,13 @@ class GameController extends ChangeNotifier {
 
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
+}
+
+ThemeModeSetting _themeModeFromJson(Object? value) {
+  if (value is String) {
+    for (final mode in ThemeModeSetting.values) {
+      if (mode.name == value) return mode;
+    }
+  }
+  return ThemeModeSetting.dark;
 }

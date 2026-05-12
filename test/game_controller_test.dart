@@ -122,6 +122,7 @@ void main() {
       aircraftTypeId: type.id,
       buyNewAircraft: true,
     );
+    game.setThemeMode(ThemeModeSetting.light);
     game.runDailyTick();
     final exported = game.exportJson();
 
@@ -135,6 +136,7 @@ void main() {
     expect(restored.settings.objective, GameObjective.marketShare);
     expect(restored.settings.targetMarketShare, 75);
     expect(restored.settings.currency, 'GBP');
+    expect(restored.themeMode, ThemeModeSetting.light);
   });
 
   test('new game settings are applied to the player and AI setup', () {

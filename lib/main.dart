@@ -61,16 +61,25 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     return AnimatedBuilder(
       animation: game,
       builder: (context, _) {
+        final lightMode = game.themeMode == ThemeModeSetting.light;
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Mighty Airline Empire',
-          theme: ThemeData.dark(useMaterial3: true).copyWith(
-            scaffoldBackgroundColor: const Color(0xff050915),
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xff2f8cff),
-              brightness: Brightness.dark,
-            ),
-          ),
+          theme:
+              (lightMode
+                      ? ThemeData.light(useMaterial3: true)
+                      : ThemeData.dark(useMaterial3: true))
+                  .copyWith(
+                    scaffoldBackgroundColor: lightMode
+                        ? const Color(0xffeef2f7)
+                        : const Color(0xff050915),
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: const Color(0xff2f8cff),
+                      brightness: lightMode
+                          ? Brightness.light
+                          : Brightness.dark,
+                    ),
+                  ),
           home: Scaffold(
             body: SafeArea(
               bottom: false,
@@ -498,6 +507,8 @@ class _GameMenu extends StatelessWidget {
           _showImportDialog(context, game, onCurrency);
         case 'rebrand':
           _showRebrandDialog(context, game, currency);
+        case 'theme':
+          _showSettingsDialog(context, game);
         case 'new':
           _showNewGameDialog(context, game, currency, onCurrency);
       }
@@ -508,8 +519,119 @@ class _GameMenu extends StatelessWidget {
       PopupMenuItem(value: 'export', child: Text('Export progress')),
       PopupMenuItem(value: 'import', child: Text('Import progress')),
       PopupMenuDivider(),
+      PopupMenuItem(value: 'theme', child: Text('Theme')),
+      PopupMenuDivider(),
       PopupMenuItem(value: 'new', child: Text('Start again')),
     ],
+  );
+}
+
+void _showSettingsDialog(BuildContext context, GameController game) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Settings'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Appearance',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 12),
+            _ThemeOption(
+              label: 'Dark',
+              description: 'Low-glare cockpit style for long play sessions.',
+              selected: game.themeMode == ThemeModeSetting.dark,
+              onTap: () {
+                game.setThemeMode(ThemeModeSetting.dark);
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 10),
+            _ThemeOption(
+              label: 'Light',
+              description:
+                  'Brighter interface for daylight and mobile screens.',
+              selected: game.themeMode == ThemeModeSetting.light,
+              onTap: () {
+                game.setThemeMode(ThemeModeSetting.light);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(12),
+    onTap: onTap,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: selected
+            ? const Color(0xff2f8cff).withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: selected
+              ? const Color(0xff77c9ff)
+              : Colors.white.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected ? const Color(0xff77c9ff) : null,
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 

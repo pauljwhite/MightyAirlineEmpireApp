@@ -22,6 +22,8 @@ enum Difficulty { easy, normal, hard }
 
 enum GameObjective { lastAirlineStanding, marketShare }
 
+enum ThemeModeSetting { dark, light }
+
 T _enumValue<T extends Enum>(List<T> values, Object? value, T fallback) {
   if (value is String) {
     final normalizedValue = value.replaceAll('_', '').toLowerCase();
