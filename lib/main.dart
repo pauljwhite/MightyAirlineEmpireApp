@@ -75,6 +75,22 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     );
   }
 
+  void _openRouteDetail(RoutePlan route) {
+    if (game.airlines[route.airlineId]?.isPlayer == true) {
+      showDialog<void>(
+        context: context,
+        builder: (context) =>
+            _RouteEditDialog(game: game, route: route, currency: currency),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          _RouteSummaryDialog(game: game, route: route, currency: currency),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -114,6 +130,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                           selectedAirport: selectedAirport,
                           onAirportSelected: (a) =>
                               setState(() => selectedAirport = a),
+                          onRouteSelected: _openRouteDetail,
                         ),
                       ),
                       Positioned(
@@ -1496,18 +1513,25 @@ class _WorldMap extends StatelessWidget {
     required this.showAiOnMap,
     required this.selectedAirport,
     required this.onAirportSelected,
+    required this.onRouteSelected,
   });
   final GameController game;
   final bool showAiOnMap;
   final Airport? selectedAirport;
   final ValueChanged<Airport> onAirportSelected;
+  final ValueChanged<RoutePlan> onRouteSelected;
   @override
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTapDown: (d) {
       final box = context.findRenderObject() as RenderBox;
       final airport = _nearestAirport(d.localPosition, box.size);
-      if (airport != null) onAirportSelected(airport);
+      if (airport != null) {
+        onAirportSelected(airport);
+        return;
+      }
+      final route = _nearestRoute(d.localPosition, box.size);
+      if (route != null) onRouteSelected(route);
     },
     child: CustomPaint(
       painter: _MapPainter(
@@ -1531,12 +1555,69 @@ class _WorldMap extends StatelessWidget {
     }
     return best;
   }
+
+  RoutePlan? _nearestRoute(Offset p, Size size) {
+    RoutePlan? best;
+    var bestDistance = 999.0;
+    final drawableRoutes = game.routes.values.where((route) {
+      if (!route.isActive || route.aircraftId == null) return false;
+      if (showAiOnMap) return true;
+      return game.airlines[route.airlineId]?.isPlayer == true;
+    });
+    for (final route in drawableRoutes) {
+      final origin = airportsByIata[route.originIata];
+      final dest = airportsByIata[route.destinationIata];
+      if (origin == null || dest == null) continue;
+      final start = _airportPoint(origin, size);
+      final end = _airportPoint(dest, size);
+      final control = _routeControlPoint(start, end);
+      var routeDistance = 999.0;
+      var previous = start;
+      for (var i = 1; i <= 24; i++) {
+        final point = _quadraticPoint(start, control, end, i / 24);
+        routeDistance = math.min(
+          routeDistance,
+          _distanceToSegment(p, previous, point),
+        );
+        previous = point;
+      }
+      if (routeDistance < 18 && routeDistance < bestDistance) {
+        best = route;
+        bestDistance = routeDistance;
+      }
+    }
+    return best;
+  }
 }
 
 Offset _airportPoint(Airport a, Size size) => Offset(
   ((a.lon + 180) / 360) * size.width,
   ((85 - a.lat.clamp(-85.0, 85.0)) / 170) * size.height,
 );
+
+Offset _routeControlPoint(Offset start, Offset end) {
+  final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+  final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
+  return Offset(mid.dx, mid.dy - lift);
+}
+
+Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
+  final u = 1 - t;
+  return Offset(
+    u * u * a.dx + 2 * u * t * b.dx + t * t * c.dx,
+    u * u * a.dy + 2 * u * t * b.dy + t * t * c.dy,
+  );
+}
+
+double _distanceToSegment(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final lengthSquared = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (lengthSquared == 0) return (p - a).distance;
+  final t = (((p.dx - a.dx) * ab.dx + (p.dy - a.dy) * ab.dy) / lengthSquared)
+      .clamp(0.0, 1.0);
+  final projection = Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
+  return (p - projection).distance;
+}
 
 class _MapPainter extends CustomPainter {
   const _MapPainter({
@@ -1579,11 +1660,10 @@ class _MapPainter extends CustomPainter {
       if (origin == null || dest == null) continue;
       final start = _airportPoint(origin, size);
       final end = _airportPoint(dest, size);
-      final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-      final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
+      final control = _routeControlPoint(start, end);
       final path = Path()
         ..moveTo(start.dx, start.dy)
-        ..quadraticBezierTo(mid.dx, mid.dy - lift, end.dx, end.dy);
+        ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
       final airline = game.airlines[route.airlineId];
       canvas.drawPath(
         path,
@@ -1627,9 +1707,7 @@ class _MapPainter extends CustomPainter {
     if (origin == null || dest == null) return;
     final start = _airportPoint(origin, size);
     final end = _airportPoint(dest, size);
-    final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-    final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
-    final control = Offset(mid.dx, mid.dy - lift);
+    final control = _routeControlPoint(start, end);
     final cycle = (ac.flightProgress * 2).clamp(0, 2).toDouble();
     final t = cycle <= 1 ? cycle : 2 - cycle;
     final from = cycle <= 1 ? start : end;
@@ -3483,6 +3561,79 @@ void _showTakeoverDialog(
       },
     ),
   );
+}
+
+class _RouteSummaryDialog extends StatelessWidget {
+  const _RouteSummaryDialog({
+    required this.game,
+    required this.route,
+    required this.currency,
+  });
+
+  final GameController game;
+  final RoutePlan route;
+  final CurrencyOption currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final latestRoute = game.routes[route.id] ?? route;
+    final airline = game.airlines[latestRoute.airlineId];
+    final ac = latestRoute.aircraftId == null
+        ? null
+        : game.aircraft[latestRoute.aircraftId!];
+    final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    return AlertDialog(
+      title: Text(
+        '${latestRoute.originIata} -> ${latestRoute.destinationIata}',
+      ),
+      content: SizedBox(
+        width: 430,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (airline != null)
+              Row(
+                children: [
+                  _AirlineLogo(logo: airline.logoEmoji, size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      airline.name,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 12),
+            _InfoRow('Daily profit', money(latestRoute.dailyProfit, currency)),
+            _InfoRow(
+              'Daily revenue',
+              money(latestRoute.dailyRevenue, currency),
+            ),
+            _InfoRow('Daily cost', money(latestRoute.dailyCost, currency)),
+            _InfoRow('Flights', '${latestRoute.flightsPerWeek}/week'),
+            _InfoRow(
+              'Load factor',
+              '${(latestRoute.loadFactorEconomy * 100).round()}%',
+            ),
+            _InfoRow(
+              'Aircraft',
+              type == null ? 'No aircraft assigned' : type.displayName,
+            ),
+            if (ac != null)
+              _InfoRow('Condition', '${ac.condition.toStringAsFixed(0)}%'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
 }
 
 class _RouteEditDialog extends StatefulWidget {
