@@ -3636,6 +3636,127 @@ class _RouteSummaryDialog extends StatelessWidget {
   }
 }
 
+class _FareGuide {
+  const _FareGuide({
+    required this.suggestedEconomy,
+    required this.suggestedBusiness,
+    required this.maxEconomy,
+    required this.maxBusiness,
+  });
+
+  factory _FareGuide.fromCurrent(int economy, int business) {
+    final suggestedEconomy = math.max(1, economy);
+    final suggestedBusiness = math.max(1, business);
+    return _FareGuide(
+      suggestedEconomy: suggestedEconomy,
+      suggestedBusiness: suggestedBusiness,
+      maxEconomy:
+          math.max(suggestedEconomy, economy) * maxReasonableFareMultiplier,
+      maxBusiness:
+          math.max(suggestedBusiness, business) * maxReasonableFareMultiplier,
+    );
+  }
+
+  final int suggestedEconomy;
+  final int suggestedBusiness;
+  final double maxEconomy;
+  final double maxBusiness;
+}
+
+_FareGuide _fareGuideForRoute({
+  required RoutePlan route,
+  required Aircraft aircraft,
+  required AircraftType type,
+  required Airport origin,
+  required Airport destination,
+  required double fuelPrice,
+  required int gameDay,
+}) {
+  final costs = computeFlightCost(
+    route,
+    aircraft,
+    type,
+    origin,
+    destination,
+    fuelPrice,
+    currentGameDay: gameDay,
+  );
+  final seats = math.max(1, type.seatsEconomy + type.seatsBusiness);
+  final suggestedEconomy = math.max(1, (costs.totalCost / seats * 1.3).round());
+  final suggestedBusiness = type.seatsBusiness > 0 ? suggestedEconomy * 4 : 0;
+  return _FareGuide(
+    suggestedEconomy: suggestedEconomy,
+    suggestedBusiness: suggestedBusiness,
+    maxEconomy: suggestedEconomy * maxReasonableFareMultiplier,
+    maxBusiness: math.max(1, suggestedBusiness) * maxReasonableFareMultiplier,
+  );
+}
+
+int _clampedFare(String raw, double maxFare) {
+  final value = int.tryParse(raw.trim()) ?? 0;
+  return value.clamp(0, math.max(0, maxFare.round())).toInt();
+}
+
+class _FareSliderField extends StatelessWidget {
+  const _FareSliderField({
+    required this.controller,
+    required this.label,
+    required this.suggested,
+    required this.maxFare,
+    required this.currency,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int suggested;
+  final double maxFare;
+  final CurrencyOption currency;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = math.max(1.0, maxFare);
+    final current = (int.tryParse(controller.text.trim()) ?? 0)
+        .clamp(0, maxValue.round())
+        .toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: const Icon(Icons.payments),
+            helperText: enabled
+                ? 'Suggested ${suggested == 0 ? '-' : money(suggested.toDouble(), currency)} · max ${money(maxValue, currency)}'
+                : 'Selected aircraft has no business cabin.',
+          ),
+          onChanged: (_) => onChanged(),
+        ),
+        Slider(
+          value: enabled ? current : 0,
+          min: 0,
+          max: maxValue,
+          divisions: math.min(maxValue.round(), 200),
+          label: money(current, currency),
+          onChanged: !enabled
+              ? null
+              : (value) {
+                  controller.text = value.round().toString();
+                  onChanged();
+                },
+        ),
+      ],
+    );
+  }
+}
+
 class _RouteEditDialog extends StatefulWidget {
   const _RouteEditDialog({
     required this.game,
@@ -3679,6 +3800,18 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
         : widget.game.aircraft[route.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
     final hasBusiness = (type?.seatsBusiness ?? 0) > 0;
+    final fareGuide =
+        type == null || ac == null || origin == null || destination == null
+        ? _FareGuide.fromCurrent(route.priceEconomy, route.priceBusiness)
+        : _fareGuideForRoute(
+            route: route.copyWith(flightsPerWeek: flights),
+            aircraft: ac,
+            type: type,
+            origin: origin,
+            destination: destination,
+            fuelPrice: widget.game.globalFuelPrice,
+            gameDay: widget.game.gameDay,
+          );
     final eligibleAircraft = widget.game.playerFleet.where((candidate) {
       if (candidate.id == route.aircraftId) return false;
       if (candidate.status == AircraftStatus.maintenance) return false;
@@ -3727,25 +3860,26 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                 label: '$flights/week',
                 onChanged: (value) => setState(() => flights = value.round()),
               ),
-              TextField(
+              _FareSliderField(
                 controller: ecoController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Economy fare (${widget.currency.code})',
-                  prefixIcon: const Icon(Icons.payments),
-                ),
+                label: 'Economy fare (${widget.currency.code})',
+                suggested: fareGuide.suggestedEconomy,
+                maxFare: fareGuide.maxEconomy,
+                currency: widget.currency,
+                enabled: true,
+                onChanged: () => setState(() {}),
               ),
               const SizedBox(height: 10),
-              TextField(
+              _FareSliderField(
                 controller: bizController,
+                label: hasBusiness
+                    ? 'Business fare (${widget.currency.code})'
+                    : 'No business cabin',
+                suggested: fareGuide.suggestedBusiness,
+                maxFare: fareGuide.maxBusiness,
+                currency: widget.currency,
                 enabled: hasBusiness,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: hasBusiness
-                      ? 'Business fare (${widget.currency.code})'
-                      : 'No business cabin',
-                  prefixIcon: const Icon(Icons.business_center),
-                ),
+                onChanged: () => setState(() {}),
               ),
               const SizedBox(height: 12),
               _Card(
@@ -3965,9 +4099,12 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
             widget.game.updateRouteSettings(
               route.id,
               flightsPerWeek: flights,
-              priceEconomy: int.tryParse(ecoController.text) ?? 0,
+              priceEconomy: _clampedFare(
+                ecoController.text,
+                fareGuide.maxEconomy,
+              ),
               priceBusiness: hasBusiness
-                  ? int.tryParse(bizController.text) ?? 0
+                  ? _clampedFare(bizController.text, fareGuide.maxBusiness)
                   : 0,
             );
             Navigator.pop(context);
@@ -3998,9 +4135,18 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   late Airport origin = widget.origin ?? airportsByIata['LHR']!;
   late Airport destination = widget.destination ?? airportsByIata['JFK']!;
   late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
+  late final ecoController = TextEditingController();
+  late final bizController = TextEditingController();
   int flights = 7;
   bool optimise = true;
   String? error;
+
+  @override
+  void dispose() {
+    ecoController.dispose();
+    bizController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4016,6 +4162,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         .toList();
     if (!viableAircraft.contains(type) && viableAircraft.isNotEmpty)
       type = viableAircraft.first;
+    final fareGuide = _currentFareGuide(distance);
     return AlertDialog(
       title: const Text('Create route'),
       content: SizedBox(
@@ -4062,6 +4209,27 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               label: '$flights/week',
               onChanged: (v) => setState(() => flights = v.round()),
             ),
+            _FareSliderField(
+              controller: ecoController,
+              label: 'Economy fare (${widget.currency.code})',
+              suggested: fareGuide.suggestedEconomy,
+              maxFare: fareGuide.maxEconomy,
+              currency: widget.currency,
+              enabled: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            _FareSliderField(
+              controller: bizController,
+              label: type.seatsBusiness > 0
+                  ? 'Business fare (${widget.currency.code})'
+                  : 'No business cabin',
+              suggested: fareGuide.suggestedBusiness,
+              maxFare: fareGuide.maxBusiness,
+              currency: widget.currency,
+              enabled: type.seatsBusiness > 0,
+              onChanged: () => setState(() {}),
+            ),
             CheckboxListTile(
               value: optimise,
               onChanged: (v) => setState(() => optimise = v ?? true),
@@ -4085,13 +4253,57 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     );
   }
 
+  _FareGuide _currentFareGuide(double distance) {
+    final previewRoute = RoutePlan(
+      id: 'preview',
+      airlineId: 'player',
+      originIata: origin.iata,
+      destinationIata: destination.iata,
+      flightsPerWeek: flights,
+      priceEconomy: 0,
+      priceBusiness: 0,
+      createdGameDay: widget.game.gameDay,
+      distanceKm: distance,
+    );
+    final previewAircraft = Aircraft(
+      id: 'preview',
+      typeId: type.id,
+      name: type.displayName,
+      airlineId: 'player',
+      purchasedGameDay: widget.game.gameDay,
+    );
+    return _fareGuideForRoute(
+      route: previewRoute,
+      aircraft: previewAircraft,
+      type: type,
+      origin: origin,
+      destination: destination,
+      fuelPrice: widget.game.globalFuelPrice,
+      gameDay: widget.game.gameDay,
+    );
+  }
+
   void _create() {
     try {
+      final distance = haversineKm(
+        origin.lat,
+        origin.lon,
+        destination.lat,
+        destination.lon,
+      );
+      final fareGuide = _currentFareGuide(distance);
       final route = widget.game.createRoute(
         originIata: origin.iata,
         destinationIata: destination.iata,
         aircraftTypeId: type.id,
         flightsPerWeek: flights,
+        priceEconomy: ecoController.text.trim().isEmpty
+            ? null
+            : _clampedFare(ecoController.text, fareGuide.maxEconomy),
+        priceBusiness:
+            type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
+            ? null
+            : _clampedFare(bizController.text, fareGuide.maxBusiness),
         buyNewAircraft: true,
       );
       if (optimise) widget.game.optimiseRoute(route.id);
