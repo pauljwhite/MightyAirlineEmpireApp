@@ -310,6 +310,45 @@ void main() {
     expect(edited.isActive, isFalse);
   });
 
+  test('network optimiser charges only routes that can improve', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 250000000));
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    game.updateRouteSettings(
+      route.id,
+      flightsPerWeek: 1,
+      priceEconomy: 1,
+      priceBusiness: 1,
+    );
+
+    final preview = game.previewNetworkOptimisation();
+    expect(preview.eligibleCount, 1);
+    expect(preview.optimisableCount, 1);
+    expect(
+      preview.costUSD,
+      optimiseAllBaseCostUSD + optimiseAllCostPerRouteUSD,
+    );
+
+    final cashBefore = game.player.cashUSD;
+    final changed = game.optimiseAllPlayerRoutes();
+    expect(changed, isTrue);
+    expect(game.player.cashUSD, cashBefore - preview.costUSD);
+    expect(game.routes[route.id]!.priceEconomy, greaterThan(1));
+
+    final after = game.previewNetworkOptimisation();
+    expect(after.eligibleCount, 1);
+    expect(after.optimisableCount, 0);
+    final cashAfterFirstOptimise = game.player.cashUSD;
+    expect(game.optimiseAllPlayerRoutes(), isFalse);
+    expect(game.player.cashUSD, cashAfterFirstOptimise);
+  });
+
   test(
     'route aircraft can be assigned, bought for route, and sold cleanly',
     () {

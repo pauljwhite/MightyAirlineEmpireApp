@@ -15,6 +15,23 @@ import '../engine/route_optimizer.dart';
 import '../engine/valuation.dart';
 import '../models/models.dart';
 
+const optimiseAllBaseCostUSD = 2000000.0;
+const optimiseAllCostPerRouteUSD = 2500000.0;
+
+class NetworkOptimisationPreview {
+  const NetworkOptimisationPreview({
+    required this.eligibleCount,
+    required this.optimisableCount,
+    required this.costUSD,
+  });
+
+  final int eligibleCount;
+  final int optimisableCount;
+  final double costUSD;
+
+  bool get hasChanges => optimisableCount > 0;
+}
+
 class _AiSeed {
   const _AiSeed(
     this.name,
@@ -995,10 +1012,7 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  RouteOptimisationResult optimiseRoute(String routeId) =>
-      _optimiseRouteForAirline(routeId, 'player');
-
-  RouteOptimisationResult _optimiseRouteForAirline(
+  RouteOptimisationInput _optimisationInputForRoute(
     String routeId,
     String airlineId,
   ) {
@@ -1011,28 +1025,120 @@ class GameController extends ChangeNotifier {
     final destination = airportByIata(route.destinationIata);
     if (ac == null || type == null || origin == null || destination == null)
       throw StateError('Route is missing data');
-    final result = optimiseRouteSettings(
-      RouteOptimisationInput(
-        route: route,
-        aircraft: ac,
-        aircraftType: type,
-        origin: origin,
-        destination: destination,
-        globalFuelPrice: globalFuelPrice,
-        airline: airlines[airlineId] ?? player,
-        allAirlines: airlines.values.toList(),
-        allRoutes: routes.values.toList(),
-        airportDailyPax: airportDailyPax,
-        gameDay: gameDay,
-      ),
+    return RouteOptimisationInput(
+      route: route,
+      aircraft: ac,
+      aircraftType: type,
+      origin: origin,
+      destination: destination,
+      globalFuelPrice: globalFuelPrice,
+      airline: airlines[airlineId] ?? player,
+      allAirlines: airlines.values.toList(),
+      allRoutes: routes.values.toList(),
+      airportDailyPax: airportDailyPax,
+      gameDay: gameDay,
     );
-    routes[routeId] = route.copyWith(
+  }
+
+  bool _matchesOptimisedResult(
+    RoutePlan route,
+    RouteOptimisationResult result,
+  ) =>
+      route.flightsPerWeek == result.flightsPerWeek &&
+      route.priceEconomy == result.priceEconomy &&
+      route.priceBusiness == result.priceBusiness;
+
+  RouteOptimisationResult? previewRouteOptimisation(String routeId) {
+    try {
+      final input = _optimisationInputForRoute(routeId, 'player');
+      final result = optimiseRouteSettings(input);
+      return _matchesOptimisedResult(input.route, result) ? null : result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  RouteOptimisationResult optimiseRoute(String routeId) =>
+      _optimiseRouteForAirline(routeId, 'player');
+
+  RouteOptimisationResult _optimiseRouteForAirline(
+    String routeId,
+    String airlineId,
+  ) {
+    final input = _optimisationInputForRoute(routeId, airlineId);
+    final result = optimiseRouteSettings(input);
+    routes[routeId] = input.route.copyWith(
       flightsPerWeek: result.flightsPerWeek,
       priceEconomy: result.priceEconomy,
       priceBusiness: result.priceBusiness,
     );
     notifyListeners();
     return result;
+  }
+
+  Map<String, RouteOptimisationResult> _networkOptimisationChanges() {
+    final changes = <String, RouteOptimisationResult>{};
+    for (final route in playerRoutes) {
+      try {
+        final input = _optimisationInputForRoute(route.id, 'player');
+        final result = optimiseRouteSettings(input);
+        if (!_matchesOptimisedResult(input.route, result)) {
+          changes[route.id] = result;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return changes;
+  }
+
+  int _networkOptimisationEligibleCount() {
+    var count = 0;
+    for (final route in playerRoutes) {
+      try {
+        _optimisationInputForRoute(route.id, 'player');
+        count += 1;
+      } catch (_) {
+        continue;
+      }
+    }
+    return count;
+  }
+
+  NetworkOptimisationPreview previewNetworkOptimisation() {
+    final changes = _networkOptimisationChanges();
+    final cost = changes.isEmpty
+        ? 0.0
+        : optimiseAllBaseCostUSD + changes.length * optimiseAllCostPerRouteUSD;
+    return NetworkOptimisationPreview(
+      eligibleCount: _networkOptimisationEligibleCount(),
+      optimisableCount: changes.length,
+      costUSD: cost,
+    );
+  }
+
+  bool optimiseAllPlayerRoutes() {
+    final changes = _networkOptimisationChanges();
+    if (changes.isEmpty) return false;
+    final cost =
+        optimiseAllBaseCostUSD + changes.length * optimiseAllCostPerRouteUSD;
+    if (player.cashUSD < cost) return false;
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    for (final entry in changes.entries) {
+      final route = routes[entry.key];
+      if (route == null) continue;
+      final result = entry.value;
+      routes[entry.key] = route.copyWith(
+        flightsPerWeek: result.flightsPerWeek,
+        priceEconomy: result.priceEconomy,
+        priceBusiness: result.priceBusiness,
+      );
+    }
+    newsTicker.add(
+      'Network optimisation completed for ${changes.length} routes at a consulting cost of \$${cost.round()}.',
+    );
+    notifyListeners();
+    return true;
   }
 
   DailySnapshot runDailyTick() {

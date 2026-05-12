@@ -1553,13 +1553,22 @@ class _RoutesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final routes = game.playerRoutes;
+    final optimisation = game.previewNetworkOptimisation();
+    final canOptimiseAll =
+        optimisation.hasChanges && game.player.cashUSD >= optimisation.costUSD;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        FilledButton.icon(
-          onPressed: onCreateRoute,
-          icon: const Icon(Icons.add_road),
-          label: const Text('New Route'),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onCreateRoute,
+                icon: const Icon(Icons.add_road),
+                label: const Text('New Route'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         _MetricCard(
@@ -1570,6 +1579,54 @@ class _RoutesView extends StatelessWidget {
           ),
           const Color(0xff3af083),
         ),
+        if (routes.isNotEmpty)
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Network optimiser',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          SizedBox(height: 4),
+                        ],
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: canOptimiseAll
+                          ? game.optimiseAllPlayerRoutes
+                          : null,
+                      icon: const Icon(Icons.auto_fix_high),
+                      label: const Text('Optimise all'),
+                    ),
+                  ],
+                ),
+                Text(
+                  optimisation.eligibleCount == 0
+                      ? 'Assign aircraft to routes before optimising.'
+                      : optimisation.optimisableCount == 0
+                      ? 'All eligible routes are already optimised.'
+                      : '${optimisation.optimisableCount} routes can improve · ${money(optimisation.costUSD, currency)} consulting fee',
+                  style: const TextStyle(color: Color(0xff9aa4b5)),
+                ),
+                if (optimisation.hasChanges &&
+                    game.player.cashUSD < optimisation.costUSD)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Need ${money(optimisation.costUSD - game.player.cashUSD, currency)} more cash.',
+                      style: const TextStyle(color: Color(0xffff6b6b)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         if (routes.isEmpty)
           const _EmptyState(
             'No routes yet. Create one from this panel or from an airport destination.',
@@ -1597,6 +1654,7 @@ class _RouteCard extends StatelessWidget {
         ? null
         : game.aircraft[route.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    final optimisation = game.previewRouteOptimisation(route.id);
     final loadFactor = (route.loadFactorEconomy * 100).round();
     return _Card(
       child: Column(
@@ -1637,9 +1695,11 @@ class _RouteCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: () => game.optimiseRoute(route.id),
+                onPressed: optimisation == null
+                    ? null
+                    : () => game.optimiseRoute(route.id),
                 icon: const Icon(Icons.auto_fix_high),
-                label: const Text('Optimise'),
+                label: Text(optimisation == null ? 'Optimised' : 'Optimise'),
               ),
               OutlinedButton.icon(
                 onPressed: game.runDailyTick,
