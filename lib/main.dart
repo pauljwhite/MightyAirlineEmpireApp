@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/airport_search.dart';
+import 'core/constants.dart';
 import 'core/format.dart';
 import 'core/geo.dart';
 import 'data/aircraft_types.dart';
@@ -184,7 +185,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   }
 }
 
-enum _Panel { routes, fleet, finance, competitors }
+enum _Panel { routes, fleet, finance, competitors, hubs }
 
 class _GameOutcomeOverlay extends StatelessWidget {
   const _GameOutcomeOverlay({
@@ -1515,6 +1516,7 @@ class _MainPanel extends StatelessWidget {
               ButtonSegment(value: _Panel.fleet, label: Text('Fleet')),
               ButtonSegment(value: _Panel.finance, label: Text('Finance')),
               ButtonSegment(value: _Panel.competitors, label: Text('Rivals')),
+              ButtonSegment(value: _Panel.hubs, label: Text('Hubs')),
             ],
             selected: {panel},
             onSelectionChanged: (v) => onPanel(v.first),
@@ -1534,6 +1536,7 @@ class _MainPanel extends StatelessWidget {
               game: game,
               currency: currency,
             ),
+            _Panel.hubs => _HubsView(game: game, currency: currency),
           },
         ),
       ],
@@ -1712,6 +1715,190 @@ class _RouteCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HubsView extends StatelessWidget {
+  const _HubsView({required this.game, required this.currency});
+
+  final GameController game;
+  final CurrencyOption currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final hubs = game.player.hubIatas
+        .map(game.airportByIata)
+        .whereType<Airport>()
+        .toList(growable: false);
+    final dailyFee = hubs.length * hubAnnualFeeUsd / 365;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MetricCard('Hubs', '${hubs.length}', const Color(0xff77c9ff)),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Hub network',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Annual fee ${money(hubAnnualFeeUsd, currency)}/hub · total ${money(dailyFee, currency)}/day',
+                style: const TextStyle(color: Color(0xff9aa4b5)),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Terminals raise capacity. First class lounges raise demand.',
+                style: TextStyle(color: Color(0xff9aa4b5)),
+              ),
+            ],
+          ),
+        ),
+        if (hubs.isEmpty)
+          const _EmptyState(
+            'No hubs yet. Click an airport on the map to designate one.',
+          ),
+        ...hubs.map((airport) {
+          final terminalLevel = getHubTerminalLevel(airport);
+          final loungeLevel = getFirstClassLoungeLevel(airport);
+          final terminalCost = getHubTerminalUpgradeCost(airport);
+          final loungeCost = getFirstClassLoungeUpgradeCost(airport);
+          return _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            airport.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${airport.city}, ${airport.country} · ${airport.iata}',
+                            style: const TextStyle(color: Color(0xff9aa4b5)),
+                          ),
+                          Text(
+                            '${money(hubAnnualFeeUsd / 365, currency)}/day',
+                            style: const TextStyle(color: Color(0xffffd166)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: hubs.length <= 1
+                          ? null
+                          : () => game.removePlayerHub(airport.iata),
+                      icon: const Icon(Icons.remove_circle_outline),
+                      label: const Text('Remove'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _HubUpgradeRow(
+                  icon: Icons.apartment,
+                  title: 'Terminal capacity',
+                  level: '$terminalLevel/$maxHubTerminalLevel',
+                  detail:
+                      'Capacity x${getHubCapacityMultiplier(airport).toStringAsFixed(2)}',
+                  cost: terminalCost,
+                  currency: currency,
+                  canAfford:
+                      terminalCost != null &&
+                      game.player.cashUSD >= terminalCost,
+                  onPressed: terminalCost == null
+                      ? null
+                      : () => game.upgradeHubTerminal(airport.iata),
+                ),
+                const SizedBox(height: 10),
+                _HubUpgradeRow(
+                  icon: Icons.airline_seat_recline_extra,
+                  title: 'First class lounges',
+                  level: '$loungeLevel/$maxFirstClassLoungeLevel',
+                  detail:
+                      'Demand x${getHubDemandMultiplier(airport).toStringAsFixed(2)}',
+                  cost: loungeCost,
+                  currency: currency,
+                  canAfford:
+                      loungeCost != null && game.player.cashUSD >= loungeCost,
+                  onPressed: loungeCost == null
+                      ? null
+                      : () => game.upgradeFirstClassLounge(airport.iata),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _HubUpgradeRow extends StatelessWidget {
+  const _HubUpgradeRow({
+    required this.icon,
+    required this.title,
+    required this.level,
+    required this.detail,
+    required this.cost,
+    required this.currency,
+    required this.canAfford,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String title;
+  final String level;
+  final String detail;
+  final double? cost;
+  final CurrencyOption currency;
+  final bool canAfford;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.035),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xff77c9ff)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$title $level',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(detail, style: const TextStyle(color: Color(0xff9aa4b5))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton(
+            onPressed: canAfford ? onPressed : null,
+            child: Text(cost == null ? 'Max' : money(cost!, currency)),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _FleetView extends StatelessWidget {

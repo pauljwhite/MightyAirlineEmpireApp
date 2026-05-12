@@ -23,6 +23,12 @@ int getHubTerminalLevel(Airport airport) =>
 int getFirstClassLoungeLevel(Airport airport) =>
     airport.firstClassLoungeLevel.clamp(0, maxFirstClassLoungeLevel).toInt();
 
+double getHubCapacityMultiplier(Airport airport) =>
+    [1.0, 1.35, 1.8, 2.5][getHubTerminalLevel(airport)];
+
+double getHubDemandMultiplier(Airport airport) =>
+    [1.0, 1.06, 1.12, 1.2][getFirstClassLoungeLevel(airport)];
+
 double? getHubTerminalUpgradeCost(Airport airport) {
   final nextLevel = getHubTerminalLevel(airport) + 1;
   if (nextLevel > maxHubTerminalLevel) return null;

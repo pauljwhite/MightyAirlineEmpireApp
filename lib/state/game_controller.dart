@@ -342,6 +342,22 @@ class GameController extends ChangeNotifier {
     return true;
   }
 
+  bool removePlayerHub(String iata) {
+    if (!player.hubIatas.contains(iata) || player.hubIatas.length <= 1) {
+      return false;
+    }
+    airlines['player'] = player.copyWith(
+      hubIatas: player.hubIatas.where((hub) => hub != iata).toList(),
+    );
+    final current = airportUpgrades[iata];
+    if (current != null) {
+      airportUpgrades[iata] = current.copyWith(isHub: false);
+    }
+    newsTicker.add('$iata removed from your hub network.');
+    notifyListeners();
+    return true;
+  }
+
   bool upgradeHubTerminal(String iata) {
     final airport = airportByIata(iata);
     if (airport == null || !player.hubIatas.contains(iata)) return false;
@@ -1197,6 +1213,7 @@ class GameController extends ChangeNotifier {
           ? calculateDailyDebtService(airline)
           : 0.0;
       totalCost += debtService;
+      totalCost += airline.hubIatas.length * hubAnnualFeeUsd / 365;
       final profit = totalRevenue - totalCost;
       final paidLoans = debtService > 0
           ? applyLoanPayment(

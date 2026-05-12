@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mighty_airline_empire_app/core/constants.dart';
 import 'package:mighty_airline_empire_app/data/aircraft_types.dart';
 import 'package:mighty_airline_empire_app/data/airports.dart';
 import 'package:mighty_airline_empire_app/engine/demand_model.dart';
@@ -213,6 +214,23 @@ void main() {
     final restored = GameController()..importJson(game.exportJson());
     expect(restored.airportByIata('LHR')!.hubTerminalLevel, 1);
     expect(restored.airportByIata('LHR')!.firstClassLoungeLevel, 1);
+  });
+
+  test('hub network can remove extra hubs and charges daily fees', () {
+    final game = GameController();
+    final startingCash = game.player.cashUSD;
+
+    expect(game.setPlayerHub('JFK'), isTrue);
+    expect(game.player.hubIatas, contains('JFK'));
+    expect(game.removePlayerHub('JFK'), isTrue);
+    expect(game.player.hubIatas, isNot(contains('JFK')));
+    expect(game.removePlayerHub('LHR'), isFalse);
+
+    game.runDailyTick();
+    expect(
+      game.player.cashUSD,
+      closeTo(startingCash - hubAnnualFeeUsd / 365, 1),
+    );
   });
 
   test(
