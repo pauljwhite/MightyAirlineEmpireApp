@@ -2035,18 +2035,154 @@ class _HubUpgradeRow extends StatelessWidget {
   );
 }
 
-class _FleetView extends StatelessWidget {
+class _FleetView extends StatefulWidget {
   const _FleetView({required this.game, required this.currency});
   final GameController game;
   final CurrencyOption currency;
+
+  @override
+  State<_FleetView> createState() => _FleetViewState();
+}
+
+class _FleetViewState extends State<_FleetView> {
+  var manufacturer = 'All';
+
+  String _categoryLabel(AircraftCategory category) =>
+      category == AircraftCategory.sst
+      ? 'SST'
+      : category.name[0].toUpperCase() + category.name.substring(1);
+
   @override
   Widget build(BuildContext context) {
+    final game = widget.game;
+    final currency = widget.currency;
     final fleet = game.playerFleet;
     final policy = game.player.maintenancePolicy;
+    final gameYear = game.settings.startingYear + game.gameDay ~/ 365;
+    final manufacturers = [
+      'All',
+      ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
+        ..sort(),
+    ];
+    final visibleTypes = aircraftTypes
+        .where(
+          (type) => manufacturer == 'All' || type.manufacturer == manufacturer,
+        )
+        .toList(growable: false);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _MetricCard('Fleet size', '${fleet.length}', const Color(0xff77c9ff)),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Buy aircraft · Year $gameYear',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  Text(
+                    money(game.player.cashUSD, currency),
+                    style: const TextStyle(
+                      color: Color(0xff3af083),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: manufacturer,
+                decoration: const InputDecoration(labelText: 'Manufacturer'),
+                items: manufacturers
+                    .map(
+                      (item) =>
+                          DropdownMenuItem(value: item, child: Text(item)),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => manufacturer = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              ...visibleTypes.take(40).map((type) {
+                final unavailable = type.yearIntroduced > gameYear;
+                final canAfford = game.player.cashUSD >= type.purchasePrice;
+                final canBuy = !unavailable && canAfford;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.035),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              type.displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              '${_categoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
+                              style: const TextStyle(color: Color(0xff9aa4b5)),
+                            ),
+                            Text(
+                              'Runway ${type.minRunwayM} m · ${type.cruiseSpeedKmh} km/h · ${money(type.maintenanceCostPerHourUSD, currency)}/hr maint.',
+                              style: const TextStyle(color: Color(0xff9aa4b5)),
+                            ),
+                            if (unavailable)
+                              Text(
+                                'Available ${type.yearIntroduced}',
+                                style: const TextStyle(
+                                  color: Color(0xffffd166),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            money(type.purchasePrice, currency),
+                            style: TextStyle(
+                              color: !unavailable && !canAfford
+                                  ? const Color(0xffff6b6b)
+                                  : null,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          FilledButton.tonal(
+                            onPressed: canBuy
+                                ? () => game.buyAircraft(type.id)
+                                : null,
+                            child: Text(canAfford ? 'Buy' : 'No funds'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
         _Card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -70,6 +70,21 @@ void main() {
     expect(game.player.totalDebt, lessThan(loan.principalUSD));
   });
 
+  test('aircraft can be bought directly into the player fleet', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 100000000));
+    final type = aircraftTypesById['b707-120']!;
+    final cashBefore = game.player.cashUSD;
+
+    final aircraft = game.buyAircraft(type.id);
+
+    expect(game.playerFleet, contains(aircraft));
+    expect(game.player.fleetIds, contains(aircraft.id));
+    expect(aircraft.assignedRouteId, isNull);
+    expect(aircraft.status, AircraftStatus.idle);
+    expect(game.player.cashUSD, cashBefore - type.purchasePrice);
+  });
+
   test('player insolvency creates a game over state', () {
     final game = GameController();
     game.airlines['player'] = game.player.copyWith(cashUSD: -120000000);
