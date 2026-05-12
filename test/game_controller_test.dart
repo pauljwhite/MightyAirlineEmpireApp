@@ -244,6 +244,20 @@ void main() {
     expect(restored.player.logoEmoji, 'MT');
   });
 
+  test('custom image airline logos survive rebrand export and import', () {
+    const imageLogo =
+        'data:image/png;base64,'
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+    final game = GameController();
+
+    game.rebrandAirline(logoEmoji: imageLogo);
+
+    expect(game.player.logoEmoji, imageLogo);
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.player.logoEmoji, imageLogo);
+  });
+
   test('hub upgrades charge cash, persist, and affect demand', () {
     final game = GameController();
     game.startNewGame(const GameSettings(startingCash: 2000000000));

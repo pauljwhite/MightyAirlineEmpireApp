@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -478,7 +479,7 @@ class _AirlineBadge extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(game.player.logoEmoji, style: const TextStyle(fontSize: 24)),
+        _AirlineLogo(logo: game.player.logoEmoji, size: 34),
         const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,6 +499,141 @@ class _AirlineBadge extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+const _airlineLogoOptions = [
+  '✈️',
+  '🛫',
+  '🛬',
+  '🌍',
+  '🌎',
+  '🌏',
+  '🌐',
+  '⭐',
+  '🌟',
+  '🌙',
+  '☀️',
+  '⚡',
+  '🔥',
+  '💎',
+  '🛡️',
+  '🏔️',
+  '🌊',
+  '❄️',
+  '🍁',
+  '🚀',
+];
+
+bool _isImageLogo(String? logo) =>
+    logo != null && logo.trim().startsWith('data:image/');
+
+class _AirlineLogo extends StatelessWidget {
+  const _AirlineLogo({required this.logo, this.size = 28});
+
+  final String? logo;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = logo?.trim();
+    if (_isImageLogo(value)) {
+      final comma = value!.indexOf(',');
+      if (comma > -1) {
+        try {
+          final bytes = base64Decode(value.substring(comma + 1));
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(size / 4),
+            child: Image.memory(
+              bytes,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  _TextLogo(value: '✈️', size: size),
+            ),
+          );
+        } catch (_) {
+          return _TextLogo(value: '✈️', size: size);
+        }
+      }
+    }
+    return _TextLogo(
+      value: value?.isEmpty == false ? value! : '✈️',
+      size: size,
+    );
+  }
+}
+
+class _TextLogo extends StatelessWidget {
+  const _TextLogo({required this.value, required this.size});
+
+  final String value;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: Center(
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: TextStyle(fontSize: size * 0.72, height: 1),
+      ),
+    ),
+  );
+}
+
+class _LogoPicker extends StatelessWidget {
+  const _LogoPicker({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: _airlineLogoOptions
+            .map(
+              (option) => InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onChanged(option),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: value == option
+                        ? const Color(0xff2f8cff).withValues(alpha: 0.22)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: value == option
+                          ? const Color(0xff77c9ff)
+                          : Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(option, style: const TextStyle(fontSize: 20)),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        _isImageLogo(value)
+            ? 'Custom image logo detected from imported save.'
+            : 'Pick an emoji, type a short mark, or paste a data:image logo.',
+        style: const TextStyle(color: Color(0xff9aa4b5), fontSize: 12),
+      ),
+    ],
   );
 }
 
@@ -696,9 +832,9 @@ void _showRebrandDialog(
                   _Card(
                     child: Row(
                       children: [
-                        Text(
-                          logo.isEmpty ? game.player.logoEmoji : logo,
-                          style: const TextStyle(fontSize: 34),
+                        _AirlineLogo(
+                          logo: logo.isEmpty ? game.player.logoEmoji : logo,
+                          size: 46,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -737,13 +873,19 @@ void _showRebrandDialog(
                   const SizedBox(height: 12),
                   TextField(
                     controller: logoController,
-                    maxLength: 6,
                     decoration: const InputDecoration(
-                      labelText: 'Logo emoji or short mark',
-                      counterText: '',
+                      labelText: 'Logo emoji, short mark, or data:image',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() => error = null),
+                  ),
+                  const SizedBox(height: 8),
+                  _LogoPicker(
+                    value: logo,
+                    onChanged: (value) {
+                      logoController.text = value;
+                      setState(() => error = null);
+                    },
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -878,14 +1020,34 @@ void _showNewGameDialog(
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: emojiController,
-                    maxLength: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Logo emoji',
-                      counterText: '',
-                      border: OutlineInputBorder(),
-                    ),
+                  Row(
+                    children: [
+                      _AirlineLogo(
+                        logo: emojiController.text.trim().isEmpty
+                            ? '✈️'
+                            : emojiController.text.trim(),
+                        size: 46,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: emojiController,
+                          decoration: const InputDecoration(
+                            labelText: 'Logo emoji, short mark, or data:image',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _LogoPicker(
+                    value: emojiController.text.trim(),
+                    onChanged: (value) {
+                      emojiController.text = value;
+                      setState(() {});
+                    },
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<Difficulty>(
@@ -2781,10 +2943,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      airline.logoEmoji,
-                      style: const TextStyle(fontSize: 26),
-                    ),
+                    _AirlineLogo(logo: airline.logoEmoji, size: 34),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -2948,7 +3107,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
               onTap: () => setState(() => selected = airline),
               child: Row(
                 children: [
-                  Text(airline.logoEmoji, style: const TextStyle(fontSize: 24)),
+                  _AirlineLogo(logo: airline.logoEmoji, size: 30),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
