@@ -1847,79 +1847,360 @@ class _FinanceView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = game.player;
+    final routes = game.playerRoutes;
+    final fleet = game.playerFleet;
     final last = player.dailyStats.lastOrNull;
     final lastProfit = last?.profit ?? player.lastDailyProfit;
+    final revenue30 = player.dailyStats.fold<double>(
+      0,
+      (sum, stat) => sum + stat.revenue,
+    );
+    final costs30 = player.dailyStats.fold<double>(
+      0,
+      (sum, stat) => sum + stat.costs,
+    );
+    final profit30 = player.dailyStats.fold<double>(
+      0,
+      (sum, stat) => sum + stat.profit,
+    );
+    final passengers30 = player.dailyStats.fold<int>(
+      0,
+      (sum, stat) => sum + stat.passengers,
+    );
+    final profitMargin = revenue30 <= 0 ? 0 : (profit30 / revenue30) * 100;
+    final debtService = calculateDailyDebtService(player);
+    final debtInterest = calculateDailyDebtInterest(player);
+    final companyValue = game.companyValue(player.id);
+    final profitableRoutes = routes.where((route) => route.dailyProfit > 0);
+    final shareholdingsValue = game.competitors.fold<double>(
+      0,
+      (sum, airline) =>
+          sum +
+          game.companyValue(airline.id) * game.playerStakeIn(airline.id) / 100,
+    );
+    final projectedDividends = game.competitors.fold<double>(0, (sum, airline) {
+      final stake = game.playerStakeIn(airline.id);
+      return stake <= 0 || airline.lastDailyProfit <= 0
+          ? sum
+          : sum + airline.lastDailyProfit * stake / 100;
+    });
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _MetricCard(
-          'Cash',
-          money(player.cashUSD, currency),
-          const Color(0xff3af083),
-        ),
-        _MetricCard(
-          'Last daily profit',
-          money(lastProfit, currency),
-          lastProfit >= 0 ? const Color(0xff3af083) : const Color(0xffff6b6b),
-        ),
-        _MetricCard(
-          'Debt',
-          money(player.totalDebt, currency),
-          const Color(0xffffd166),
-        ),
-        ExpansionTile(
-          title: const Text('Loans'),
-          initiallyExpanded: true,
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            ...player.loans.map(
-              (loan) => ListTile(
-                title: Text(money(loan.principalUSD, currency)),
-                subtitle: Text(
-                  '${formatInterestRate(loan.annualInterestRate)} · ${loan.termYears} years · ${money(loan.dailyPaymentUSD, currency)}/day',
-                ),
+            _FinanceMetric(
+              label: 'Cash',
+              value: money(player.cashUSD, currency),
+              accent: const Color(0xff3af083),
+            ),
+            _FinanceMetric(
+              label: 'Last daily profit',
+              value: money(lastProfit, currency),
+              accent: lastProfit >= 0
+                  ? const Color(0xff3af083)
+                  : const Color(0xffff6b6b),
+            ),
+            _FinanceMetric(
+              label: 'Company value',
+              value: money(companyValue, currency),
+              accent: const Color(0xff77c9ff),
+            ),
+            _FinanceMetric(
+              label: 'Debt',
+              value: money(player.totalDebt, currency),
+              accent: const Color(0xffffd166),
+            ),
+          ],
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                '30-day profit trend',
+                style: TextStyle(fontWeight: FontWeight.w900),
               ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: loanOffers
-                  .map(
-                    (offer) => OutlinedButton(
-                      onPressed: () => game.applyForLoan(offer),
-                      child: Text(
-                        '${money(offer.amountUSD, currency)} · ${formatInterestRate(offer.annualInterestRate)}',
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 150,
+                child: player.dailyStats.length < 2
+                    ? const Center(
+                        child: Text(
+                          'Run a few days to build a trend.',
+                          style: TextStyle(color: Color(0xff9aa4b5)),
+                        ),
+                      )
+                    : CustomPaint(
+                        painter: _ProfitTrendPainter(player.dailyStats),
+                        child: const SizedBox.expand(),
                       ),
-                    ),
-                  )
-                  .toList(),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 18,
+                runSpacing: 8,
+                children: [
+                  _MiniFinanceStat('Revenue', money(revenue30, currency)),
+                  _MiniFinanceStat('Costs', money(costs30, currency)),
+                  _MiniFinanceStat('Net', money(profit30, currency)),
+                  _MiniFinanceStat(
+                    'Margin',
+                    '${profitMargin.toStringAsFixed(1)}%',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Operating performance',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              _InfoRow('Routes', '${routes.length} total'),
+              _InfoRow('Profitable routes', '${profitableRoutes.length}'),
+              _InfoRow('Fleet', '${fleet.length} aircraft'),
+              _InfoRow('30-day passengers', passengers30.toString()),
+              _InfoRow(
+                'Market share',
+                '${player.marketSharePercent.toStringAsFixed(1)}%',
+              ),
+              _InfoRow('Reputation', player.reputationScore.toStringAsFixed(0)),
+            ],
+          ),
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Public company information',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              _InfoRow('Company value', money(companyValue, currency)),
+              _InfoRow(
+                'Shareholdings value',
+                money(shareholdingsValue, currency),
+              ),
+              _InfoRow(
+                'Projected dividends',
+                '${money(projectedDividends, currency)}/day',
+              ),
+              _InfoRow('Cash runway', _cashRunway(player.cashUSD, lastProfit)),
+            ],
+          ),
+        ),
+        _Card(
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            title: const Text(
+              'Loans',
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: player.loans.isEmpty
-                        ? null
-                        : () => game.repayLoans(player.cashUSD),
-                    child: const Text('Repay what I can afford'),
+            initiallyExpanded: true,
+            children: [
+              _InfoRow('Total debt', money(player.totalDebt, currency)),
+              _InfoRow('Daily payment', money(debtService, currency)),
+              _InfoRow('Daily interest', money(debtInterest, currency)),
+              const SizedBox(height: 8),
+              if (player.loans.isEmpty)
+                const _EmptyState('No active loans.')
+              else
+                ...player.loans.map(
+                  (loan) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(money(loan.principalUSD, currency)),
+                    subtitle: Text(
+                      '${formatInterestRate(loan.annualInterestRate)} · ${loan.termYears} years · ${money(loan.dailyPaymentUSD, currency)}/day',
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Apply for finance',
+                  style: TextStyle(color: Color(0xff9aa4b5)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: loanOffers
+                    .map(
+                      (offer) => OutlinedButton(
+                        onPressed: () => game.applyForLoan(offer),
+                        child: Text(
+                          '${money(offer.amountUSD, currency)} · ${formatInterestRate(offer.annualInterestRate)}',
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: player.loans.isEmpty
+                        ? null
+                        : () => game.repayLoans(player.totalDebt * 0.10),
+                    child: const Text('Repay 10%'),
+                  ),
+                  OutlinedButton(
                     onPressed: player.loans.isEmpty
                         ? null
                         : () => game.repayLoans(player.totalDebt * 0.25),
                     child: const Text('Repay 25%'),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  OutlinedButton(
+                    onPressed: player.loans.isEmpty
+                        ? null
+                        : () => game.repayLoans(player.totalDebt * 0.50),
+                    child: const Text('Repay 50%'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: player.loans.isEmpty
+                        ? null
+                        : () => game.repayLoans(player.cashUSD),
+                    child: const Text('Repay what I can afford'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
+
+  String _cashRunway(double cash, double lastProfit) {
+    if (lastProfit >= 0) return 'Profitable';
+    if (cash <= 0) return 'Critical';
+    final days = cash / lastProfit.abs();
+    if (days > 365) return '365+ days';
+    return '${days.floor()} days';
+  }
+}
+
+class _FinanceMetric extends StatelessWidget {
+  const _FinanceMetric({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 190,
+    child: _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: accent,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MiniFinanceStat extends StatelessWidget {
+  const _MiniFinanceStat(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 90,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProfitTrendPainter extends CustomPainter {
+  const _ProfitTrendPainter(this.stats);
+  final List<DailySnapshot> stats;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = size.height * i / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    final values = stats.map((stat) => stat.profit).toList();
+    final maxValue = values.fold<double>(
+      0,
+      (max, value) => math.max(max, value.abs()),
+    );
+    if (maxValue <= 0) return;
+    final zeroY = size.height / 2;
+    final zeroPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..strokeWidth = 1.5;
+    canvas.drawLine(Offset(0, zeroY), Offset(size.width, zeroY), zeroPaint);
+
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = values.length == 1 ? 0.0 : size.width * i / (values.length - 1);
+      final y = zeroY - (values[i] / maxValue) * (size.height * 0.42);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    final line = Paint()
+      ..color = const Color(0xff77c9ff)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(path, line);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfitTrendPainter oldDelegate) =>
+      oldDelegate.stats != stats;
 }
 
 class _CompetitorsView extends StatefulWidget {
