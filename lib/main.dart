@@ -39,7 +39,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
           bottom: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 720;
+              final compact = constraints.maxWidth < 980;
               return Stack(
                 children: [
                   Positioned.fill(
