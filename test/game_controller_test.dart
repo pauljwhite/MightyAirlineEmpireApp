@@ -163,6 +163,42 @@ void main() {
     },
   );
 
+  test(
+    'share purchases fund competitors and majority stake enables takeover',
+    () {
+      final game = GameController();
+      game.startNewGame(
+        const GameSettings(startingCash: 500000000, aiCount: 1),
+      );
+      final target = game.competitors.single;
+      final targetCashBefore = target.cashUSD;
+      final playerCashBefore = game.player.cashUSD;
+
+      final cost = game.buyShares(target.id, 50);
+      final fundedTarget = game.airlines[target.id]!;
+      expect(game.playerStakeIn(target.id), 50);
+      expect(fundedTarget.cashUSD, targetCashBefore + cost);
+      expect(game.player.cashUSD, playerCashBefore - cost);
+
+      final targetRoutes = fundedTarget.routeIds.length;
+      final targetFleet = fundedTarget.fleetIds.length;
+      final takeoverCost = game.takeoverAirline(target.id);
+
+      expect(takeoverCost, greaterThanOrEqualTo(0));
+      expect(game.airlines[target.id], isNull);
+      expect(game.playerRoutes.length, greaterThanOrEqualTo(targetRoutes));
+      expect(game.playerFleet.length, greaterThanOrEqualTo(targetFleet));
+      expect(
+        game.playerRoutes.every((route) => route.airlineId == 'player'),
+        isTrue,
+      );
+      expect(
+        game.playerFleet.every((aircraft) => aircraft.airlineId == 'player'),
+        isTrue,
+      );
+    },
+  );
+
   test('route settings can be edited after creation', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;

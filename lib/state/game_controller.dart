@@ -11,6 +11,7 @@ import '../engine/demand_model.dart';
 import '../engine/economics_engine.dart';
 import '../engine/finance.dart';
 import '../engine/route_optimizer.dart';
+import '../engine/valuation.dart';
 import '../models/models.dart';
 
 class _AiSeed {
@@ -221,6 +222,63 @@ class GameController extends ChangeNotifier {
           .whereType<Aircraft>()
           .toList(growable: false) ??
       const [];
+
+  double playerStakeIn(String airlineId) =>
+      airlines[airlineId]?.shareholders['player'] ?? 0;
+
+  double marketFloatForAirline(String airlineId) {
+    final target = airlines[airlineId];
+    if (target == null) return 0;
+    final owned = target.shareholders.values.fold<double>(
+      0,
+      (sum, value) => sum + value,
+    );
+    return (100 - owned).clamp(0, 100).toDouble();
+  }
+
+  double companyValue(String airlineId) {
+    final target = airlines[airlineId];
+    if (target == null) return 0;
+    return rawCompanyValue(
+      airline: target,
+      aircraft: aircraft,
+      routes: routes,
+      currentGameDay: gameDay,
+    );
+  }
+
+  double sharePurchasePrice(String airlineId, double percent) {
+    final target = airlines[airlineId];
+    if (target == null || target.isPlayer) return 0;
+    return calculateSharePrice(
+      percentToBuy: percent,
+      currentPlayerPercent: playerStakeIn(airlineId),
+      airline: target,
+      aircraft: aircraft,
+      routes: routes,
+      currentGameDay: gameDay,
+    );
+  }
+
+  BuyoutValuation buyoutPrice(String airlineId) {
+    final target = airlines[airlineId];
+    if (target == null) {
+      return const BuyoutValuation(
+        fleetValue: 0,
+        routeValue: 0,
+        cashValue: 0,
+        debtValue: 0,
+        controlPremium: 0,
+        totalPrice: 0,
+      );
+    }
+    return calculateBuyoutPrice(
+      airline: target,
+      aircraft: aircraft,
+      routes: routes,
+      currentGameDay: gameDay,
+    );
+  }
 
   void setSpeed(int nextSpeed) {
     speed = nextSpeed;
@@ -733,6 +791,7 @@ class GameController extends ChangeNotifier {
     final allAirlines = airlines.values.toList(growable: false);
     final snapshots = <String, DailySnapshot>{};
     final passengerTotals = <String, int>{};
+    final netProfits = <String, double>{};
 
     for (final airlineId in airlines.keys.toList()) {
       final airline = airlines[airlineId];
@@ -798,6 +857,7 @@ class GameController extends ChangeNotifier {
       );
       final history = [...airline.dailyStats, snapshot];
       snapshots[airlineId] = snapshot;
+      netProfits[airlineId] = profit;
       passengerTotals[airlineId] = totalPassengers;
       airlines[airlineId] = airline.copyWith(
         cashUSD: airline.cashUSD + profit,
@@ -812,6 +872,32 @@ class GameController extends ChangeNotifier {
         dailyStats: history.length > 30
             ? history.sublist(history.length - 30)
             : history,
+      );
+    }
+
+    var playerDividendTotal = 0.0;
+    for (final entry in netProfits.entries) {
+      final payer = airlines[entry.key];
+      if (payer == null || payer.isPlayer || entry.value <= 0) continue;
+      var payerCash = payer.cashUSD;
+      for (final shareholder in payer.shareholders.entries) {
+        final receiver = airlines[shareholder.key];
+        if (receiver == null || shareholder.value <= 0) continue;
+        final amount = entry.value * (shareholder.value / 100);
+        if (amount <= 0) continue;
+        payerCash -= amount;
+        airlines[shareholder.key] = receiver.copyWith(
+          cashUSD: receiver.cashUSD + amount,
+        );
+        if (shareholder.key == 'player') playerDividendTotal += amount;
+      }
+      airlines[entry.key] = (airlines[entry.key] ?? payer).copyWith(
+        cashUSD: payerCash,
+      );
+    }
+    if (playerDividendTotal > 500000) {
+      newsTicker.add(
+        'Dividends: \$${playerDividendTotal.round()} received from shareholdings today.',
       );
     }
 
@@ -970,6 +1056,126 @@ class GameController extends ChangeNotifier {
       loans: loans,
     );
     notifyListeners();
+  }
+
+  double buyShares(String targetAirlineId, double percent) {
+    final target = airlines[targetAirlineId];
+    if (target == null || target.isPlayer) {
+      throw StateError('Target airline not found');
+    }
+    final amount = percent.clamp(1, 50).toDouble();
+    final available = marketFloatForAirline(targetAirlineId);
+    if (available < amount) throw StateError('Not enough market float');
+    final cost = sharePurchasePrice(targetAirlineId, amount);
+    if (player.cashUSD < cost) throw StateError('Not enough cash');
+    final nextShareholders = Map<String, double>.from(target.shareholders);
+    nextShareholders['player'] = (nextShareholders['player'] ?? 0) + amount;
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    airlines[targetAirlineId] = target.copyWith(
+      cashUSD: target.cashUSD + cost,
+      shareholders: nextShareholders,
+    );
+    newsTicker.add(
+      'You acquired ${amount.toStringAsFixed(0)}% of ${target.name} for \$${cost.round()}.',
+    );
+    notifyListeners();
+    return cost;
+  }
+
+  double sellShares(String targetAirlineId, double percent) {
+    final target = airlines[targetAirlineId];
+    if (target == null || target.isPlayer) {
+      throw StateError('Target airline not found');
+    }
+    final owned = playerStakeIn(targetAirlineId);
+    if (owned < 1) throw StateError('No shares owned');
+    final amount = percent.clamp(1, owned).toDouble();
+    final proceeds =
+        (companyValue(targetAirlineId) / 100 * amount / 100000).round() *
+        100000.0;
+    final nextShareholders = Map<String, double>.from(target.shareholders);
+    final remaining = (nextShareholders['player'] ?? 0) - amount;
+    if (remaining <= 0) {
+      nextShareholders.remove('player');
+    } else {
+      nextShareholders['player'] = remaining;
+    }
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD + proceeds);
+    airlines[targetAirlineId] = target.copyWith(shareholders: nextShareholders);
+    newsTicker.add(
+      'You sold ${amount.toStringAsFixed(0)}% of ${target.name} for \$${proceeds.round()}.',
+    );
+    notifyListeners();
+    return proceeds;
+  }
+
+  double takeoverAirline(String targetAirlineId) {
+    final target = airlines[targetAirlineId];
+    if (target == null || target.isPlayer) {
+      throw StateError('Target airline not found');
+    }
+    final stake = playerStakeIn(targetAirlineId);
+    if (!target.isInsolvent && stake < 50) {
+      throw StateError('Majority stake required');
+    }
+    final valuation = buyoutPrice(targetAirlineId);
+    final ownedValue = companyValue(targetAirlineId) * (stake / 100);
+    final price = math.max(0, valuation.totalPrice - ownedValue).toDouble();
+    if (player.cashUSD < price) throw StateError('Not enough cash');
+
+    final acquiredFleet = <String>[];
+    for (final aircraftId in target.fleetIds) {
+      final ac = aircraft[aircraftId];
+      if (ac == null) continue;
+      final type = aircraftTypesById[ac.typeId];
+      final hasRoute = ac.assignedRouteId != null;
+      aircraft[aircraftId] = ac.copyWith(
+        airlineId: 'player',
+        name: type == null
+            ? '${player.name} aircraft'
+            : '${player.name} ${type.model}',
+        isGrounded: false,
+        status: hasRoute ? AircraftStatus.flying : AircraftStatus.idle,
+      );
+      acquiredFleet.add(aircraftId);
+    }
+
+    final acquiredRoutes = <String>[];
+    for (final routeId in target.routeIds) {
+      final route = routes[routeId];
+      if (route == null) continue;
+      routes[routeId] = route.copyWith(
+        airlineId: 'player',
+        isActive: route.aircraftId != null,
+        dailyRevenue: 0,
+        dailyCost: 0,
+        dailyProfit: 0,
+        dailyPassengers: 0,
+        loadFactorEconomy: 0,
+        loadFactorBusiness: 0,
+      );
+      acquiredRoutes.add(routeId);
+    }
+
+    for (final entry in airlines.entries.toList()) {
+      if (entry.key == targetAirlineId) continue;
+      final holdings = Map<String, double>.from(entry.value.shareholders);
+      final transferred = holdings.remove(targetAirlineId);
+      if (transferred != null) {
+        holdings['player'] = (holdings['player'] ?? 0) + transferred;
+        airlines[entry.key] = entry.value.copyWith(shareholders: holdings);
+      }
+    }
+
+    airlines['player'] = player.copyWith(
+      cashUSD: player.cashUSD - price,
+      fleetIds: [...player.fleetIds, ...acquiredFleet],
+      routeIds: [...player.routeIds, ...acquiredRoutes],
+    );
+    airlines.remove(targetAirlineId);
+    newsTicker.add('${player.name} has acquired ${target.name}.');
+    notifyListeners();
+    return price;
   }
 
   String exportJson() => jsonEncode(toJson());

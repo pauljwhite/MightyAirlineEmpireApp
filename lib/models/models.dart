@@ -228,6 +228,8 @@ class Aircraft {
   final double knownFaultRiskMod;
   final bool excludedFromPolicy;
   Aircraft copyWith({
+    String? name,
+    String? airlineId,
     String? assignedRouteId,
     double? totalFlightHours,
     double? condition,
@@ -240,8 +242,8 @@ class Aircraft {
   }) => Aircraft(
     id: id,
     typeId: typeId,
-    name: name,
-    airlineId: airlineId,
+    name: name ?? this.name,
+    airlineId: airlineId ?? this.airlineId,
     purchasedGameDay: purchasedGameDay,
     totalFlightHours: totalFlightHours ?? this.totalFlightHours,
     condition: condition ?? this.condition,
@@ -372,6 +374,7 @@ class RoutePlan {
   final double loadFactorEconomy;
   final double loadFactorBusiness;
   RoutePlan copyWith({
+    String? airlineId,
     String? aircraftId,
     int? flightsPerWeek,
     int? priceEconomy,
@@ -386,7 +389,7 @@ class RoutePlan {
     double? loadFactorBusiness,
   }) => RoutePlan(
     id: id,
-    airlineId: airlineId,
+    airlineId: airlineId ?? this.airlineId,
     originIata: originIata,
     destinationIata: destinationIata,
     aircraftId: aircraftId ?? this.aircraftId,
@@ -597,14 +600,20 @@ class Airline {
   Airline copyWith({
     double? cashUSD,
     double? totalDebt,
+    List<String>? hubIatas,
     List<String>? fleetIds,
     List<String>? routeIds,
+    bool? isInsolvent,
+    bool? canBeTakenOver,
     double? marketSharePercent,
     double? reputationScore,
     int? totalPassengersAllTime,
     List<DailySnapshot>? dailyStats,
+    int? crashPenaltyDaysLeft,
+    Map<String, double>? shareholders,
     double? lastDailyProfit,
     List<Loan>? loans,
+    MaintenancePolicy? maintenancePolicy,
   }) => Airline(
     id: id,
     name: name,
@@ -614,23 +623,23 @@ class Airline {
     logoEmoji: logoEmoji,
     cashUSD: cashUSD ?? this.cashUSD,
     totalDebt: totalDebt ?? this.totalDebt,
-    hubIatas: hubIatas,
+    hubIatas: hubIatas ?? this.hubIatas,
     fleetIds: fleetIds ?? this.fleetIds,
     routeIds: routeIds ?? this.routeIds,
     personality: personality,
     foundedGameDay: foundedGameDay,
-    isInsolvent: isInsolvent,
-    canBeTakenOver: canBeTakenOver,
+    isInsolvent: isInsolvent ?? this.isInsolvent,
+    canBeTakenOver: canBeTakenOver ?? this.canBeTakenOver,
     marketSharePercent: marketSharePercent ?? this.marketSharePercent,
     reputationScore: reputationScore ?? this.reputationScore,
     totalPassengersAllTime:
         totalPassengersAllTime ?? this.totalPassengersAllTime,
     dailyStats: dailyStats ?? this.dailyStats,
-    crashPenaltyDaysLeft: crashPenaltyDaysLeft,
-    shareholders: shareholders,
+    crashPenaltyDaysLeft: crashPenaltyDaysLeft ?? this.crashPenaltyDaysLeft,
+    shareholders: shareholders ?? this.shareholders,
     lastDailyProfit: lastDailyProfit ?? this.lastDailyProfit,
     loans: loans ?? this.loans,
-    maintenancePolicy: maintenancePolicy,
+    maintenancePolicy: maintenancePolicy ?? this.maintenancePolicy,
   );
   Map<String, Object?> toJson() => {
     'id': id,

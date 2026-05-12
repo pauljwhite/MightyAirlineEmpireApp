@@ -1101,7 +1101,10 @@ class _MainPanel extends StatelessWidget {
             ),
             _Panel.fleet => _FleetView(game: game),
             _Panel.finance => _FinanceView(game: game, currency: currency),
-            _Panel.competitors => _CompetitorsView(game: game),
+            _Panel.competitors => _CompetitorsView(
+              game: game,
+              currency: currency,
+            ),
           },
         ),
       ],
@@ -1393,8 +1396,9 @@ class _FinanceView extends StatelessWidget {
 }
 
 class _CompetitorsView extends StatefulWidget {
-  const _CompetitorsView({required this.game});
+  const _CompetitorsView({required this.game, required this.currency});
   final GameController game;
+  final CurrencyOption currency;
   @override
   State<_CompetitorsView> createState() => _CompetitorsViewState();
 }
@@ -1411,6 +1415,18 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
       final profitableRoutes = routes
           .where((route) => route.dailyProfit > 0)
           .length;
+      final playerStake = airline.isPlayer
+          ? 100.0
+          : widget.game.playerStakeIn(airline.id);
+      final marketFloat = airline.isPlayer
+          ? 0.0
+          : widget.game.marketFloatForAirline(airline.id);
+      final companyValue = widget.game.companyValue(airline.id);
+      final buyout = widget.game.buyoutPrice(airline.id);
+      final takeoverCost =
+          (buyout.totalPrice - companyValue * (playerStake / 100))
+              .clamp(0, double.infinity)
+              .toDouble();
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -1445,15 +1461,22 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _InfoRow('Cash', money(airline.cashUSD, currencyOptions.first)),
+                _InfoRow('Cash', money(airline.cashUSD, widget.currency)),
                 _InfoRow(
                   'Last profit',
-                  money(airline.lastDailyProfit, currencyOptions.first),
+                  money(airline.lastDailyProfit, widget.currency),
                 ),
+                _InfoRow('Company value', money(companyValue, widget.currency)),
                 _InfoRow(
                   'Market share',
                   '${airline.marketSharePercent.toStringAsFixed(1)}%',
                 ),
+                _InfoRow('Your stake', '${playerStake.toStringAsFixed(0)}%'),
+                if (!airline.isPlayer)
+                  _InfoRow(
+                    'Market float',
+                    '${marketFloat.toStringAsFixed(0)}%',
+                  ),
                 _InfoRow(
                   'Reputation',
                   airline.reputationScore.toStringAsFixed(0),
@@ -1466,6 +1489,84 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
               ],
             ),
           ),
+          if (!airline.isPlayer)
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Ownership',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      height: 12,
+                      child: Row(
+                        children: [
+                          if (playerStake > 0)
+                            Expanded(
+                              flex: playerStake.round().clamp(1, 100),
+                              child: Container(color: const Color(0xff2dd4bf)),
+                            ),
+                          if (marketFloat > 0)
+                            Expanded(
+                              flex: marketFloat.round().clamp(1, 100),
+                              child: Container(color: const Color(0xff334155)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: marketFloat < 1
+                            ? null
+                            : () => _showShareTradeDialog(
+                                context,
+                                widget.game,
+                                airline.id,
+                                widget.currency,
+                              ),
+                        icon: const Icon(Icons.pie_chart),
+                        label: const Text('Buy / sell shares'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed:
+                            playerStake < 50 ||
+                                widget.game.player.cashUSD < takeoverCost
+                            ? null
+                            : () => _showTakeoverDialog(
+                                context,
+                                widget.game,
+                                airline.id,
+                                widget.currency,
+                                onAcquired: () =>
+                                    setState(() => selected = null),
+                              ),
+                        icon: const Icon(Icons.handshake),
+                        label: Text(
+                          'Takeover ${money(takeoverCost, widget.currency)}',
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (playerStake < 50)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Majority stake required for takeover.',
+                        style: TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ExpansionTile(
             title: const Text('Fleet'),
             initiallyExpanded: true,
@@ -1488,7 +1589,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                       '${route.originIata} -> ${route.destinationIata}',
                     ),
                     subtitle: Text(
-                      '${route.flightsPerWeek}/week · ${money(route.dailyProfit, currencyOptions.first)}/day',
+                      '${route.flightsPerWeek}/week · ${money(route.dailyProfit, widget.currency)}/day',
                     ),
                   ),
                 )
@@ -1538,7 +1639,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                         ),
                       ),
                       Text(
-                        money(airline.lastDailyProfit, currencyOptions.first),
+                        money(airline.lastDailyProfit, widget.currency),
                         style: TextStyle(
                           color: airline.lastDailyProfit >= 0
                               ? const Color(0xff3af083)
@@ -1555,6 +1656,195 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
       ],
     );
   }
+}
+
+void _showShareTradeDialog(
+  BuildContext context,
+  GameController game,
+  String airlineId,
+  CurrencyOption currency,
+) {
+  var percent = 5.0;
+  var selling = false;
+  String? error;
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final airline = game.airlines[airlineId];
+        if (airline == null) return const SizedBox.shrink();
+        final owned = game.playerStakeIn(airlineId);
+        final float = game.marketFloatForAirline(airlineId);
+        final max = selling ? owned : math.min(50, float);
+        final clampedPercent = max < 1 ? 0.0 : percent.clamp(1, max).toDouble();
+        final value = game.companyValue(airlineId);
+        final buyPrice = clampedPercent <= 0
+            ? 0.0
+            : game.sharePurchasePrice(airlineId, clampedPercent);
+        final sellPrice = clampedPercent <= 0
+            ? 0.0
+            : (value / 100 * clampedPercent / 100000).round() * 100000.0;
+        final price = selling ? sellPrice : buyPrice;
+        return AlertDialog(
+          title: Text('${selling ? 'Sell' : 'Buy'} ${airline.name} shares'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Buy')),
+                    ButtonSegment(value: true, label: Text('Sell')),
+                  ],
+                  selected: {selling},
+                  onSelectionChanged: (value) {
+                    setState(() {
+                      selling = value.first;
+                      percent = 5;
+                      error = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
+                _InfoRow('Company value', money(value, currency)),
+                _InfoRow('You own', '${owned.toStringAsFixed(0)}%'),
+                _InfoRow('Market float', '${float.toStringAsFixed(0)}%'),
+                const SizedBox(height: 14),
+                Text('Amount: ${clampedPercent.toStringAsFixed(0)}%'),
+                Slider(
+                  value: max < 1 ? 1 : clampedPercent,
+                  min: 1,
+                  max: math.max(1, max).toDouble(),
+                  divisions: math.max(1, max.round()),
+                  label: '${clampedPercent.toStringAsFixed(0)}%',
+                  onChanged: max < 1
+                      ? null
+                      : (value) => setState(() => percent = value),
+                ),
+                _InfoRow(selling ? 'Proceeds' : 'Cost', money(price, currency)),
+                if (!selling)
+                  _InfoRow(
+                    'Rival cash after',
+                    money(airline.cashUSD + price, currency),
+                  ),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      error!,
+                      style: const TextStyle(color: Color(0xffff6b6b)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed:
+                  clampedPercent <= 0 ||
+                      (!selling && game.player.cashUSD < price)
+                  ? null
+                  : () {
+                      try {
+                        if (selling) {
+                          game.sellShares(airlineId, clampedPercent);
+                        } else {
+                          game.buyShares(airlineId, clampedPercent);
+                        }
+                        Navigator.pop(context);
+                      } catch (e) {
+                        setState(() => error = e.toString());
+                      }
+                    },
+              child: Text(selling ? 'Sell shares' : 'Buy shares'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+void _showTakeoverDialog(
+  BuildContext context,
+  GameController game,
+  String airlineId,
+  CurrencyOption currency, {
+  VoidCallback? onAcquired,
+}) {
+  String? error;
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final airline = game.airlines[airlineId];
+        if (airline == null) return const SizedBox.shrink();
+        final stake = game.playerStakeIn(airlineId);
+        final value = game.companyValue(airlineId);
+        final valuation = game.buyoutPrice(airlineId);
+        final price = (valuation.totalPrice - value * (stake / 100))
+            .clamp(0, double.infinity)
+            .toDouble();
+        return AlertDialog(
+          title: Text('Acquire ${airline.name}'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _InfoRow('Fleet', money(valuation.fleetValue, currency)),
+                _InfoRow('Routes', money(valuation.routeValue, currency)),
+                _InfoRow('Cash', money(valuation.cashValue, currency)),
+                _InfoRow('Debt', money(valuation.debtValue, currency)),
+                _InfoRow(
+                  'Control premium',
+                  money(valuation.controlPremium, currency),
+                ),
+                const Divider(),
+                _InfoRow('Your stake', '${stake.toStringAsFixed(0)}%'),
+                _InfoRow('Price to pay', money(price, currency)),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      error!,
+                      style: const TextStyle(color: Color(0xffff6b6b)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: stake < 50 || game.player.cashUSD < price
+                  ? null
+                  : () {
+                      try {
+                        game.takeoverAirline(airlineId);
+                        onAcquired?.call();
+                        Navigator.pop(context);
+                      } catch (e) {
+                        setState(() => error = e.toString());
+                      }
+                    },
+              icon: const Icon(Icons.handshake),
+              label: const Text('Acquire'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class _RouteEditDialog extends StatefulWidget {
