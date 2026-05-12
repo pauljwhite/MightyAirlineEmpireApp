@@ -292,6 +292,9 @@ class Aircraft {
     double? autoMaintenanceThreshold,
     MaintenanceTier? autoMaintenanceTier,
     double? knownFaultRiskMod,
+    double? currentLat,
+    double? currentLon,
+    double? flightProgress,
     bool? excludedFromPolicy,
   }) => Aircraft(
     id: id,
@@ -313,9 +316,9 @@ class Aircraft {
         ? null
         : assignedRouteId ?? this.assignedRouteId,
     status: status ?? this.status,
-    currentLat: currentLat,
-    currentLon: currentLon,
-    flightProgress: flightProgress,
+    currentLat: currentLat ?? this.currentLat,
+    currentLon: currentLon ?? this.currentLon,
+    flightProgress: flightProgress ?? this.flightProgress,
     activeMaintTier: activeMaintTier ?? this.activeMaintTier,
     autoMaintenanceEnabled:
         autoMaintenanceEnabled ?? this.autoMaintenanceEnabled,

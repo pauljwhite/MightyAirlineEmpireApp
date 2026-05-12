@@ -101,6 +101,28 @@ void main() {
     expect(game.gameTimeMs, pausedTime);
   });
 
+  test('game clock advances aircraft positions between daily ticks', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    final before = game.aircraft[aircraftId]!;
+
+    game.setSpeed(300);
+    game.advanceGameClock(const Duration(seconds: 10));
+
+    final after = game.aircraft[aircraftId]!;
+    expect(after.flightProgress, greaterThan(before.flightProgress));
+    expect(after.currentLat, isNot(before.currentLat));
+    expect(after.currentLon, isNot(before.currentLon));
+    expect(after.status, AircraftStatus.flying);
+  });
+
   test('player insolvency creates a game over state', () {
     final game = GameController();
     game.airlines['player'] = game.player.copyWith(cashUSD: -120000000);

@@ -324,6 +324,7 @@ class GameController extends ChangeNotifier {
     if (isPaused || speed <= 0) return;
     final delta = (realDelta.inMilliseconds * speed).round();
     if (delta <= 0) return;
+    _advanceAircraftPositions(delta);
     gameTimeMs += delta;
     final targetDay = gameTimeMs ~/ gameDayMs;
     var daysProcessed = 0;
@@ -332,6 +333,45 @@ class GameController extends ChangeNotifier {
       daysProcessed += 1;
     }
     if (daysProcessed == 0) notifyListeners();
+  }
+
+  void _advanceAircraftPositions(int deltaGameMs) {
+    for (final route in routes.values) {
+      if (!route.isActive || route.aircraftId == null) continue;
+      final ac = aircraft[route.aircraftId!];
+      final type = ac == null ? null : aircraftTypesById[ac.typeId];
+      final origin = airportByIata(route.originIata);
+      final destination = airportByIata(route.destinationIata);
+      if (ac == null ||
+          type == null ||
+          origin == null ||
+          destination == null ||
+          ac.isGrounded ||
+          ac.status == AircraftStatus.maintenance ||
+          ac.status == AircraftStatus.crashed) {
+        continue;
+      }
+      final flightMs = math.max(
+        1.0,
+        (route.distanceKm / type.cruiseSpeedKmh) * 3600000,
+      );
+      final cycleMs = flightMs * 2;
+      final cycle = (ac.flightProgress * cycleMs + deltaGameMs) % cycleMs;
+      final outbound = cycle < flightMs;
+      final legProgress = outbound
+          ? cycle / flightMs
+          : (cycle - flightMs) / flightMs;
+      final fromLat = outbound ? origin.lat : destination.lat;
+      final fromLon = outbound ? origin.lon : destination.lon;
+      final toLat = outbound ? destination.lat : origin.lat;
+      final toLon = outbound ? destination.lon : origin.lon;
+      aircraft[ac.id] = ac.copyWith(
+        currentLat: fromLat + (toLat - fromLat) * legProgress,
+        currentLon: fromLon + (toLon - fromLon) * legProgress,
+        flightProgress: cycle / cycleMs,
+        status: AircraftStatus.flying,
+      );
+    }
   }
 
   void dismissGameOutcome() {

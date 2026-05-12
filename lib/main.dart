@@ -1367,15 +1367,11 @@ class _MapPainter extends CustomPainter {
     final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
     final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
     final control = Offset(mid.dx, mid.dy - lift);
-    final progressSeed = _routeSeed(route.id) / 997.0;
-    final cycle =
-        (game.gameDay * math.max(1, route.flightsPerWeek) * 0.071 +
-            progressSeed) %
-        2.0;
+    final cycle = (ac.flightProgress * 2).clamp(0, 2).toDouble();
     final t = cycle <= 1 ? cycle : 2 - cycle;
     final from = cycle <= 1 ? start : end;
     final to = cycle <= 1 ? end : start;
-    final controlPoint = cycle <= 1 ? control : control;
+    final controlPoint = control;
     final point = _quadraticPoint(from, controlPoint, to, t);
     final tangent = _quadraticTangent(from, controlPoint, to, t);
     final angle = math.atan2(tangent.dy, tangent.dx);
@@ -1407,9 +1403,6 @@ class _MapPainter extends CustomPainter {
     canvas.drawPath(plane, paint);
     canvas.restore();
   }
-
-  int _routeSeed(String value) =>
-      value.codeUnits.fold(0, (sum, unit) => (sum + unit * 31) % 997);
 
   Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
     final u = 1 - t;
