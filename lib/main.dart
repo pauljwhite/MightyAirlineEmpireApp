@@ -2960,7 +2960,41 @@ class _FinanceView extends StatelessWidget {
     final companyValue = game.companyValue(player.id);
     final creditLimit = game.playerLoanCreditLimit();
     final creditRemaining = math.max(0, creditLimit - player.totalDebt);
-    final profitableRoutes = routes.where((route) => route.dailyProfit > 0);
+    final activeRoutes = routes.where((route) => route.isActive).toList();
+    final profitableRoutes = activeRoutes
+        .where((route) => route.dailyProfit > 0)
+        .length;
+    final losingRoutes = activeRoutes
+        .where((route) => route.dailyProfit < 0)
+        .length;
+    final averageLoadFactor = activeRoutes.isEmpty
+        ? 0.0
+        : activeRoutes.fold<double>(
+                0,
+                (sum, route) => sum + route.loadFactorEconomy,
+              ) /
+              activeRoutes.length;
+    final averageCondition = fleet.isEmpty
+        ? 0.0
+        : fleet.fold<double>(0, (sum, ac) => sum + ac.condition) / fleet.length;
+    final groundedAircraft = fleet
+        .where(
+          (ac) =>
+              ac.status == AircraftStatus.maintenance ||
+              ac.status == AircraftStatus.crashed,
+        )
+        .length;
+    final dailyPassengers = last?.passengers ?? 0;
+    final totalDailyRevenue = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyRevenue,
+    );
+    final totalDailyCost = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyCost,
+    );
+    final topRoutes = [...routes]
+      ..sort((a, b) => b.dailyProfit.compareTo(a.dailyProfit));
     final shareholdingsValue = game.competitors.fold<double>(
       0,
       (sum, airline) =>
@@ -2973,6 +3007,21 @@ class _FinanceView extends StatelessWidget {
           ? sum
           : sum + airline.lastDailyProfit * stake / 100;
     });
+    final dividendSources =
+        game.competitors
+            .map(
+              (airline) => (
+                airline: airline,
+                stake: game.playerStakeIn(airline.id),
+                dividend:
+                    math.max(0, airline.lastDailyProfit) *
+                    game.playerStakeIn(airline.id) /
+                    100,
+              ),
+            )
+            .where((item) => item.stake > 0)
+            .toList()
+          ..sort((a, b) => b.dividend.compareTo(a.dividend));
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -3053,10 +3102,23 @@ class _FinanceView extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
-              _InfoRow('Routes', '${routes.length} total'),
-              _InfoRow('Profitable routes', '${profitableRoutes.length}'),
+              _InfoRow('Routes', '${activeRoutes.length} active'),
+              _InfoRow(
+                'Route health',
+                '$profitableRoutes profitable · $losingRoutes losing',
+              ),
               _InfoRow('Fleet', '${fleet.length} aircraft'),
-              _InfoRow('30-day passengers', passengers30.toString()),
+              _InfoRow(
+                'Average condition',
+                '${averageCondition.toStringAsFixed(1)}%',
+              ),
+              _InfoRow('Grounded', groundedAircraft.toString()),
+              _InfoRow(
+                'Load factor',
+                '${(averageLoadFactor * 100).toStringAsFixed(1)}%',
+              ),
+              _InfoRow('Daily passengers', _formatCount(dailyPassengers)),
+              _InfoRow('30-day passengers', _formatCount(passengers30)),
               _InfoRow(
                 'Market share',
                 '${player.marketSharePercent.toStringAsFixed(1)}%',
@@ -3075,6 +3137,7 @@ class _FinanceView extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _InfoRow('Company value', money(companyValue, currency)),
+              _InfoRow('Price per 1%', money(companyValue / 100, currency)),
               _InfoRow(
                 'Shareholdings value',
                 money(shareholdingsValue, currency),
@@ -3084,9 +3147,159 @@ class _FinanceView extends StatelessWidget {
                 '${money(projectedDividends, currency)}/day',
               ),
               _InfoRow('Cash runway', _cashRunway(player.cashUSD, lastProfit)),
+              _InfoRow(
+                'All-time passengers',
+                _formatCount(player.totalPassengersAllTime),
+              ),
             ],
           ),
         ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ownership',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(height: 12, color: const Color(0xff2dd4bf)),
+              ),
+              const SizedBox(height: 8),
+              const Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _OwnershipChip(label: 'You 100%', accent: Color(0xff2dd4bf)),
+                  _OwnershipChip(label: 'Float 0%', accent: Color(0xff64748b)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Route performance',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$profitableRoutes profitable · $losingRoutes losing',
+                style: const TextStyle(color: Color(0xff8b95a8)),
+              ),
+              const SizedBox(height: 10),
+              if (topRoutes.isEmpty)
+                const _EmptyState('No route data available.')
+              else
+                ...topRoutes.take(4).map((route) {
+                  final origin = game.airportByIata(route.originIata);
+                  final dest = game.airportByIata(route.destinationIata);
+                  final label = origin != null && dest != null
+                      ? '${origin.city} -> ${dest.city}'
+                      : '${route.originIata} -> ${route.destinationIata}';
+                  return _FinanceRouteRow(
+                    label: label,
+                    detail: '${route.flightsPerWeek} flights/week',
+                    value: '${money(route.dailyProfit, currency)}/day',
+                    positive: route.dailyProfit >= 0,
+                  );
+                }),
+            ],
+          ),
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Daily breakdown',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              _FinanceBreakdownRow(
+                label: 'Revenue',
+                value: totalDailyRevenue,
+                color: const Color(0xff3af083),
+                currency: currency,
+              ),
+              _FinanceBreakdownRow(
+                label: 'Fuel',
+                value: -totalDailyCost * 0.35,
+                color: const Color(0xffff6b6b),
+                currency: currency,
+              ),
+              _FinanceBreakdownRow(
+                label: 'Maintenance',
+                value: -totalDailyCost * 0.25,
+                color: const Color(0xffffa94d),
+                currency: currency,
+              ),
+              _FinanceBreakdownRow(
+                label: 'Crew',
+                value: -totalDailyCost * 0.25,
+                color: const Color(0xffffd166),
+                currency: currency,
+              ),
+              _FinanceBreakdownRow(
+                label: 'Airport fees',
+                value: -totalDailyCost * 0.15,
+                color: const Color(0xff77c9ff),
+                currency: currency,
+              ),
+              _FinanceBreakdownRow(
+                label: 'Debt service',
+                value: -debtService,
+                color: const Color(0xffff8fab),
+                currency: currency,
+              ),
+              if (projectedDividends > 0)
+                _FinanceBreakdownRow(
+                  label: 'Dividends',
+                  value: projectedDividends,
+                  color: const Color(0xff2dd4bf),
+                  currency: currency,
+                ),
+              const Divider(height: 20),
+              _FinanceBreakdownRow(
+                label: 'Net',
+                value: lastProfit + projectedDividends,
+                color: lastProfit + projectedDividends >= 0
+                    ? const Color(0xff3af083)
+                    : const Color(0xffff6b6b),
+                currency: currency,
+                strong: true,
+              ),
+            ],
+          ),
+        ),
+        if (dividendSources.isNotEmpty)
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Investment holdings',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                ...dividendSources.map(
+                  (item) => _InfoRow(
+                    '${item.airline.name} (${item.stake.toStringAsFixed(0)}%)',
+                    item.dividend > 0
+                        ? '+${money(item.dividend, currency)}/day'
+                        : item.airline.lastDailyProfit < 0
+                        ? 'Losing'
+                        : '-',
+                  ),
+                ),
+              ],
+            ),
+          ),
         _Card(
           child: ExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -3220,6 +3433,128 @@ class _LoanAccordionTile extends StatelessWidget {
       ],
     );
   }
+}
+
+class _OwnershipChip extends StatelessWidget {
+  const _OwnershipChip({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: accent.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: accent.withValues(alpha: 0.35)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: accent,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+class _FinanceRouteRow extends StatelessWidget {
+  const _FinanceRouteRow({
+    required this.label,
+    required this.detail,
+    required this.value,
+    required this.positive,
+  });
+
+  final String label;
+  final String detail;
+  final String value;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              Text(detail, style: const TextStyle(color: Color(0xff8b95a8))),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          value,
+          style: TextStyle(
+            color: positive ? const Color(0xff3af083) : const Color(0xffff6b6b),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _FinanceBreakdownRow extends StatelessWidget {
+  const _FinanceBreakdownRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.currency,
+    this.strong = false,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final CurrencyOption currency;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: strong ? const Color(0xffdbe4f3) : const Color(0xff9aa4b5),
+              fontWeight: strong ? FontWeight.w900 : FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          money(value, currency),
+          style: TextStyle(
+            color: color,
+            fontWeight: strong ? FontWeight.w900 : FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _formatCount(num value) {
+  final sign = value < 0 ? '-' : '';
+  final abs = value.abs();
+  if (abs >= 1000000000) {
+    return '$sign${(abs / 1000000000).toStringAsFixed(1)}B';
+  }
+  if (abs >= 1000000) return '$sign${(abs / 1000000).toStringAsFixed(1)}M';
+  if (abs >= 1000) return '$sign${(abs / 1000).toStringAsFixed(1)}K';
+  return value.round().toString();
 }
 
 class _FinanceMetric extends StatelessWidget {
