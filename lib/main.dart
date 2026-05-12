@@ -17,6 +17,8 @@ import 'engine/demand_model.dart';
 import 'engine/economics_engine.dart';
 import 'engine/finance.dart';
 import 'engine/hub_upgrades.dart';
+import 'engine/route_optimizer.dart'
+    show RouteOptimisationInput, optimiseRouteSettings;
 import 'engine/valuation.dart';
 import 'models/models.dart';
 import 'state/game_controller.dart';
@@ -5340,13 +5342,43 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       destination.lat,
       destination.lon,
     );
+    final gameYear =
+        widget.game.settings.startingYear + widget.game.gameDay ~/ 365;
     final viableAircraft = aircraftTypes
-        .where((t) => t.rangeKm >= distance)
+        .where(
+          (t) =>
+              t.yearIntroduced <= gameYear &&
+              t.rangeKm >= distance &&
+              canAirportHandleAircraft(origin, t) &&
+              canAirportHandleAircraft(destination, t),
+        )
         .take(90)
         .toList();
     if (!viableAircraft.contains(type) && viableAircraft.isNotEmpty)
       type = viableAircraft.first;
     final fareGuide = _currentFareGuide(distance);
+    final previewRoute = _previewRoute(distance, fareGuide);
+    final previewAircraft = Aircraft(
+      id: 'preview',
+      typeId: type.id,
+      name: type.displayName,
+      airlineId: 'player',
+      purchasedGameDay: widget.game.gameDay,
+    );
+    final previewEconomics = viableAircraft.isEmpty
+        ? null
+        : calculateRouteEconomics(
+            route: previewRoute,
+            aircraft: previewAircraft,
+            type: type,
+            origin: origin,
+            destination: destination,
+            airline: widget.game.player,
+            allRoutes: widget.game.routes.values.toList(growable: false),
+            allAirlines: widget.game.airlines.values.toList(growable: false),
+            globalFuelPrice: widget.game.globalFuelPrice,
+            gameDay: widget.game.gameDay,
+          );
     return AlertDialog(
       title: const Text('Create route'),
       content: SizedBox(
@@ -5414,6 +5446,40 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               enabled: type.seatsBusiness > 0,
               onChanged: () => setState(() {}),
             ),
+            const SizedBox(height: 12),
+            _RoutePreviewCard(
+              current: previewRoute,
+              preview: previewEconomics?.route,
+              currency: widget.currency,
+            ),
+            const SizedBox(height: 12),
+            _Card(
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Route optimiser',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Finds the best frequency and fares before creation.',
+                          style: TextStyle(color: Color(0xff9aa4b5)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: viableAircraft.isEmpty ? null : _optimiseSetup,
+                    icon: const Icon(Icons.auto_fix_high),
+                    label: const Text('Optimise'),
+                  ),
+                ],
+              ),
+            ),
             CheckboxListTile(
               value: optimise,
               onChanged: (v) => setState(() => optimise = v ?? true),
@@ -5465,6 +5531,60 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       fuelPrice: widget.game.globalFuelPrice,
       gameDay: widget.game.gameDay,
     );
+  }
+
+  RoutePlan _previewRoute(double distance, _FareGuide fareGuide) => RoutePlan(
+    id: 'preview',
+    airlineId: 'player',
+    originIata: origin.iata,
+    destinationIata: destination.iata,
+    flightsPerWeek: flights,
+    priceEconomy: ecoController.text.trim().isEmpty
+        ? fareGuide.suggestedEconomy
+        : _clampedFare(ecoController.text, fareGuide.maxEconomy),
+    priceBusiness: type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
+        ? 0
+        : _clampedFare(bizController.text, fareGuide.maxBusiness),
+    createdGameDay: widget.game.gameDay,
+    distanceKm: distance,
+  );
+
+  void _optimiseSetup() {
+    final distance = haversineKm(
+      origin.lat,
+      origin.lon,
+      destination.lat,
+      destination.lon,
+    );
+    final fareGuide = _currentFareGuide(distance);
+    final previewRoute = _previewRoute(distance, fareGuide);
+    final previewAircraft = Aircraft(
+      id: 'preview',
+      typeId: type.id,
+      name: type.displayName,
+      airlineId: 'player',
+      purchasedGameDay: widget.game.gameDay,
+    );
+    final result = optimiseRouteSettings(
+      RouteOptimisationInput(
+        route: previewRoute,
+        aircraft: previewAircraft,
+        aircraftType: type,
+        origin: origin,
+        destination: destination,
+        globalFuelPrice: widget.game.globalFuelPrice,
+        airline: widget.game.player,
+        allAirlines: widget.game.airlines.values.toList(growable: false),
+        allRoutes: widget.game.routes.values.toList(growable: false),
+        gameDay: widget.game.gameDay,
+      ),
+    );
+    setState(() {
+      flights = result.flightsPerWeek;
+      ecoController.text = result.priceEconomy.toString();
+      bizController.text = result.priceBusiness.toString();
+      optimise = false;
+    });
   }
 
   void _create() {
