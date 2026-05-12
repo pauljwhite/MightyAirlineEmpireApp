@@ -4019,9 +4019,71 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
       final airline = widget.game.airlines[selected!.id] ?? selected!;
       final routes = widget.game.routesForAirline(airline.id);
       final fleet = widget.game.fleetForAirline(airline.id);
-      final profitableRoutes = routes
+      final activeRoutes = routes.where((route) => route.isActive).toList();
+      final profitableRoutes = activeRoutes
           .where((route) => route.dailyProfit > 0)
           .length;
+      final losingRoutes = activeRoutes
+          .where((route) => route.dailyProfit < 0)
+          .length;
+      final latestSnapshot = airline.dailyStats.lastOrNull;
+      final routeProfit = routes.fold<double>(
+        0,
+        (sum, route) => sum + route.dailyProfit,
+      );
+      final routeRevenue = routes.fold<double>(
+        0,
+        (sum, route) => sum + route.dailyRevenue,
+      );
+      final routeCosts = routes.fold<double>(
+        0,
+        (sum, route) => sum + route.dailyCost,
+      );
+      final dailyProfit =
+          latestSnapshot?.profit ??
+          (airline.lastDailyProfit != 0
+              ? airline.lastDailyProfit
+              : routeProfit);
+      final dailyRevenue = latestSnapshot?.revenue ?? routeRevenue;
+      final dailyCosts = latestSnapshot?.costs ?? routeCosts;
+      final margin = dailyRevenue <= 0 ? 0.0 : dailyProfit / dailyRevenue * 100;
+      final averageLoadFactor = activeRoutes.isEmpty
+          ? 0.0
+          : activeRoutes.fold<double>(
+                  0,
+                  (sum, route) => sum + route.loadFactorEconomy,
+                ) /
+                activeRoutes.length;
+      final averageCondition = fleet.isEmpty
+          ? 0.0
+          : fleet.fold<double>(0, (sum, ac) => sum + ac.condition) /
+                fleet.length;
+      final groundedAircraft = fleet
+          .where(
+            (ac) =>
+                ac.isGrounded ||
+                ac.status == AircraftStatus.maintenance ||
+                ac.status == AircraftStatus.crashed,
+          )
+          .length;
+      final snapshots = airline.dailyStats.length <= 30
+          ? airline.dailyStats
+          : airline.dailyStats.sublist(airline.dailyStats.length - 30);
+      final thirtyDayProfit = snapshots.fold<double>(
+        0,
+        (sum, day) => sum + day.profit,
+      );
+      final thirtyDayRevenue = snapshots.fold<double>(
+        0,
+        (sum, day) => sum + day.revenue,
+      );
+      final thirtyDayCosts = snapshots.fold<double>(
+        0,
+        (sum, day) => sum + day.costs,
+      );
+      final dailyPassengers = latestSnapshot?.passengers ?? 0;
+      final topRoutes = [...routes]
+        ..sort((a, b) => b.dailyProfit.compareTo(a.dailyProfit));
       final playerStake = airline.isPlayer
           ? 100.0
           : widget.game.playerStakeIn(airline.id);
@@ -4066,11 +4128,19 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                 ),
                 const SizedBox(height: 12),
                 _InfoRow('Cash', money(airline.cashUSD, widget.currency)),
+                _InfoRow('Debt', money(airline.totalDebt, widget.currency)),
                 _InfoRow(
-                  'Last profit',
-                  money(airline.lastDailyProfit, widget.currency),
+                  'Daily profit/loss',
+                  money(dailyProfit, widget.currency),
                 ),
+                _InfoRow('Daily revenue', money(dailyRevenue, widget.currency)),
+                _InfoRow('Daily costs', money(dailyCosts, widget.currency)),
+                _InfoRow('Profit margin', '${margin.toStringAsFixed(1)}%'),
                 _InfoRow('Company value', money(companyValue, widget.currency)),
+                _InfoRow(
+                  'Price per 1%',
+                  money(companyValue / 100, widget.currency),
+                ),
                 _InfoRow(
                   'Market share',
                   '${airline.marketSharePercent.toStringAsFixed(1)}%',
@@ -4088,8 +4158,79 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                 _InfoRow('Fleet', '${fleet.length} aircraft'),
                 _InfoRow(
                   'Routes',
-                  '${routes.length} routes · $profitableRoutes profitable',
+                  '${activeRoutes.length} active · $profitableRoutes profitable',
                 ),
+                _InfoRow(
+                  'Average condition',
+                  '${averageCondition.toStringAsFixed(1)}%',
+                ),
+                _InfoRow(
+                  'Load factor',
+                  '${(averageLoadFactor * 100).toStringAsFixed(1)}%',
+                ),
+                _InfoRow('Grounded', groundedAircraft.toString()),
+                _InfoRow('Daily passengers', _formatCount(dailyPassengers)),
+                _InfoRow(
+                  'All-time passengers',
+                  _formatCount(airline.totalPassengersAllTime),
+                ),
+              ],
+            ),
+          ),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Public valuation',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                _InfoRow(
+                  '30-day revenue',
+                  money(thirtyDayRevenue, widget.currency),
+                ),
+                _InfoRow(
+                  '30-day costs',
+                  money(thirtyDayCosts, widget.currency),
+                ),
+                _InfoRow('30-day net', money(thirtyDayProfit, widget.currency)),
+              ],
+            ),
+          ),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Route performance',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$profitableRoutes profitable · $losingRoutes losing',
+                  style: const TextStyle(color: Color(0xff8b95a8)),
+                ),
+                const SizedBox(height: 10),
+                if (topRoutes.isEmpty)
+                  const _EmptyState('No active route data available.')
+                else
+                  ...topRoutes.take(4).map((route) {
+                    final origin = widget.game.airportByIata(route.originIata);
+                    final dest = widget.game.airportByIata(
+                      route.destinationIata,
+                    );
+                    final label = origin != null && dest != null
+                        ? '${origin.city} -> ${dest.city}'
+                        : '${route.originIata} -> ${route.destinationIata}';
+                    return _FinanceRouteRow(
+                      label: label,
+                      detail:
+                          '${route.originIata} -> ${route.destinationIata} · ${(route.loadFactorEconomy * 100).round()}% LF',
+                      value: '${money(route.dailyProfit, widget.currency)}/day',
+                      positive: route.dailyProfit >= 0,
+                    );
+                  }),
               ],
             ),
           ),
