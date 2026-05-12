@@ -133,6 +133,49 @@ class CurrencyOption {
   final double rateFromUsd;
 }
 
+class NewsArticle {
+  const NewsArticle({
+    required this.id,
+    required this.headline,
+    required this.subheadline,
+    required this.paragraphs,
+    required this.severity,
+    required this.gameDay,
+    this.actionAircraftId,
+    this.actionMaintenanceCost,
+  });
+  final String id;
+  final String headline;
+  final String subheadline;
+  final List<String> paragraphs;
+  final String severity;
+  final int gameDay;
+  final String? actionAircraftId;
+  final int? actionMaintenanceCost;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'headline': headline,
+    'subheadline': subheadline,
+    'paragraphs': paragraphs,
+    'severity': severity,
+    'gameDay': gameDay,
+    'actionAircraftId': actionAircraftId,
+    'actionMaintenanceCost': actionMaintenanceCost,
+  };
+
+  factory NewsArticle.fromJson(Map<String, Object?> json) => NewsArticle(
+    id: json['id'] as String,
+    headline: json['headline'] as String? ?? 'Airline Herald',
+    subheadline: json['subheadline'] as String? ?? '',
+    paragraphs: List<String>.from(json['paragraphs'] as List? ?? const []),
+    severity: json['severity'] as String? ?? 'news',
+    gameDay: (json['gameDay'] as num?)?.round() ?? 0,
+    actionAircraftId: json['actionAircraftId'] as String?,
+    actionMaintenanceCost: (json['actionMaintenanceCost'] as num?)?.round(),
+  );
+}
+
 class Aircraft {
   const Aircraft({
     required this.id,

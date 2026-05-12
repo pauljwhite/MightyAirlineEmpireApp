@@ -189,6 +189,8 @@ class GameController extends ChangeNotifier {
   final routes = <String, RoutePlan>{};
   final airportDailyPax = <String, double>{};
   final newsTicker = <String>[];
+  final newsArticles = <String, NewsArticle>{};
+  String? latestArticleId;
   int _nextAircraft = 1;
   int _nextRoute = 1;
   int _nextLoan = 1;
@@ -239,6 +241,8 @@ class GameController extends ChangeNotifier {
     routes.clear();
     airportDailyPax.clear();
     newsTicker.clear();
+    newsArticles.clear();
+    latestArticleId = null;
     _nextAircraft = 1;
     _nextRoute = 1;
     _nextLoan = 1;
@@ -522,6 +526,82 @@ class GameController extends ChangeNotifier {
     return routes[routeId]!;
   }
 
+  NewsArticle? get latestArticle =>
+      latestArticleId == null ? null : newsArticles[latestArticleId];
+
+  NewsArticle triggerAircraftIncident(String aircraftId, {bool ground = true}) {
+    final ac = aircraft[aircraftId];
+    if (ac == null) throw StateError('Aircraft not found');
+    final type = aircraftTypesById[ac.typeId];
+    final airline = airlines[ac.airlineId] ?? player;
+    final route = ac.assignedRouteId == null
+        ? null
+        : routes[ac.assignedRouteId!];
+    final airport = route == null
+        ? airportsByIata[airline.hubIatas.firstOrNull ?? 'LHR']
+        : airportsByIata[route.originIata];
+    final routeLabel = route == null
+        ? 'unassigned services'
+        : '${route.originIata}-${route.destinationIata}';
+    final conditionDelta = ground ? 14.0 : 6.0;
+    final nextCondition = math.max(0.0, ac.condition - conditionDelta);
+    final reason = ground
+        ? 'Technical incident at ${airport?.iata ?? 'base'}'
+        : null;
+    aircraft[aircraftId] = ac.copyWith(
+      condition: nextCondition,
+      isGrounded: ground,
+      groundedReason: reason,
+      status: ground ? AircraftStatus.idle : ac.status,
+    );
+    final maintenanceCost = maintenanceCostForIncident(aircraftId);
+    final article = NewsArticle(
+      id: 'article-$gameDay-${newsArticles.length + 1}',
+      headline: ground
+          ? '${airline.name} aircraft grounded'
+          : '${airline.name} aircraft technical fault',
+      subheadline:
+          '${ac.name} reported a technical issue at ${airport?.city ?? 'base'}',
+      paragraphs: [
+        '${airline.name} ${type?.model ?? ac.typeId} ${ac.name} reported a technical issue while operating $routeLabel.',
+        ground
+            ? 'The aircraft has been withdrawn from service pending maintenance. Passengers on affected services may face disruption until the aircraft is cleared.'
+            : 'The issue was resolved without grounding, but engineers have logged additional maintenance work.',
+        'Operations control can send the aircraft to maintenance from the fleet panel. The estimated standard maintenance cost is ${maintenanceCost.round()} USD.',
+      ],
+      severity: ground ? 'grounding' : 'technical',
+      gameDay: gameDay,
+      actionAircraftId: aircraftId,
+      actionMaintenanceCost: maintenanceCost.round(),
+    );
+    newsArticles[article.id] = article;
+    latestArticleId = article.id;
+    newsTicker.add(
+      '!! ${article.headline}: ${article.subheadline} · Read the article',
+    );
+    if (newsTicker.length > 20)
+      newsTicker.removeRange(0, newsTicker.length - 20);
+    notifyListeners();
+    return article;
+  }
+
+  int maintenanceCostForIncident(String aircraftId) =>
+      maintenanceCost(aircraftId, MaintenanceTier.standard);
+
+  void _maybeRunRandomFleetEvent() {
+    if (gameDay == 0 || gameDay % 9 != 0) return;
+    final candidates = playerFleet
+        .where(
+          (ac) =>
+              ac.status != AircraftStatus.maintenance &&
+              ac.status != AircraftStatus.crashed,
+        )
+        .toList();
+    if (candidates.isEmpty) return;
+    final index = (gameDay + candidates.length) % candidates.length;
+    triggerAircraftIncident(candidates[index].id, ground: true);
+  }
+
   int maintenanceCost(String aircraftId, MaintenanceTier tier) {
     final ac = aircraft[aircraftId];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
@@ -741,6 +821,7 @@ class GameController extends ChangeNotifier {
       ..clear()
       ..addAll(nextAirportPax);
     gameDay += 1;
+    _maybeRunRandomFleetEvent();
     final playerSnapshot =
         snapshots['player'] ??
         DailySnapshot(
@@ -898,6 +979,10 @@ class GameController extends ChangeNotifier {
     'routes': routes.map((key, value) => MapEntry(key, value.toJson())),
     'airportDailyPax': airportDailyPax,
     'newsTicker': newsTicker,
+    'newsArticles': newsArticles.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
+    'latestArticleId': latestArticleId,
     'nextAircraft': _nextAircraft,
     'nextRoute': _nextRoute,
     'nextLoan': _nextLoan,
@@ -955,6 +1040,17 @@ class GameController extends ChangeNotifier {
     newsTicker
       ..clear()
       ..addAll(List<String>.from(raw['newsTicker'] as List? ?? const []));
+    newsArticles
+      ..clear()
+      ..addAll(
+        (raw['newsArticles'] as Map? ?? const {}).map(
+          (key, value) => MapEntry(
+            key as String,
+            NewsArticle.fromJson(Map<String, Object?>.from(value as Map)),
+          ),
+        ),
+      );
+    latestArticleId = raw['latestArticleId'] as String?;
     _nextAircraft =
         (raw['nextAircraft'] as num?)?.round() ?? aircraft.length + 1;
     _nextRoute = (raw['nextRoute'] as num?)?.round() ?? routes.length + 1;

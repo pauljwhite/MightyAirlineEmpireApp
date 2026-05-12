@@ -170,4 +170,26 @@ void main() {
     expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
     expect(game.aircraft[aircraftId]!.maintenanceHoursOwed, 0);
   });
+
+  test('fleet incidents create persisted herald articles', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+
+    final article = game.triggerAircraftIncident(aircraftId);
+    expect(game.latestArticleId, article.id);
+    expect(game.newsArticles[article.id], isNotNull);
+    expect(game.newsTicker.last, contains('Read the article'));
+    expect(game.aircraft[aircraftId]!.isGrounded, isTrue);
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.latestArticleId, article.id);
+    expect(restored.newsArticles[article.id]?.headline, article.headline);
+  });
 }

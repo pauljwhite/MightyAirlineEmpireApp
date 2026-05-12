@@ -1582,33 +1582,107 @@ class _Ticker extends StatelessWidget {
         ? 'Native Flutter parity port underway'
         : game.newsTicker.last;
     final speed = game.speed == 0 ? 1 : (game.speed / 300).round();
-    return Container(
-      height: 42,
-      color: const Color(0xff050915),
-      alignment: Alignment.centerLeft,
-      child: TweenAnimationBuilder<double>(
-        key: ValueKey(text + speed.toString()),
-        tween: Tween(begin: 1, end: -1),
-        duration: Duration(
-          seconds: speed <= 1
-              ? 24
-              : speed == 3
-              ? 16
-              : 10,
-        ),
-        builder: (context, value, child) =>
-            FractionalTranslation(translation: Offset(value, 0), child: child),
-        child: Text(
-          '  $text',
-          maxLines: 1,
-          style: const TextStyle(
-            color: Color(0xffc7d2e5),
-            fontWeight: FontWeight.w700,
+    final article = game.latestArticle;
+    return InkWell(
+      onTap: article == null
+          ? null
+          : () => _showHeraldArticle(context, game, article),
+      child: Container(
+        height: 42,
+        color: const Color(0xff050915),
+        alignment: Alignment.centerLeft,
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(text + speed.toString()),
+          tween: Tween(begin: 1, end: -1),
+          duration: Duration(
+            seconds: speed <= 1
+                ? 24
+                : speed == 3
+                ? 16
+                : 10,
+          ),
+          builder: (context, value, child) => FractionalTranslation(
+            translation: Offset(value, 0),
+            child: child,
+          ),
+          child: Text(
+            '  $text',
+            maxLines: 1,
+            style: TextStyle(
+              color: article == null
+                  ? const Color(0xffc7d2e5)
+                  : const Color(0xffffd166),
+              fontWeight: FontWeight.w700,
+              decoration: article == null
+                  ? TextDecoration.none
+                  : TextDecoration.underline,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+void _showHeraldArticle(
+  BuildContext context,
+  GameController game,
+  NewsArticle article,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(article.headline),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                article.subheadline,
+                style: const TextStyle(
+                  color: Color(0xff9aa4b5),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...article.paragraphs.map(
+                (paragraph) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(paragraph),
+                ),
+              ),
+              if (article.actionAircraftId != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      game.startMaintenance(
+                        article.actionAircraftId!,
+                        MaintenanceTier.standard,
+                      );
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.build),
+                    label: Text(
+                      'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
 }
 
 extension _LastOrNull<T> on List<T> {
