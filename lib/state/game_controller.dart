@@ -706,6 +706,29 @@ class GameController extends ChangeNotifier {
     return value;
   }
 
+  bool deleteRoute(String routeId) {
+    final route = routes[routeId];
+    if (route == null || route.airlineId != 'player') return false;
+    if (route.aircraftId != null) {
+      final ac = aircraft[route.aircraftId!];
+      if (ac != null) {
+        aircraft[ac.id] = ac.copyWith(
+          clearAssignedRoute: true,
+          status: AircraftStatus.idle,
+        );
+      }
+    }
+    routes.remove(routeId);
+    airlines['player'] = player.copyWith(
+      routeIds: player.routeIds.where((id) => id != routeId).toList(),
+    );
+    newsTicker.add(
+      '${route.originIata}-${route.destinationIata} route deleted.',
+    );
+    notifyListeners();
+    return true;
+  }
+
   RoutePlan createRoute({
     required String originIata,
     required String destinationIata,

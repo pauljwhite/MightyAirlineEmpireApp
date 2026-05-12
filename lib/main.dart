@@ -1709,6 +1709,18 @@ class _RouteCard extends StatelessWidget {
                 icon: const Icon(Icons.skip_next),
                 label: const Text('Run day'),
               ),
+              OutlinedButton.icon(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => _RouteEditDialog(
+                    game: game,
+                    route: route,
+                    currency: currency,
+                  ),
+                ),
+                icon: const Icon(Icons.tune),
+                label: const Text('Details'),
+              ),
             ],
           ),
         ],
@@ -2926,6 +2938,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
   );
   var buyManufacturer = 'All';
   String? aircraftError;
+  var confirmDelete = false;
 
   @override
   void dispose() {
@@ -3189,6 +3202,33 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  if (!confirmDelete) {
+                    setState(() => confirmDelete = true);
+                    return;
+                  }
+                  widget.game.deleteRoute(route.id);
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text(
+                  confirmDelete ? 'Confirm delete route' : 'Delete route',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xffff6b6b),
+                ),
+              ),
+              if (confirmDelete)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'This removes the route and returns its aircraft to idle.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xffffb4b4)),
+                  ),
+                ),
             ],
           ),
         ),

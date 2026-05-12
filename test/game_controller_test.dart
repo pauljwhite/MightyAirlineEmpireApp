@@ -401,6 +401,26 @@ void main() {
     },
   );
 
+  test('deleting a route removes it and returns aircraft to idle', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+
+    expect(game.deleteRoute(route.id), isTrue);
+
+    expect(game.routes[route.id], isNull);
+    expect(game.player.routeIds, isNot(contains(route.id)));
+    expect(game.aircraft[aircraftId]!.assignedRouteId, isNull);
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
+    expect(game.deleteRoute(route.id), isFalse);
+  });
+
   test('aircraft can enter and complete maintenance', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;
