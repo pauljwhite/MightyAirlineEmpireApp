@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'core/airport_search.dart';
 import 'core/constants.dart';
@@ -528,6 +530,57 @@ const _airlineLogoOptions = [
 bool _isImageLogo(String? logo) =>
     logo != null && logo.trim().startsWith('data:image/');
 
+({String mimeType, Uint8List bytes})? _decodeImageLogo(String value) {
+  final comma = value.indexOf(',');
+  if (comma < 0) return null;
+  final header = value.substring(5, comma).toLowerCase();
+  final payload = value.substring(comma + 1);
+  final mimeType = header.split(';').first;
+  try {
+    final bytes = header.contains(';base64')
+        ? base64Decode(payload)
+        : Uint8List.fromList(utf8.encode(Uri.decodeFull(payload)));
+    return (mimeType: mimeType, bytes: bytes);
+  } catch (_) {
+    return null;
+  }
+}
+
+String _mimeTypeForLogoFile(String name) {
+  final extension = name.split('.').last.toLowerCase();
+  return switch (extension) {
+    'svg' => 'image/svg+xml',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    _ => 'image/png',
+  };
+}
+
+Future<String?> _pickAirlineLogoImage() async {
+  final file = await openFile(
+    acceptedTypeGroups: const [
+      XTypeGroup(
+        label: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'],
+        mimeTypes: [
+          'image/png',
+          'image/jpeg',
+          'image/webp',
+          'image/gif',
+          'image/svg+xml',
+        ],
+      ),
+    ],
+  );
+  if (file == null) return null;
+  final bytes = await file.readAsBytes();
+  if (bytes.lengthInBytes > 1500000) {
+    throw StateError('Logo image must be smaller than 1.5 MB.');
+  }
+  return 'data:${_mimeTypeForLogoFile(file.name)};base64,${base64Encode(bytes)}';
+}
+
 class _AirlineLogo extends StatelessWidget {
   const _AirlineLogo({required this.logo, this.size = 28});
 
@@ -538,24 +591,30 @@ class _AirlineLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = logo?.trim();
     if (_isImageLogo(value)) {
-      final comma = value!.indexOf(',');
-      if (comma > -1) {
-        try {
-          final bytes = base64Decode(value.substring(comma + 1));
+      final decoded = _decodeImageLogo(value!);
+      if (decoded != null) {
+        if (decoded.mimeType == 'image/svg+xml') {
           return ClipRRect(
             borderRadius: BorderRadius.circular(size / 4),
-            child: Image.memory(
-              bytes,
+            child: SvgPicture.memory(
+              decoded.bytes,
               width: size,
               height: size,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  _TextLogo(value: '✈️', size: size),
             ),
           );
-        } catch (_) {
-          return _TextLogo(value: '✈️', size: size);
         }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(size / 4),
+          child: Image.memory(
+            decoded.bytes,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _TextLogo(value: '✈️', size: size),
+          ),
+        );
       }
     }
     return _TextLogo(
@@ -587,10 +646,15 @@ class _TextLogo extends StatelessWidget {
 }
 
 class _LogoPicker extends StatelessWidget {
-  const _LogoPicker({required this.value, required this.onChanged});
+  const _LogoPicker({
+    required this.value,
+    required this.onChanged,
+    required this.onUploadLogo,
+  });
 
   final String value;
   final ValueChanged<String> onChanged;
+  final Future<void> Function() onUploadLogo;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -625,6 +689,12 @@ class _LogoPicker extends StatelessWidget {
               ),
             )
             .toList(),
+      ),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: onUploadLogo,
+        icon: const Icon(Icons.upload_file),
+        label: const Text('Upload logo'),
       ),
       const SizedBox(height: 8),
       Text(
@@ -886,6 +956,17 @@ void _showRebrandDialog(
                       logoController.text = value;
                       setState(() => error = null);
                     },
+                    onUploadLogo: () async {
+                      try {
+                        final uploaded = await _pickAirlineLogoImage();
+                        if (!context.mounted || uploaded == null) return;
+                        logoController.text = uploaded;
+                        setState(() => error = null);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        setState(() => error = e.toString());
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -992,6 +1073,7 @@ void _showNewGameDialog(
     (option) => option.code == game.settings.currency,
     orElse: () => currentCurrency,
   );
+  String? error;
   final startingCashByDifficulty = {
     Difficulty.easy: 50000000.0,
     Difficulty.normal: 30000000.0,
@@ -1048,7 +1130,26 @@ void _showNewGameDialog(
                       emojiController.text = value;
                       setState(() {});
                     },
+                    onUploadLogo: () async {
+                      try {
+                        final uploaded = await _pickAirlineLogoImage();
+                        if (!context.mounted || uploaded == null) return;
+                        emojiController.text = uploaded;
+                        setState(() => error = null);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        setState(() => error = e.toString());
+                      }
+                    },
                   ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xffff6b6b)),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<Difficulty>(
                     initialValue: difficulty,
