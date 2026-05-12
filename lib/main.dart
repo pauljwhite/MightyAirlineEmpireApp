@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -25,6 +27,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   Airport? selectedAirport = airportsByIata['LHR'];
   var panel = _Panel.routes;
   var mobileSearchOpen = false;
+  var showAiOnMap = true;
 
   @override
   void initState() {
@@ -76,6 +79,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                       Positioned.fill(
                         child: _WorldMap(
                           game: game,
+                          showAiOnMap: showAiOnMap,
                           selectedAirport: selectedAirport,
                           onAirportSelected: (a) =>
                               setState(() => selectedAirport = a),
@@ -99,6 +103,15 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                             selectedAirport = a;
                             mobileSearchOpen = false;
                           }),
+                        ),
+                      ),
+                      Positioned(
+                        top: compact ? 112 : 92,
+                        left: 12,
+                        child: _MapToggle(
+                          showAi: showAiOnMap,
+                          onChanged: (value) =>
+                              setState(() => showAiOnMap = value),
                         ),
                       ),
                       AnimatedPositioned(
@@ -470,13 +483,42 @@ class _SearchBox extends StatelessWidget {
   );
 }
 
+class _MapToggle extends StatelessWidget {
+  const _MapToggle({required this.showAi, required this.onChanged});
+  final bool showAi;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: const Color(0xee0b1020),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xff263247)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Show AI on map',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Switch(value: showAi, onChanged: onChanged),
+        ],
+      ),
+    ),
+  );
+}
+
 class _WorldMap extends StatelessWidget {
   const _WorldMap({
     required this.game,
+    required this.showAiOnMap,
     required this.selectedAirport,
     required this.onAirportSelected,
   });
   final GameController game;
+  final bool showAiOnMap;
   final Airport? selectedAirport;
   final ValueChanged<Airport> onAirportSelected;
   @override
@@ -488,7 +530,11 @@ class _WorldMap extends StatelessWidget {
       if (airport != null) onAirportSelected(airport);
     },
     child: CustomPaint(
-      painter: _MapPainter(game: game, selectedAirport: selectedAirport),
+      painter: _MapPainter(
+        game: game,
+        showAiOnMap: showAiOnMap,
+        selectedAirport: selectedAirport,
+      ),
       child: const SizedBox.expand(),
     ),
   );
@@ -513,8 +559,13 @@ Offset _airportPoint(Airport a, Size size) => Offset(
 );
 
 class _MapPainter extends CustomPainter {
-  const _MapPainter({required this.game, required this.selectedAirport});
+  const _MapPainter({
+    required this.game,
+    required this.showAiOnMap,
+    required this.selectedAirport,
+  });
   final GameController game;
+  final bool showAiOnMap;
   final Airport? selectedAirport;
   @override
   void paint(Canvas canvas, Size size) {
@@ -537,7 +588,12 @@ class _MapPainter extends CustomPainter {
       ..color = const Color(0xff2f8cff).withValues(alpha: 0.45)
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
-    for (final route in game.routes.values) {
+    final drawableRoutes = game.routes.values.where((route) {
+      if (!route.isActive || route.aircraftId == null) return false;
+      if (showAiOnMap) return true;
+      return game.airlines[route.airlineId]?.isPlayer == true;
+    }).toList();
+    for (final route in drawableRoutes) {
       final origin = airportsByIata[route.originIata];
       final dest = airportsByIata[route.destinationIata];
       if (origin == null || dest == null) continue;
@@ -545,12 +601,20 @@ class _MapPainter extends CustomPainter {
       final end = _airportPoint(dest, size);
       final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
       final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..quadraticBezierTo(mid.dx, mid.dy - lift, end.dx, end.dy);
+      final airline = game.airlines[route.airlineId];
       canvas.drawPath(
-        Path()
-          ..moveTo(start.dx, start.dy)
-          ..quadraticBezierTo(mid.dx, mid.dy - lift, end.dx, end.dy),
-        routePaint,
+        path,
+        routePaint
+          ..color = _colorFromHex(
+            airline?.color ?? '#2f8cff',
+          ).withValues(alpha: airline?.isPlayer == true ? 0.62 : 0.32),
       );
+    }
+    for (final route in drawableRoutes) {
+      _drawPlane(canvas, size, route);
     }
     for (final a in airports) {
       final r = switch (a.size) {
@@ -569,6 +633,86 @@ class _MapPainter extends CustomPainter {
               : const Color(0xff58a6ff),
       );
     }
+  }
+
+  void _drawPlane(Canvas canvas, Size size, RoutePlan route) {
+    final ac = game.aircraft[route.aircraftId];
+    if (ac == null ||
+        ac.isGrounded ||
+        ac.status == AircraftStatus.maintenance ||
+        ac.status == AircraftStatus.crashed)
+      return;
+    final origin = airportsByIata[route.originIata];
+    final dest = airportsByIata[route.destinationIata];
+    if (origin == null || dest == null) return;
+    final start = _airportPoint(origin, size);
+    final end = _airportPoint(dest, size);
+    final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+    final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
+    final control = Offset(mid.dx, mid.dy - lift);
+    final progressSeed = _routeSeed(route.id) / 997.0;
+    final cycle =
+        (game.gameDay * math.max(1, route.flightsPerWeek) * 0.071 +
+            progressSeed) %
+        2.0;
+    final t = cycle <= 1 ? cycle : 2 - cycle;
+    final from = cycle <= 1 ? start : end;
+    final to = cycle <= 1 ? end : start;
+    final controlPoint = cycle <= 1 ? control : control;
+    final point = _quadraticPoint(from, controlPoint, to, t);
+    final tangent = _quadraticTangent(from, controlPoint, to, t);
+    final angle = math.atan2(tangent.dy, tangent.dx);
+    final airline = game.airlines[route.airlineId];
+    final color = _colorFromHex(airline?.color ?? '#ffffff');
+    final type = aircraftTypesById[ac.typeId];
+    final sizePx = switch (type?.category) {
+      AircraftCategory.regional => 8.0,
+      AircraftCategory.narrowbody => 10.0,
+      AircraftCategory.widebody => 13.0,
+      AircraftCategory.sst => 12.0,
+      null => 10.0,
+    };
+    canvas.save();
+    canvas.translate(point.dx, point.dy);
+    canvas.rotate(angle);
+    final paint = Paint()..color = color;
+    final outline = Paint()
+      ..color = const Color(0xff050915)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final plane = Path()
+      ..moveTo(sizePx, 0)
+      ..lineTo(-sizePx * 0.75, -sizePx * 0.45)
+      ..lineTo(-sizePx * 0.35, 0)
+      ..lineTo(-sizePx * 0.75, sizePx * 0.45)
+      ..close();
+    canvas.drawPath(plane, outline);
+    canvas.drawPath(plane, paint);
+    canvas.restore();
+  }
+
+  int _routeSeed(String value) =>
+      value.codeUnits.fold(0, (sum, unit) => (sum + unit * 31) % 997);
+
+  Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
+    final u = 1 - t;
+    return Offset(
+      u * u * a.dx + 2 * u * t * b.dx + t * t * c.dx,
+      u * u * a.dy + 2 * u * t * b.dy + t * t * c.dy,
+    );
+  }
+
+  Offset _quadraticTangent(Offset a, Offset b, Offset c, double t) => Offset(
+    2 * (1 - t) * (b.dx - a.dx) + 2 * t * (c.dx - b.dx),
+    2 * (1 - t) * (b.dy - a.dy) + 2 * t * (c.dy - b.dy),
+  );
+
+  Color _colorFromHex(String hex) {
+    final clean = hex.replaceFirst('#', '');
+    final value =
+        int.tryParse(clean.length == 6 ? 'ff$clean' : clean, radix: 16) ??
+        0xffffffff;
+    return Color(value);
   }
 
   @override
