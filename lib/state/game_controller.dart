@@ -522,6 +522,73 @@ class GameController extends ChangeNotifier {
     return routes[routeId]!;
   }
 
+  int maintenanceCost(String aircraftId, MaintenanceTier tier) {
+    final ac = aircraft[aircraftId];
+    final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    if (ac == null || type == null) return 0;
+    return computeMaintenanceCost(
+      tier,
+      ac.maintenanceHoursOwed,
+      type.maintenanceCostPerHourUSD,
+      ageMultiplier: getMaintenanceAgeMultiplier(ac, gameDay),
+    );
+  }
+
+  void startMaintenance(String aircraftId, MaintenanceTier tier) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player')
+      throw StateError('Aircraft not found');
+    if (ac.status == AircraftStatus.maintenance) return;
+    final cost = maintenanceCost(aircraftId, tier);
+    if (player.cashUSD < cost)
+      throw StateError('Not enough cash for maintenance');
+    aircraft[aircraftId] = ac.copyWith(
+      status: AircraftStatus.maintenance,
+      isGrounded: true,
+      lastMaintenanceGameDay: gameDay,
+      activeMaintTier: tier,
+    );
+    airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    newsTicker.add('${ac.name} entered ${tier.name} maintenance.');
+    notifyListeners();
+  }
+
+  void completeMaintenance(String aircraftId) {
+    final ac = aircraft[aircraftId];
+    if (ac == null) return;
+    final tier = ac.activeMaintTier ?? MaintenanceTier.standard;
+    final cfg = maintenanceTiers[tier]!;
+    final condition = tier == MaintenanceTier.full
+        ? 100.0
+        : math.min(100.0, ac.condition + cfg.conditionGain);
+    aircraft[aircraftId] = ac.copyWith(
+      status: AircraftStatus.idle,
+      isGrounded: condition < 20,
+      groundedReason: condition < 20
+          ? 'Critical condition - requires maintenance'
+          : null,
+      condition: condition,
+      maintenanceHoursOwed: 0,
+      lastMaintenanceGameDay: gameDay,
+    );
+    newsTicker.add('${ac.name} returned from maintenance.');
+    notifyListeners();
+  }
+
+  void _completeDueMaintenance(String airlineId) {
+    final airline = airlines[airlineId];
+    if (airline == null) return;
+    for (final aircraftId in airline.fleetIds) {
+      final ac = aircraft[aircraftId];
+      if (ac == null || ac.status != AircraftStatus.maintenance) continue;
+      final tier = ac.activeMaintTier ?? MaintenanceTier.standard;
+      final duration = maintenanceTiers[tier]?.durationDays ?? 2;
+      if (gameDay - ac.lastMaintenanceGameDay >= duration) {
+        completeMaintenance(aircraftId);
+      }
+    }
+  }
+
   void updateRouteSettings(
     String routeId, {
     int? flightsPerWeek,
@@ -593,6 +660,8 @@ class GameController extends ChangeNotifier {
       var totalRevenue = 0.0;
       var totalCost = 0.0;
       var totalPassengers = 0;
+
+      _completeDueMaintenance(airlineId);
 
       for (final routeId in airline.routeIds) {
         final route = routes[routeId];

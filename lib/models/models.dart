@@ -191,6 +191,7 @@ class Aircraft {
     bool? isGrounded,
     String? groundedReason,
     int? lastMaintenanceGameDay,
+    MaintenanceTier? activeMaintTier,
   }) => Aircraft(
     id: id,
     typeId: typeId,
@@ -210,7 +211,7 @@ class Aircraft {
     currentLat: currentLat,
     currentLon: currentLon,
     flightProgress: flightProgress,
-    activeMaintTier: activeMaintTier,
+    activeMaintTier: activeMaintTier ?? this.activeMaintTier,
     autoMaintenanceEnabled: autoMaintenanceEnabled,
     autoMaintenanceThreshold: autoMaintenanceThreshold,
     autoMaintenanceTier: autoMaintenanceTier,

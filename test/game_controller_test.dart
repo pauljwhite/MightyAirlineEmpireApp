@@ -3,6 +3,7 @@ import 'package:mighty_airline_empire_app/data/aircraft_types.dart';
 import 'package:mighty_airline_empire_app/data/airports.dart';
 import 'package:mighty_airline_empire_app/engine/economics_engine.dart';
 import 'package:mighty_airline_empire_app/engine/finance.dart';
+import 'package:mighty_airline_empire_app/models/models.dart';
 import 'package:mighty_airline_empire_app/state/game_controller.dart';
 
 void main() {
@@ -143,5 +144,30 @@ void main() {
     expect(edited.priceEconomy, 1234);
     expect(edited.priceBusiness, 5678);
     expect(edited.isActive, isFalse);
+  });
+
+  test('aircraft can enter and complete maintenance', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+    game.runDailyTick();
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    game.updateRouteSettings(route.id, isActive: false);
+    final beforeCash = game.player.cashUSD;
+    final cost = game.maintenanceCost(aircraftId, MaintenanceTier.light);
+
+    game.startMaintenance(aircraftId, MaintenanceTier.light);
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.maintenance);
+    expect(game.player.cashUSD, beforeCash - cost);
+
+    game.runDailyTick();
+    game.runDailyTick();
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
+    expect(game.aircraft[aircraftId]!.maintenanceHoursOwed, 0);
   });
 }

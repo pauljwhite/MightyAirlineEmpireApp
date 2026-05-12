@@ -912,9 +912,37 @@ class _FleetView extends StatelessWidget {
                       : 'Route ${route.originIata} -> ${route.destinationIata}',
                 ),
                 Text(
-                  'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
+                  ac.status == AircraftStatus.maintenance
+                      ? 'In ${ac.activeMaintTier?.name ?? 'standard'} maintenance since day ${ac.lastMaintenanceGameDay}'
+                      : 'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
                   style: const TextStyle(color: Color(0xff9aa4b5)),
                 ),
+                const SizedBox(height: 10),
+                if (type != null)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: MaintenanceTier.values.map((tier) {
+                      final cost = game.maintenanceCost(ac.id, tier);
+                      return OutlinedButton(
+                        onPressed: ac.status == AircraftStatus.maintenance
+                            ? null
+                            : () => game.startMaintenance(ac.id, tier),
+                        child: Text(
+                          '${tier.name} · ${money(cost, currencyOptions.first)}',
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                if (ac.status == AircraftStatus.maintenance)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => game.completeMaintenance(ac.id),
+                      icon: const Icon(Icons.build_circle),
+                      label: const Text('Complete now'),
+                    ),
+                  ),
               ],
             ),
           );
