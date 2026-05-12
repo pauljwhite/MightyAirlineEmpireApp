@@ -1789,14 +1789,61 @@ class _AirportPanel extends StatelessWidget {
     final isPlayerHub = game.player.hubIatas.contains(airport.iata);
     final terminalCost = getHubTerminalUpgradeCost(airport);
     final loungeCost = getFirstClassLoungeUpgradeCost(airport);
+    final currentYear = game.settings.startingYear + game.gameDay ~/ 365;
+    final dailyPax = game.routes.values
+        .where(
+          (route) =>
+              route.isActive &&
+              (route.originIata == airport.iata ||
+                  route.destinationIata == airport.iata),
+        )
+        .fold<int>(0, (total, route) => total + route.dailyPassengers);
+    final capacity = getAirportCapacity(airport, currentYear);
+    final utilization = capacity <= 0 ? 0.0 : dailyPax / capacity;
+    final demandPct = (airportSaturationMod(utilization) * 100).round();
+    final utilizationPct = (utilization * 100).round();
     final destinations =
         game.airportList
             .where((a) => a.iata != airport.iata)
-            .map(
-              (a) => (airport: a, demand: baselineDailyPassengers(airport, a)),
-            )
+            .map((a) {
+              final demand = baselineDailyPassengers(airport, a);
+              final distanceKm = haversineKm(
+                airport.lat,
+                airport.lon,
+                a.lat,
+                a.lon,
+              );
+              final bestRoute = game.routes.values
+                  .where(
+                    (route) =>
+                        route.isActive &&
+                        ((route.originIata == airport.iata &&
+                                route.destinationIata == a.iata) ||
+                            (route.originIata == a.iata &&
+                                route.destinationIata == airport.iata)),
+                  )
+                  .fold<RoutePlan?>(
+                    null,
+                    (best, route) =>
+                        best == null || route.dailyProfit > best.dailyProfit
+                        ? route
+                        : best,
+                  );
+              final distanceYield =
+                  150 + math.sqrt(math.max(250, distanceKm)) * 18;
+              final potentialValue = demand * distanceYield;
+              return (
+                airport: a,
+                demand: demand,
+                distanceKm: distanceKm,
+                bestRoute: bestRoute,
+                potentialValue: potentialValue,
+                score: bestRoute?.dailyProfit ?? potentialValue,
+              );
+            })
+            .where((item) => item.demand >= 1)
             .toList()
-          ..sort((a, b) => b.demand.compareTo(a.demand));
+          ..sort((a, b) => b.score.compareTo(a.score));
     return _PanelShell(
       child: Column(
         children: [
@@ -1859,6 +1906,20 @@ class _AirportPanel extends StatelessWidget {
                       ? 'Unknown'
                       : '${airport.longestRunwayM} m',
                 ),
+                const SizedBox(height: 14),
+                _AirportMetricBar(
+                  label: 'Demand strength',
+                  percent: demandPct,
+                  color: const Color(0xff2bd46f),
+                ),
+                const SizedBox(height: 14),
+                _AirportMetricBar(
+                  label: 'Airport utilisation',
+                  percent: utilizationPct,
+                  color: utilizationPct > 100
+                      ? const Color(0xffff6b6b)
+                      : const Color(0xff2bd46f),
+                ),
                 if (isPlayerHub) ...[
                   const SizedBox(height: 12),
                   _Card(
@@ -1915,23 +1976,40 @@ class _AirportPanel extends StatelessWidget {
                     'Passenger destinations',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  children: destinations
-                      .take(15)
-                      .map(
-                        (item) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            '${item.airport.iata} · ${item.airport.city}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            '${item.demand.round()} pax/d · ${item.airport.size.name}',
-                          ),
-                          trailing: const Icon(Icons.add_road),
-                          onTap: () => onCreateRoute(airport, item.airport),
-                        ),
-                      )
-                      .toList(),
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 620 ? 2 : 1;
+                        final width =
+                            (constraints.maxWidth - (columns - 1) * 10) /
+                            columns;
+                        return Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: destinations
+                              .take(15)
+                              .map(
+                                (item) => SizedBox(
+                                  width: width,
+                                  child: _AirportDestinationCard(
+                                    airport: item.airport,
+                                    demand: item.demand,
+                                    distanceKm: item.distanceKm,
+                                    value:
+                                        item.bestRoute?.dailyProfit ??
+                                        item.potentialValue,
+                                    isLiveRoute: item.bestRoute != null,
+                                    currency: currency,
+                                    onTap: () =>
+                                        onCreateRoute(airport, item.airport),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1951,10 +2029,16 @@ class _AirportPanel extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: isPlayerHub
-                        ? null
+                        ? game.player.hubIatas.length <= 1
+                              ? null
+                              : () => game.removePlayerHub(airport.iata)
                         : () => game.setPlayerHub(airport.iata),
-                    icon: const Icon(Icons.apartment),
-                    label: Text(isPlayerHub ? 'Hub' : 'Set Hub'),
+                    icon: Icon(
+                      isPlayerHub
+                          ? Icons.remove_circle_outline
+                          : Icons.apartment,
+                    ),
+                    label: Text(isPlayerHub ? 'Remove Hub' : 'Set Hub'),
                   ),
                 ),
               ],
@@ -1965,6 +2049,139 @@ class _AirportPanel extends StatelessWidget {
     );
   }
 }
+
+class _AirportMetricBar extends StatelessWidget {
+  const _AirportMetricBar({
+    required this.label,
+    required this.percent,
+    required this.color,
+  });
+
+  final String label;
+  final int percent;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = percent.clamp(0, 160);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xff9aa4b5),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '$percent%',
+              style: TextStyle(color: color, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            minHeight: 9,
+            value: math.min(1, shown / 100),
+            color: color,
+            backgroundColor: const Color(0xff293244),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AirportDestinationCard extends StatelessWidget {
+  const _AirportDestinationCard({
+    required this.airport,
+    required this.demand,
+    required this.distanceKm,
+    required this.value,
+    required this.isLiveRoute,
+    required this.currency,
+    required this.onTap,
+  });
+
+  final Airport airport;
+  final double demand;
+  final double distanceKm;
+  final double value;
+  final bool isLiveRoute;
+  final CurrencyOption currency;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xff151b2b),
+    borderRadius: BorderRadius.circular(10),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    '${airport.iata} · ${airport.city}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${demand.round()} pax/d',
+                  style: const TextStyle(
+                    color: Color(0xff6ed4ff),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_distanceLabel(distanceKm)} · ${airport.size.name}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xff8b95a8)),
+                  ),
+                ),
+                Text(
+                  '${money(value, currency)}/d ${isLiveRoute ? 'live' : 'potential'}',
+                  style: const TextStyle(
+                    color: Color(0xff8b95a8),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+String _distanceLabel(double km) =>
+    km >= 1000 ? '${(km / 1000).toStringAsFixed(1)}k km' : '${km.round()} km';
 
 class _MainPanel extends StatelessWidget {
   const _MainPanel({
