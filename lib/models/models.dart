@@ -647,6 +647,9 @@ class Airline {
   final List<Loan> loans;
   final MaintenancePolicy maintenancePolicy;
   Airline copyWith({
+    String? name,
+    String? color,
+    String? logoEmoji,
     double? cashUSD,
     double? totalDebt,
     List<String>? hubIatas,
@@ -665,11 +668,11 @@ class Airline {
     MaintenancePolicy? maintenancePolicy,
   }) => Airline(
     id: id,
-    name: name,
+    name: name ?? this.name,
     iataPrefix: iataPrefix,
     isPlayer: isPlayer,
-    color: color,
-    logoEmoji: logoEmoji,
+    color: color ?? this.color,
+    logoEmoji: logoEmoji ?? this.logoEmoji,
     cashUSD: cashUSD ?? this.cashUSD,
     totalDebt: totalDebt ?? this.totalDebt,
     hubIatas: hubIatas ?? this.hubIatas,

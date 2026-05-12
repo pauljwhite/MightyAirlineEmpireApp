@@ -1228,6 +1228,57 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  double playerCompanyValue() => math.max(
+    5000000,
+    math.max(0, player.cashUSD) +
+        playerFleet
+            .where((ac) => ac.status != AircraftStatus.crashed)
+            .fold<double>(
+              0,
+              (sum, ac) => sum + computeAircraftValue(ac, gameDay),
+            ) +
+        playerRoutes
+            .where((route) => route.isActive && route.dailyProfit > 0)
+            .fold<double>(0, (sum, route) => sum + route.dailyProfit * 365 * 2),
+  );
+
+  double rebrandCost({String? name, String? color, String? logoEmoji}) {
+    final value = playerCompanyValue();
+    final nameChanged =
+        name != null && name.trim().isNotEmpty && name.trim() != player.name;
+    final colorChanged = color != null && color != player.color;
+    final logoChanged =
+        logoEmoji != null &&
+        logoEmoji.trim().isNotEmpty &&
+        logoEmoji.trim() != player.logoEmoji;
+    final baseCost = nameChanged && colorChanged
+        ? math.max(1200000, value * 0.05)
+        : nameChanged
+        ? math.max(1000000, value * 0.04)
+        : colorChanged
+        ? math.max(250000, value * 0.015)
+        : 0.0;
+    final logoCost = logoChanged ? math.max(500000, value * 0.02) : 0.0;
+    return (baseCost + logoCost).roundToDouble();
+  }
+
+  double rebrandAirline({String? name, String? color, String? logoEmoji}) {
+    final cost = rebrandCost(name: name, color: color, logoEmoji: logoEmoji);
+    if (cost <= 0) return 0;
+    if (player.cashUSD < cost) throw StateError('Not enough cash');
+    airlines['player'] = player.copyWith(
+      name: name == null || name.trim().isEmpty ? null : name.trim(),
+      color: color,
+      logoEmoji: logoEmoji == null || logoEmoji.trim().isEmpty
+          ? null
+          : logoEmoji.trim(),
+      cashUSD: player.cashUSD - cost,
+    );
+    newsTicker.add('AIRLINE: ${airlines['player']!.name} completed a rebrand.');
+    notifyListeners();
+    return cost;
+  }
+
   double buyShares(String targetAirlineId, double percent) {
     final target = airlines[targetAirlineId];
     if (target == null || target.isPlayer) {

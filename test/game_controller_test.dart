@@ -130,6 +130,33 @@ void main() {
     expect(game.settings.currency, 'EUR');
   });
 
+  test('player airline can be rebranded for a calculated cost', () {
+    final game = GameController();
+    final cashBefore = game.player.cashUSD;
+    final cost = game.rebrandCost(
+      name: 'Mighty Test Air',
+      color: '#14b8a6',
+      logoEmoji: 'MT',
+    );
+
+    final charged = game.rebrandAirline(
+      name: 'Mighty Test Air',
+      color: '#14b8a6',
+      logoEmoji: 'MT',
+    );
+
+    expect(charged, cost);
+    expect(game.player.name, 'Mighty Test Air');
+    expect(game.player.color, '#14b8a6');
+    expect(game.player.logoEmoji, 'MT');
+    expect(game.player.cashUSD, cashBefore - cost);
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.player.name, 'Mighty Test Air');
+    expect(restored.player.color, '#14b8a6');
+    expect(restored.player.logoEmoji, 'MT');
+  });
+
   test('hub upgrades charge cash, persist, and affect demand', () {
     final game = GameController();
     game.startNewGame(const GameSettings(startingCash: 2000000000));

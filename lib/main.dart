@@ -318,16 +318,197 @@ class _GameMenu extends StatelessWidget {
           _showExportDialog(context, game);
         case 'import':
           _showImportDialog(context, game, onCurrency);
+        case 'rebrand':
+          _showRebrandDialog(context, game, currency);
         case 'new':
           _showNewGameDialog(context, game, currency, onCurrency);
       }
     },
     itemBuilder: (context) => const [
+      PopupMenuItem(value: 'rebrand', child: Text('Rebrand airline')),
+      PopupMenuDivider(),
       PopupMenuItem(value: 'export', child: Text('Export progress')),
       PopupMenuItem(value: 'import', child: Text('Import progress')),
       PopupMenuDivider(),
       PopupMenuItem(value: 'new', child: Text('Start again')),
     ],
+  );
+}
+
+const _brandColours = [
+  '#3b82f6',
+  '#14b8a6',
+  '#ef4444',
+  '#f59e0b',
+  '#22c55e',
+  '#8b5cf6',
+  '#ec4899',
+  '#64748b',
+];
+
+void _showRebrandDialog(
+  BuildContext context,
+  GameController game,
+  CurrencyOption currency,
+) {
+  final nameController = TextEditingController(text: game.player.name);
+  final logoController = TextEditingController(text: game.player.logoEmoji);
+  var colour = game.player.color;
+  String? error;
+
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final name = nameController.text.trim();
+        final logo = logoController.text.trim();
+        final cost = game.rebrandCost(
+          name: name,
+          color: colour,
+          logoEmoji: logo,
+        );
+        final hasChange = cost > 0;
+        return AlertDialog(
+          title: const Text('Rebrand airline'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Card(
+                    child: Row(
+                      children: [
+                        Text(
+                          logo.isEmpty ? game.player.logoEmoji : logo,
+                          style: const TextStyle(fontSize: 34),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name.isEmpty ? game.player.name : name,
+                                style: TextStyle(
+                                  color: _MapPainter._colorFromHex(colour),
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                'Company value ${money(game.playerCompanyValue(), currency)}',
+                                style: const TextStyle(
+                                  color: Color(0xff9aa4b5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Airline name',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() => error = null),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: logoController,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'Logo emoji or short mark',
+                      counterText: '',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() => error = null),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _brandColours
+                        .map(
+                          (candidate) => Tooltip(
+                            message: candidate,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => setState(() => colour = candidate),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _MapPainter._colorFromHex(candidate),
+                                  border: Border.all(
+                                    color: colour == candidate
+                                        ? Colors.white
+                                        : const Color(0xff263247),
+                                    width: colour == candidate ? 3 : 1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    hasChange ? 'Cost: ${money(cost, currency)}' : 'No changes',
+                    style: TextStyle(
+                      color: hasChange
+                          ? const Color(0xffffd166)
+                          : const Color(0xff9aa4b5),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xffff6b6b)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: !hasChange || game.player.cashUSD < cost
+                  ? null
+                  : () {
+                      try {
+                        game.rebrandAirline(
+                          name: name,
+                          color: colour,
+                          logoEmoji: logo,
+                        );
+                        Navigator.pop(context);
+                      } catch (e) {
+                        setState(() => error = e.toString());
+                      }
+                    },
+              child: Text(
+                hasChange ? 'Confirm ${money(cost, currency)}' : 'No changes',
+              ),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 
@@ -924,7 +1105,7 @@ class _MapPainter extends CustomPainter {
     2 * (1 - t) * (b.dy - a.dy) + 2 * t * (c.dy - b.dy),
   );
 
-  Color _colorFromHex(String hex) {
+  static Color _colorFromHex(String hex) {
     final clean = hex.replaceFirst('#', '');
     final value =
         int.tryParse(clean.length == 6 ? 'ff$clean' : clean, radix: 16) ??
