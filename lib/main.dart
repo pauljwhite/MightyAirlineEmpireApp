@@ -2663,6 +2663,8 @@ class _FinanceView extends StatelessWidget {
     final debtService = calculateDailyDebtService(player);
     final debtInterest = calculateDailyDebtInterest(player);
     final companyValue = game.companyValue(player.id);
+    final creditLimit = game.playerLoanCreditLimit();
+    final creditRemaining = math.max(0, creditLimit - player.totalDebt);
     final profitableRoutes = routes.where((route) => route.dailyProfit > 0);
     final shareholdingsValue = game.competitors.fold<double>(
       0,
@@ -2801,6 +2803,7 @@ class _FinanceView extends StatelessWidget {
             initiallyExpanded: true,
             children: [
               _InfoRow('Total debt', money(player.totalDebt, currency)),
+              _InfoRow('Credit remaining', money(creditRemaining, currency)),
               _InfoRow('Daily payment', money(debtService, currency)),
               _InfoRow('Daily interest', money(debtInterest, currency)),
               const SizedBox(height: 8),
@@ -2808,12 +2811,10 @@ class _FinanceView extends StatelessWidget {
                 const _EmptyState('No active loans.')
               else
                 ...player.loans.map(
-                  (loan) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(money(loan.principalUSD, currency)),
-                    subtitle: Text(
-                      '${formatInterestRate(loan.annualInterestRate)} · ${loan.termYears} years · ${money(loan.dailyPaymentUSD, currency)}/day',
-                    ),
+                  (loan) => _LoanAccordionTile(
+                    game: game,
+                    loan: loan,
+                    currency: currency,
                   ),
                 ),
               const SizedBox(height: 8),
@@ -2831,44 +2832,15 @@ class _FinanceView extends StatelessWidget {
                 children: loanOffers
                     .map(
                       (offer) => OutlinedButton(
-                        onPressed: () => game.applyForLoan(offer),
+                        onPressed: game.canApplyForLoan(offer)
+                            ? () => game.applyForLoan(offer)
+                            : null,
                         child: Text(
                           '${money(offer.amountUSD, currency)} · ${formatInterestRate(offer.annualInterestRate)}',
                         ),
                       ),
                     )
                     .toList(),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: player.loans.isEmpty
-                        ? null
-                        : () => game.repayLoans(player.totalDebt * 0.10),
-                    child: const Text('Repay 10%'),
-                  ),
-                  OutlinedButton(
-                    onPressed: player.loans.isEmpty
-                        ? null
-                        : () => game.repayLoans(player.totalDebt * 0.25),
-                    child: const Text('Repay 25%'),
-                  ),
-                  OutlinedButton(
-                    onPressed: player.loans.isEmpty
-                        ? null
-                        : () => game.repayLoans(player.totalDebt * 0.50),
-                    child: const Text('Repay 50%'),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: player.loans.isEmpty
-                        ? null
-                        : () => game.repayLoans(player.cashUSD),
-                    child: const Text('Repay what I can afford'),
-                  ),
-                ],
               ),
             ],
           ),
@@ -2883,6 +2855,75 @@ class _FinanceView extends StatelessWidget {
     final days = cash / lastProfit.abs();
     if (days > 365) return '365+ days';
     return '${days.floor()} days';
+  }
+}
+
+class _LoanAccordionTile extends StatelessWidget {
+  const _LoanAccordionTile({
+    required this.game,
+    required this.loan,
+    required this.currency,
+  });
+
+  final GameController game;
+  final Loan loan;
+  final CurrencyOption currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final cash = game.player.cashUSD;
+    final affordable = math.min(cash, loan.principalUSD);
+    final repaymentOptions = [
+      (label: '10%', amount: loan.principalUSD * 0.10),
+      (label: '25%', amount: loan.principalUSD * 0.25),
+      (label: '50%', amount: loan.principalUSD * 0.50),
+      (label: 'Clear loan', amount: loan.principalUSD),
+    ];
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 10),
+      title: Text(money(loan.principalUSD, currency)),
+      subtitle: Text(
+        '${formatInterestRate(loan.annualInterestRate)} · ${loan.termYears} years · ${money(loan.dailyPaymentUSD, currency)}/day',
+      ),
+      children: [
+        _InfoRow('Principal remaining', money(loan.principalUSD, currency)),
+        _InfoRow(
+          'Daily interest',
+          money((loan.principalUSD * loan.annualInterestRate) / 365, currency),
+        ),
+        _InfoRow('Issued day', loan.issuedGameDay.toString()),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...repaymentOptions.map((option) {
+                final canPay = cash >= option.amount;
+                return OutlinedButton(
+                  onPressed: canPay
+                      ? () => game.repayLoan(loan.id, option.amount)
+                      : null,
+                  child: Text(
+                    '${option.label} · ${money(option.amount, currency)}',
+                  ),
+                );
+              }),
+              FilledButton.tonal(
+                onPressed: affordable <= 0
+                    ? null
+                    : () => game.repayLoan(loan.id, affordable),
+                child: Text(
+                  'What I can afford · ${money(affordable, currency)}',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

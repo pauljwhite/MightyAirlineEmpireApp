@@ -92,4 +92,29 @@ List<Loan> applyLoanPayment(List<Loan> loans, double paymentUSD) {
   return next;
 }
 
+List<Loan> applyLoanPrincipalPayment(
+  List<Loan> loans,
+  String loanId,
+  double paymentUSD,
+) {
+  if (paymentUSD <= 0) return loans;
+  return loans
+      .map((loan) {
+        if (loan.id != loanId) return loan;
+        final principal =
+            loan.principalUSD - math.min(loan.principalUSD, paymentUSD);
+        if (principal <= 1) return null;
+        return Loan(
+          id: loan.id,
+          principalUSD: principal,
+          annualInterestRate: loan.annualInterestRate,
+          termYears: loan.termYears,
+          dailyPaymentUSD: loan.dailyPaymentUSD,
+          issuedGameDay: loan.issuedGameDay,
+        );
+      })
+      .whereType<Loan>()
+      .toList();
+}
+
 String formatInterestRate(double rate) => (rate * 100).toStringAsFixed(2) + '%';

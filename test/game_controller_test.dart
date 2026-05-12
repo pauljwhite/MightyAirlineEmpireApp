@@ -65,9 +65,31 @@ void main() {
     expect(game.player.loans.single.id, loan.id);
     expect(game.player.totalDebt, loan.principalUSD);
 
-    game.repayLoans(1000000);
+    game.repayLoan(loan.id, 1000000);
     expect(game.player.cashUSD, greaterThan(0));
     expect(game.player.totalDebt, lessThan(loan.principalUSD));
+  });
+
+  test('loan repayment only affects the selected loan and clamps to cash', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 30000000));
+    final first = game.applyForLoan(loanOffers.first);
+    final second = game.applyForLoan(loanOffers[1]);
+    final cashBefore = game.player.cashUSD;
+
+    game.repayLoan(first.id, first.principalUSD * 0.25);
+
+    final updatedFirst = game.player.loans.firstWhere((l) => l.id == first.id);
+    final updatedSecond = game.player.loans.firstWhere(
+      (l) => l.id == second.id,
+    );
+    expect(updatedFirst.principalUSD, first.principalUSD * 0.75);
+    expect(updatedSecond.principalUSD, second.principalUSD);
+    expect(game.player.cashUSD, cashBefore - first.principalUSD * 0.25);
+
+    game.repayLoan(first.id, double.infinity);
+    expect(game.player.loans.any((loan) => loan.id == first.id), isFalse);
+    expect(game.player.cashUSD, greaterThanOrEqualTo(0));
   });
 
   test('aircraft can be bought directly into the player fleet', () {

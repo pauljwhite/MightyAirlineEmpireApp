@@ -1545,7 +1545,34 @@ class GameController extends ChangeNotifier {
     return affordable[affordable.length ~/ 2];
   }
 
+  double playerLoanCreditLimit() {
+    final recentStats = player.dailyStats.length <= 14
+        ? player.dailyStats
+        : player.dailyStats.sublist(player.dailyStats.length - 14);
+    final averageDailyProfit = recentStats.isEmpty
+        ? 0.0
+        : recentStats.fold<double>(0, (sum, stat) => sum + stat.profit) /
+              recentStats.length;
+    final cashCollateral = math.max(0, player.cashUSD) * 0.25;
+    final operatingAssetValue = math.max(
+      0,
+      companyValue(player.id) - math.max(0, player.cashUSD),
+    );
+    return math.max(
+      25000000,
+      operatingAssetValue * 1.2 +
+          cashCollateral +
+          math.max(0, averageDailyProfit) * 365 * 2,
+    );
+  }
+
+  bool canApplyForLoan(LoanOffer offer) =>
+      player.totalDebt + offer.amountUSD <= playerLoanCreditLimit();
+
   Loan applyForLoan(LoanOffer offer) {
+    if (!canApplyForLoan(offer)) {
+      throw StateError('Loan exceeds available credit.');
+    }
     final loan = Loan(
       id: 'loan-' + (_nextLoan++).toString(),
       principalUSD: offer.amountUSD,
@@ -1574,6 +1601,28 @@ class GameController extends ChangeNotifier {
       cashUSD: player.cashUSD - payment,
       totalDebt: loans.fold<double>(0, (sum, loan) => sum + loan.principalUSD),
       loans: loans,
+    );
+    notifyListeners();
+  }
+
+  void repayLoan(String loanId, double amountUSD) {
+    final loan = player.loans.where((loan) => loan.id == loanId).firstOrNull;
+    if (loan == null) return;
+    final payment = math
+        .max(
+          0,
+          math.min(amountUSD, math.min(player.cashUSD, loan.principalUSD)),
+        )
+        .toDouble();
+    if (payment <= 0) return;
+    final loans = applyLoanPrincipalPayment(player.loans, loanId, payment);
+    airlines['player'] = player.copyWith(
+      cashUSD: player.cashUSD - payment,
+      totalDebt: loans.fold<double>(0, (sum, loan) => sum + loan.principalUSD),
+      loans: loans,
+    );
+    newsTicker.add(
+      'Loan repayment made: ${payment.round()} USD principal paid.',
     );
     notifyListeners();
   }
