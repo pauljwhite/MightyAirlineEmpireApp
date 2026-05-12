@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'core/airport_search.dart';
 import 'core/format.dart';
+import 'core/geo.dart';
 import 'data/aircraft_types.dart';
 import 'data/airports.dart';
 import 'engine/demand_model.dart';
+import 'engine/finance.dart';
 import 'models/models.dart';
+import 'state/game_controller.dart';
 
 void main() => runApp(const MightyAirlineEmpireApp());
 
@@ -16,99 +19,137 @@ class MightyAirlineEmpireApp extends StatefulWidget {
 }
 
 class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
+  late final GameController game;
   var currency = currencyOptions.first;
-  var speed = 1;
   Airport? selectedAirport = airportsByIata['LHR'];
   var panel = _Panel.routes;
   var mobileSearchOpen = false;
 
   @override
+  void initState() {
+    super.initState();
+    game = GameController();
+  }
+
+  @override
+  void dispose() {
+    game.dispose();
+    super.dispose();
+  }
+
+  void _openCreateRoute({Airport? origin, Airport? destination}) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => _CreateRouteDialog(
+        game: game,
+        currency: currency,
+        origin: origin ?? selectedAirport,
+        destination: destination,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Mighty Airline Empire',
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: const Color(0xff050915),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff2f8cff),
-          brightness: Brightness.dark,
-        ),
-      ),
-      home: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 980;
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: _WorldMap(
-                      selectedAirport: selectedAirport,
-                      onAirportSelected: (a) =>
-                          setState(() => selectedAirport = a),
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: _TopBar(
-                      compact: compact,
-                      currency: currency,
-                      speed: speed,
-                      searchOpen: mobileSearchOpen,
-                      onToggleSearch: () =>
-                          setState(() => mobileSearchOpen = !mobileSearchOpen),
-                      onCurrency: (v) => setState(() => currency = v),
-                      onSpeed: (v) => setState(() => speed = v),
-                      onAirport: (a) => setState(() {
-                        selectedAirport = a;
-                        mobileSearchOpen = false;
-                      }),
-                    ),
-                  ),
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeInOut,
-                    top: compact ? 112 : 92,
-                    bottom: 52,
-                    right: 12,
-                    width: compact ? constraints.maxWidth - 24 : 390,
-                    child: _MainPanel(
-                      panel: panel,
-                      currency: currency,
-                      onPanel: (p) => setState(() => panel = p),
-                    ),
-                  ),
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeInOut,
-                    left: selectedAirport == null ? -460 : 12,
-                    top: compact ? 112 : 92,
-                    bottom: 52,
-                    width: compact ? constraints.maxWidth - 24 : 420,
-                    child: selectedAirport == null
-                        ? const SizedBox.shrink()
-                        : _AirportPanel(
-                            airport: selectedAirport!,
-                            currency: currency,
-                            onClose: () =>
-                                setState(() => selectedAirport = null),
-                          ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _Ticker(speed: speed),
-                  ),
-                ],
-              );
-            },
+    return AnimatedBuilder(
+      animation: game,
+      builder: (context, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Mighty Airline Empire',
+          theme: ThemeData.dark(useMaterial3: true).copyWith(
+            scaffoldBackgroundColor: const Color(0xff050915),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xff2f8cff),
+              brightness: Brightness.dark,
+            ),
           ),
-        ),
-      ),
+          home: Scaffold(
+            body: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 980;
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: _WorldMap(
+                          game: game,
+                          selectedAirport: selectedAirport,
+                          onAirportSelected: (a) =>
+                              setState(() => selectedAirport = a),
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: _TopBar(
+                          game: game,
+                          compact: compact,
+                          currency: currency,
+                          searchOpen: mobileSearchOpen,
+                          onToggleSearch: () => setState(
+                            () => mobileSearchOpen = !mobileSearchOpen,
+                          ),
+                          onCurrency: (v) => setState(() => currency = v),
+                          onSpeed: (v) => game.setSpeed(v == 0 ? 0 : v * 300),
+                          onAirport: (a) => setState(() {
+                            selectedAirport = a;
+                            mobileSearchOpen = false;
+                          }),
+                        ),
+                      ),
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                        top: compact ? 112 : 92,
+                        bottom: 52,
+                        right: 12,
+                        width: compact ? constraints.maxWidth - 24 : 430,
+                        child: _MainPanel(
+                          game: game,
+                          panel: panel,
+                          currency: currency,
+                          onPanel: (p) => setState(() => panel = p),
+                          onCreateRoute: () => _openCreateRoute(),
+                        ),
+                      ),
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                        left: selectedAirport == null ? -460 : 12,
+                        top: compact ? 112 : 92,
+                        bottom: 52,
+                        width: compact ? constraints.maxWidth - 24 : 430,
+                        child: selectedAirport == null
+                            ? const SizedBox.shrink()
+                            : _AirportPanel(
+                                airport: selectedAirport!,
+                                currency: currency,
+                                onClose: () =>
+                                    setState(() => selectedAirport = null),
+                                onCreateRoute: (origin, destination) =>
+                                    _openCreateRoute(
+                                      origin: origin,
+                                      destination: destination,
+                                    ),
+                              ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _Ticker(game: game),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -117,18 +158,18 @@ enum _Panel { routes, fleet, finance, competitors }
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
+    required this.game,
     required this.compact,
     required this.currency,
-    required this.speed,
     required this.searchOpen,
     required this.onToggleSearch,
     required this.onCurrency,
     required this.onSpeed,
     required this.onAirport,
   });
+  final GameController game;
   final bool compact;
   final CurrencyOption currency;
-  final int speed;
   final bool searchOpen;
   final VoidCallback onToggleSearch;
   final ValueChanged<CurrencyOption> onCurrency;
@@ -137,6 +178,9 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final search = _SearchBox(onAirport: onAirport);
+    final speedValue = game.speed == 0
+        ? 0
+        : (game.speed / 300).round().clamp(1, 6);
     return Container(
       color: const Color(0xee050915),
       padding: const EdgeInsets.all(8),
@@ -144,7 +188,9 @@ class _TopBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              const _AirlineBadge(),
+              _AirlineBadge(game: game, currency: currency),
+              const SizedBox(width: 12),
+              _DateBadge(game: game),
               const Spacer(),
               if (!compact) SizedBox(width: 320, child: search),
               if (compact)
@@ -172,8 +218,13 @@ class _TopBar extends StatelessWidget {
                   ButtonSegment(value: 3, label: Text('3x')),
                   ButtonSegment(value: 6, label: Text('6x')),
                 ],
-                selected: {speed},
+                selected: {speedValue},
                 onSelectionChanged: (v) => onSpeed(v.first),
+              ),
+              IconButton(
+                tooltip: 'Advance day',
+                onPressed: game.runDailyTick,
+                icon: const Icon(Icons.skip_next),
               ),
             ],
           ),
@@ -191,7 +242,9 @@ class _TopBar extends StatelessWidget {
 }
 
 class _AirlineBadge extends StatelessWidget {
-  const _AirlineBadge();
+  const _AirlineBadge({required this.game, required this.currency});
+  final GameController game;
+  final CurrencyOption currency;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -200,24 +253,52 @@ class _AirlineBadge extends StatelessWidget {
       border: Border.all(color: const Color(0xff263247)),
       borderRadius: BorderRadius.circular(28),
     ),
-    child: const Row(
+    child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.public, color: Color(0xff77c9ff)),
-        SizedBox(width: 10),
+        Text(game.player.logoEmoji, style: const TextStyle(fontSize: 24)),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Mighty Airline Empire',
-              style: TextStyle(fontWeight: FontWeight.w800),
+              game.player.name,
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            Text(r'$23.1M', style: TextStyle(color: Color(0xff3af083))),
+            Text(
+              money(game.player.cashUSD, currency),
+              style: const TextStyle(
+                color: Color(0xff3af083),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
       ],
     ),
   );
+}
+
+class _DateBadge extends StatelessWidget {
+  const _DateBadge({required this.game});
+  final GameController game;
+  @override
+  Widget build(BuildContext context) {
+    final year = game.settings.startingYear + game.gameDay ~/ 365;
+    final day = game.gameDay % 365 + 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff111827),
+        border: Border.all(color: const Color(0xff263247)),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(
+        'Day $day, $year',
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    );
+  }
 }
 
 class _SearchBox extends StatelessWidget {
@@ -269,9 +350,11 @@ class _SearchBox extends StatelessWidget {
 
 class _WorldMap extends StatelessWidget {
   const _WorldMap({
+    required this.game,
     required this.selectedAirport,
     required this.onAirportSelected,
   });
+  final GameController game;
   final Airport? selectedAirport;
   final ValueChanged<Airport> onAirportSelected;
   @override
@@ -283,7 +366,7 @@ class _WorldMap extends StatelessWidget {
       if (airport != null) onAirportSelected(airport);
     },
     child: CustomPaint(
-      painter: _MapPainter(selectedAirport: selectedAirport),
+      painter: _MapPainter(game: game, selectedAirport: selectedAirport),
       child: const SizedBox.expand(),
     ),
   );
@@ -308,7 +391,8 @@ Offset _airportPoint(Airport a, Size size) => Offset(
 );
 
 class _MapPainter extends CustomPainter {
-  const _MapPainter({required this.selectedAirport});
+  const _MapPainter({required this.game, required this.selectedAirport});
+  final GameController game;
   final Airport? selectedAirport;
   @override
   void paint(Canvas canvas, Size size) {
@@ -326,6 +410,25 @@ class _MapPainter extends CustomPainter {
     for (var lat = -60; lat <= 60; lat += 30) {
       final y = ((85 - lat) / 170) * size.height;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final routePaint = Paint()
+      ..color = const Color(0xff2f8cff).withValues(alpha: 0.45)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+    for (final route in game.routes.values) {
+      final origin = airportsByIata[route.originIata];
+      final dest = airportsByIata[route.destinationIata];
+      if (origin == null || dest == null) continue;
+      final start = _airportPoint(origin, size);
+      final end = _airportPoint(dest, size);
+      final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+      final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
+      canvas.drawPath(
+        Path()
+          ..moveTo(start.dx, start.dy)
+          ..quadraticBezierTo(mid.dx, mid.dy - lift, end.dx, end.dy),
+        routePaint,
+      );
     }
     for (final a in airports) {
       final r = switch (a.size) {
@@ -347,8 +450,7 @@ class _MapPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MapPainter oldDelegate) =>
-      oldDelegate.selectedAirport != selectedAirport;
+  bool shouldRepaint(covariant _MapPainter oldDelegate) => true;
 }
 
 class _AirportPanel extends StatelessWidget {
@@ -356,10 +458,12 @@ class _AirportPanel extends StatelessWidget {
     required this.airport,
     required this.currency,
     required this.onClose,
+    required this.onCreateRoute,
   });
   final Airport airport;
   final CurrencyOption currency;
   final VoidCallback onClose;
+  final void Function(Airport origin, Airport? destination) onCreateRoute;
   @override
   Widget build(BuildContext context) {
     final destinations =
@@ -412,7 +516,7 @@ class _AirportPanel extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               children: [
                 _InfoRow('IATA', airport.iata),
-                _InfoRow('ICAO', airport.icao ?? '—'),
+                _InfoRow('ICAO', airport.icao ?? '-'),
                 _InfoRow('Size', airport.size.name),
                 _InfoRow('Landing fee', money(airport.landingFee, currency)),
                 _InfoRow(
@@ -441,6 +545,7 @@ class _AirportPanel extends StatelessWidget {
                             '${item.demand.round()} pax/d · ${item.airport.size.name}',
                           ),
                           trailing: const Icon(Icons.add_road),
+                          onTap: () => onCreateRoute(airport, item.airport),
                         ),
                       )
                       .toList(),
@@ -454,7 +559,7 @@ class _AirportPanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {},
+                    onPressed: () => onCreateRoute(airport, null),
                     icon: const Icon(Icons.add),
                     label: const Text('New Route'),
                   ),
@@ -478,13 +583,17 @@ class _AirportPanel extends StatelessWidget {
 
 class _MainPanel extends StatelessWidget {
   const _MainPanel({
+    required this.game,
     required this.panel,
     required this.currency,
     required this.onPanel,
+    required this.onCreateRoute,
   });
+  final GameController game;
   final _Panel panel;
   final CurrencyOption currency;
   final ValueChanged<_Panel> onPanel;
+  final VoidCallback onCreateRoute;
   @override
   Widget build(BuildContext context) => _PanelShell(
     child: Column(
@@ -504,46 +613,443 @@ class _MainPanel extends StatelessWidget {
         ),
         const Divider(height: 1),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: _cards(),
-          ),
+          child: switch (panel) {
+            _Panel.routes => _RoutesView(
+              game: game,
+              currency: currency,
+              onCreateRoute: onCreateRoute,
+            ),
+            _Panel.fleet => _FleetView(game: game),
+            _Panel.finance => _FinanceView(game: game, currency: currency),
+            _Panel.competitors => _CompetitorsView(game: game),
+          },
         ),
       ],
     ),
   );
-  List<Widget> _cards() => switch (panel) {
-    _Panel.routes => [
-      _MetricCard('Active routes', '2', const Color(0xff77c9ff)),
-      _MetricCard(
-        'Optimiser status',
-        'Dart engine scaffolded',
-        const Color(0xff3af083),
+}
+
+class _RoutesView extends StatelessWidget {
+  const _RoutesView({
+    required this.game,
+    required this.currency,
+    required this.onCreateRoute,
+  });
+  final GameController game;
+  final CurrencyOption currency;
+  final VoidCallback onCreateRoute;
+  @override
+  Widget build(BuildContext context) {
+    final routes = game.playerRoutes;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        FilledButton.icon(
+          onPressed: onCreateRoute,
+          icon: const Icon(Icons.add_road),
+          label: const Text('New Route'),
+        ),
+        const SizedBox(height: 12),
+        _MetricCard(
+          'Daily route profit',
+          money(
+            routes.fold<double>(0, (sum, route) => sum + route.dailyProfit),
+            currency,
+          ),
+          const Color(0xff3af083),
+        ),
+        if (routes.isEmpty)
+          const _EmptyState(
+            'No routes yet. Create one from this panel or from an airport destination.',
+          ),
+        ...routes.map(
+          (route) => _RouteCard(game: game, route: route, currency: currency),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteCard extends StatelessWidget {
+  const _RouteCard({
+    required this.game,
+    required this.route,
+    required this.currency,
+  });
+  final GameController game;
+  final RoutePlan route;
+  final CurrencyOption currency;
+  @override
+  Widget build(BuildContext context) {
+    final ac = route.aircraftId == null
+        ? null
+        : game.aircraft[route.aircraftId!];
+    final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    final loadFactor = (route.loadFactorEconomy * 100).round();
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${route.originIata} -> ${route.destinationIata}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                money(route.dailyProfit, currency),
+                style: TextStyle(
+                  color: route.dailyProfit >= 0
+                      ? const Color(0xff3af083)
+                      : const Color(0xffff6b6b),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            type == null
+                ? 'No aircraft assigned'
+                : '${type.displayName} · ${route.flightsPerWeek}/week · $loadFactor% LF',
+            style: const TextStyle(color: Color(0xff9aa4b5)),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => game.optimiseRoute(route.id),
+                icon: const Icon(Icons.auto_fix_high),
+                label: const Text('Optimise'),
+              ),
+              OutlinedButton.icon(
+                onPressed: game.runDailyTick,
+                icon: const Icon(Icons.skip_next),
+                label: const Text('Run day'),
+              ),
+            ],
+          ),
+        ],
       ),
-    ],
-    _Panel.fleet => [
+    );
+  }
+}
+
+class _FleetView extends StatelessWidget {
+  const _FleetView({required this.game});
+  final GameController game;
+  @override
+  Widget build(BuildContext context) {
+    final fleet = game.playerFleet;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MetricCard('Fleet size', '${fleet.length}', const Color(0xff77c9ff)),
+        if (fleet.isEmpty)
+          const _EmptyState(
+            'No aircraft owned yet. Buying a route with a new aircraft will add one.',
+          ),
+        ...fleet.map((ac) {
+          final type = aircraftTypesById[ac.typeId];
+          final route = ac.assignedRouteId == null
+              ? null
+              : game.routes[ac.assignedRouteId!];
+          return _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ac.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  type?.displayName ?? ac.typeId,
+                  style: const TextStyle(color: Color(0xff9aa4b5)),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: ac.condition / 100,
+                  color: ac.condition < 35
+                      ? const Color(0xffff6b6b)
+                      : const Color(0xff3af083),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  route == null
+                      ? 'Unassigned'
+                      : 'Route ${route.originIata} -> ${route.destinationIata}',
+                ),
+                Text(
+                  'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
+                  style: const TextStyle(color: Color(0xff9aa4b5)),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _FinanceView extends StatelessWidget {
+  const _FinanceView({required this.game, required this.currency});
+  final GameController game;
+  final CurrencyOption currency;
+  @override
+  Widget build(BuildContext context) {
+    final player = game.player;
+    final last = player.dailyStats.lastOrNull;
+    final lastProfit = last?.profit ?? player.lastDailyProfit;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MetricCard(
+          'Cash',
+          money(player.cashUSD, currency),
+          const Color(0xff3af083),
+        ),
+        _MetricCard(
+          'Last daily profit',
+          money(lastProfit, currency),
+          lastProfit >= 0 ? const Color(0xff3af083) : const Color(0xffff6b6b),
+        ),
+        _MetricCard(
+          'Debt',
+          money(player.totalDebt, currency),
+          const Color(0xffffd166),
+        ),
+        ExpansionTile(
+          title: const Text('Loans'),
+          initiallyExpanded: true,
+          children: [
+            ...player.loans.map(
+              (loan) => ListTile(
+                title: Text(money(loan.principalUSD, currency)),
+                subtitle: Text(
+                  '${formatInterestRate(loan.annualInterestRate)} · ${loan.termYears} years · ${money(loan.dailyPaymentUSD, currency)}/day',
+                ),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: loanOffers
+                  .map(
+                    (offer) => OutlinedButton(
+                      onPressed: () => game.applyForLoan(offer),
+                      child: Text(
+                        '${money(offer.amountUSD, currency)} · ${formatInterestRate(offer.annualInterestRate)}',
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: player.loans.isEmpty
+                        ? null
+                        : () => game.repayLoans(player.cashUSD),
+                    child: const Text('Repay what I can afford'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: player.loans.isEmpty
+                        ? null
+                        : () => game.repayLoans(player.totalDebt * 0.25),
+                    child: const Text('Repay 25%'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CompetitorsView extends StatelessWidget {
+  const _CompetitorsView({required this.game});
+  final GameController game;
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      _MetricCard('Player airline', game.player.name, const Color(0xff77c9ff)),
       _MetricCard(
-        'Aircraft catalogue',
-        '${aircraftTypes.length} types',
-        const Color(0xff77c9ff),
-      ),
-    ],
-    _Panel.finance => [
-      _MetricCard('Cash', money(23100000, currency), const Color(0xff3af083)),
-      _MetricCard(
-        '30-day profit',
-        money(1840000, currency),
-        const Color(0xff3af083),
-      ),
-    ],
-    _Panel.competitors => [
-      _MetricCard(
-        'Competitors',
-        'Ready for parity port',
+        'Market share',
+        '${game.player.marketSharePercent.toStringAsFixed(1)}%',
         const Color(0xffffd166),
       ),
+      const _EmptyState('AI competitors are next in the native parity port.'),
     ],
-  };
+  );
+}
+
+class _CreateRouteDialog extends StatefulWidget {
+  const _CreateRouteDialog({
+    required this.game,
+    required this.currency,
+    this.origin,
+    this.destination,
+  });
+  final GameController game;
+  final CurrencyOption currency;
+  final Airport? origin;
+  final Airport? destination;
+  @override
+  State<_CreateRouteDialog> createState() => _CreateRouteDialogState();
+}
+
+class _CreateRouteDialogState extends State<_CreateRouteDialog> {
+  late Airport origin = widget.origin ?? airportsByIata['LHR']!;
+  late Airport destination = widget.destination ?? airportsByIata['JFK']!;
+  late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
+  int flights = 7;
+  bool optimise = true;
+  String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = haversineKm(
+      origin.lat,
+      origin.lon,
+      destination.lat,
+      destination.lon,
+    );
+    final viableAircraft = aircraftTypes
+        .where((t) => t.rangeKm >= distance)
+        .take(90)
+        .toList();
+    if (!viableAircraft.contains(type) && viableAircraft.isNotEmpty)
+      type = viableAircraft.first;
+    return AlertDialog(
+      title: const Text('Create route'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AirportDropdown(
+              label: 'Origin',
+              value: origin,
+              onChanged: (a) => setState(() => origin = a),
+            ),
+            const SizedBox(height: 10),
+            _AirportDropdown(
+              label: 'Destination',
+              value: destination,
+              onChanged: (a) => setState(() => destination = a),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<AircraftType>(
+              initialValue: type,
+              decoration: const InputDecoration(labelText: 'Aircraft'),
+              items: viableAircraft
+                  .map(
+                    (t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(
+                        '${t.displayName} · ${money(t.purchasePrice, widget.currency)}',
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => type = v);
+              },
+            ),
+            const SizedBox(height: 10),
+            Text('Flights per week: $flights'),
+            Slider(
+              value: flights.toDouble(),
+              min: 1,
+              max: 21,
+              divisions: 20,
+              label: '$flights/week',
+              onChanged: (v) => setState(() => flights = v.round()),
+            ),
+            CheckboxListTile(
+              value: optimise,
+              onChanged: (v) => setState(() => optimise = v ?? true),
+              title: const Text('Optimise after creation'),
+            ),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: Color(0xffff6b6b))),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: viableAircraft.isEmpty ? null : _create,
+          child: Text('Create + buy ${type.model}'),
+        ),
+      ],
+    );
+  }
+
+  void _create() {
+    try {
+      final route = widget.game.createRoute(
+        originIata: origin.iata,
+        destinationIata: destination.iata,
+        aircraftTypeId: type.id,
+        flightsPerWeek: flights,
+        buyNewAircraft: true,
+      );
+      if (optimise) widget.game.optimiseRoute(route.id);
+      Navigator.pop(context);
+    } catch (e) {
+      setState(() => error = e.toString().replaceFirst('Bad state: ', ''));
+    }
+  }
+}
+
+class _AirportDropdown extends StatelessWidget {
+  const _AirportDropdown({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final Airport value;
+  final ValueChanged<Airport> onChanged;
+  @override
+  Widget build(BuildContext context) => Autocomplete<Airport>(
+    initialValue: TextEditingValue(text: value.iata),
+    optionsBuilder: (text) => searchAirports(text.text, airports, limit: 12),
+    displayStringForOption: (a) => '${a.iata} · ${a.city}',
+    onSelected: onChanged,
+    fieldViewBuilder: (context, controller, focus, submit) => TextField(
+      controller: controller,
+      focusNode: focus,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.flight_takeoff),
+        border: const OutlineInputBorder(),
+      ),
+    ),
+  );
 }
 
 class _MetricCard extends StatelessWidget {
@@ -552,14 +1058,7 @@ class _MetricCard extends StatelessWidget {
   final String value;
   final Color accent;
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xff151b2b),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xff273246)),
-    ),
+  Widget build(BuildContext context) => _Card(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -574,6 +1073,36 @@ class _MetricCard extends StatelessWidget {
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xff151b2b),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xff273246)),
+    ),
+    child: child,
+  );
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 24),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Color(0xff9aa4b5)),
     ),
   );
 }
@@ -612,30 +1141,43 @@ class _PanelShell extends StatelessWidget {
 }
 
 class _Ticker extends StatelessWidget {
-  const _Ticker({required this.speed});
-  final int speed;
+  const _Ticker({required this.game});
+  final GameController game;
   @override
-  Widget build(BuildContext context) => Container(
-    height: 42,
-    color: const Color(0xff050915),
-    alignment: Alignment.centerLeft,
-    child: TweenAnimationBuilder<double>(
-      key: ValueKey(speed),
-      tween: Tween(begin: 1, end: -1),
-      duration: Duration(
-        seconds: speed <= 1
-            ? 24
-            : speed == 3
-            ? 16
-            : 10,
+  Widget build(BuildContext context) {
+    final text = game.newsTicker.isEmpty
+        ? 'Native Flutter parity port underway'
+        : game.newsTicker.last;
+    final speed = game.speed == 0 ? 1 : (game.speed / 300).round();
+    return Container(
+      height: 42,
+      color: const Color(0xff050915),
+      alignment: Alignment.centerLeft,
+      child: TweenAnimationBuilder<double>(
+        key: ValueKey(text + speed.toString()),
+        tween: Tween(begin: 1, end: -1),
+        duration: Duration(
+          seconds: speed <= 1
+              ? 24
+              : speed == 3
+              ? 16
+              : 10,
+        ),
+        builder: (context, value, child) =>
+            FractionalTranslation(translation: Offset(value, 0), child: child),
+        child: Text(
+          '  $text',
+          maxLines: 1,
+          style: const TextStyle(
+            color: Color(0xffc7d2e5),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
-      builder: (context, value, child) =>
-          FractionalTranslation(translation: Offset(value, 0), child: child),
-      child: const Text(
-        '  ‼️ Native ticker sits above the map and below panels · Search airports from the main nav · Flutter parity port underway',
-        maxLines: 1,
-        style: TextStyle(color: Color(0xffc7d2e5), fontWeight: FontWeight.w700),
-      ),
-    ),
-  );
+    );
+  }
+}
+
+extension _LastOrNull<T> on List<T> {
+  T? get lastOrNull => isEmpty ? null : last;
 }

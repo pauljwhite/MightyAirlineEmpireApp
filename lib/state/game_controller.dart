@@ -44,6 +44,12 @@ class GameController extends ChangeNotifier {
       .whereType<Aircraft>()
       .toList(growable: false);
 
+  void setSpeed(int nextSpeed) {
+    speed = nextSpeed;
+    isPaused = nextSpeed == 0;
+    notifyListeners();
+  }
+
   void startNewGame([GameSettings? nextSettings]) {
     settings = nextSettings ?? settings;
     gameDay = 0;
