@@ -431,7 +431,11 @@ class _TopBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              _AirlineBadge(game: game, currency: currency),
+              _AirlineBadge(
+                game: game,
+                currency: currency,
+                onCurrency: onCurrency,
+              ),
               const SizedBox(width: 6),
               _GameMenu(game: game, currency: currency, onCurrency: onCurrency),
               const SizedBox(width: 12),
@@ -487,37 +491,223 @@ class _TopBar extends StatelessWidget {
 }
 
 class _AirlineBadge extends StatelessWidget {
-  const _AirlineBadge({required this.game, required this.currency});
+  const _AirlineBadge({
+    required this.game,
+    required this.currency,
+    required this.onCurrency,
+  });
   final GameController game;
   final CurrencyOption currency;
+  final ValueChanged<CurrencyOption> onCurrency;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      color: const Color(0xff111827),
-      border: Border.all(color: const Color(0xff263247)),
-      borderRadius: BorderRadius.circular(28),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _AirlineLogo(logo: game.player.logoEmoji, size: 34),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              game.player.name,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            Text(
-              money(game.player.cashUSD, currency),
-              style: const TextStyle(
-                color: Color(0xff3af083),
-                fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(28),
+    onTap: () => _showAirlineProfileDialog(context, game, currency, onCurrency),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xff111827),
+        border: Border.all(color: const Color(0xff263247)),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AirlineLogo(logo: game.player.logoEmoji, size: 34),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                game.player.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-            ),
-          ],
+              Text(
+                money(game.player.cashUSD, currency),
+                style: TextStyle(
+                  color: game.player.cashUSD >= 0
+                      ? const Color(0xff3af083)
+                      : const Color(0xffff6b6b),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.expand_more, size: 18, color: Color(0xff8b95a8)),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showAirlineProfileDialog(
+  BuildContext context,
+  GameController game,
+  CurrencyOption currency,
+  ValueChanged<CurrencyOption> onCurrency,
+) {
+  final player = game.player;
+  final fleet = game.playerFleet;
+  final routes = game.playerRoutes;
+  final activeRoutes = routes.where((route) => route.isActive).length;
+  final inactiveRoutes = math.max(0, routes.length - activeRoutes);
+  final idleAircraft = fleet
+      .where((ac) => ac.status == AircraftStatus.idle)
+      .length;
+  final maintenanceAircraft = fleet
+      .where((ac) => ac.status == AircraftStatus.maintenance)
+      .length;
+  final today = player.dailyStats.lastOrNull;
+  final totalPassengers =
+      player.totalPassengersAllTime +
+      game.competitors.fold<int>(
+        0,
+        (sum, airline) => sum + airline.totalPassengersAllTime,
+      );
+  final allTimeShare = totalPassengers <= 0
+      ? 0.0
+      : player.totalPassengersAllTime / totalPassengers * 100;
+
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Row(
+        children: [
+          _AirlineLogo(logo: player.logoEmoji, size: 38),
+          const SizedBox(width: 10),
+          Expanded(child: Text(player.name)),
+        ],
+      ),
+      content: SizedBox(
+        width: 430,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow('Cash', money(player.cashUSD, currency)),
+                    if (player.totalDebt > 0)
+                      _InfoRow('Debt', money(player.totalDebt, currency)),
+                    _InfoRow(
+                      'Reputation',
+                      '${player.reputationScore.toStringAsFixed(0)}/100',
+                    ),
+                    _InfoRow(
+                      'Market share',
+                      '${player.marketSharePercent.toStringAsFixed(1)}%',
+                    ),
+                    _InfoRow(
+                      'All-time share',
+                      '${allTimeShare.toStringAsFixed(1)}%',
+                    ),
+                    _InfoRow(
+                      'Passengers',
+                      _formatCount(player.totalPassengersAllTime),
+                    ),
+                  ],
+                ),
+              ),
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow('Fleet', '${fleet.length} aircraft'),
+                    if (idleAircraft > 0)
+                      _InfoRow('Idle aircraft', idleAircraft.toString()),
+                    if (maintenanceAircraft > 0)
+                      _InfoRow(
+                        'In maintenance',
+                        maintenanceAircraft.toString(),
+                      ),
+                    _InfoRow('Routes', '${routes.length} total'),
+                    _InfoRow('Active routes', activeRoutes.toString()),
+                    if (inactiveRoutes > 0)
+                      _InfoRow('Inactive routes', inactiveRoutes.toString()),
+                    _InfoRow(
+                      'Hubs',
+                      player.hubIatas.isEmpty
+                          ? 'None'
+                          : player.hubIatas.join(', '),
+                    ),
+                  ],
+                ),
+              ),
+              if (today != null)
+                _Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Today's P&L",
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 8),
+                      _InfoRow('Revenue', money(today.revenue, currency)),
+                      _InfoRow('Costs', money(today.costs, currency)),
+                      _InfoRow('Profit', money(today.profit, currency)),
+                      _InfoRow('Passengers', _formatCount(today.passengers)),
+                    ],
+                  ),
+                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _showRebrandDialog(context, game, currency);
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Rebrand'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _showExportDialog(context, game);
+                    },
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Export'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _showImportDialog(context, game, onCurrency);
+                    },
+                    icon: const Icon(Icons.download),
+                    label: const Text('Import'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _showSettingsDialog(context, game);
+                    },
+                    icon: const Icon(Icons.palette),
+                    label: const Text('Theme'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _showNewGameDialog(context, game, currency, onCurrency);
+                    },
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Start again'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Close'),
         ),
       ],
     ),
