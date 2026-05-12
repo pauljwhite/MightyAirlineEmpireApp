@@ -4332,88 +4332,208 @@ void _showHeraldArticle(
   NewsArticle article, {
   bool readOnly = false,
 }) {
+  final severity = article.severity.toLowerCase();
+  final accent = severity == 'crash' || severity == 'breaking'
+      ? const Color(0xffb91c1c)
+      : severity == 'grounding'
+      ? const Color(0xffea580c)
+      : const Color(0xff2563eb);
+  final label = severity == 'crash' || severity == 'breaking'
+      ? 'BREAKING NEWS'
+      : severity == 'grounding'
+      ? 'AVIATION ALERT'
+      : 'INCIDENT REPORT';
   showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(article.headline),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                article.subheadline,
-                style: const TextStyle(
-                  color: Color(0xff9aa4b5),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...article.paragraphs.map(
-                (paragraph) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(paragraph),
-                ),
-              ),
-              if (article.actionAircraftId != null && !readOnly)
+      backgroundColor: const Color(0xfff5f0e8),
+      surfaceTintColor: Colors.transparent,
+      contentPadding: EdgeInsets.zero,
+      contentTextStyle: const TextStyle(color: Color(0xff1a1008)),
+      content: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(height: 6, color: accent),
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          game.startMaintenance(
-                            article.actionAircraftId!,
-                            MaintenanceTier.standard,
-                          );
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.build),
-                        label: Text(
-                          'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          game.updateMaintenancePolicy(
-                            game.player.maintenancePolicy.copyWith(
-                              enabled: true,
-                              autoMaintainIssues: true,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.flight_takeoff,
+                            color: Color(0xff1a1008),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'THE AVIATION HERALD',
+                              style: TextStyle(
+                                fontFamily: 'Georgia',
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                                fontSize: 16,
+                                color: Color(0xff1a1008),
+                              ),
                             ),
-                          );
-                          game.startMaintenance(
-                            article.actionAircraftId!,
-                            MaintenanceTier.standard,
-                          );
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.engineering),
-                        label: const Text(
-                          'Always maintain aircraft with issues',
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  color: accent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              Text(
+                                'DAY ${article.gameDay}',
+                                style: const TextStyle(
+                                  color: Color(0x991a1008),
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 22, color: Color(0xff1a1008)),
+                      Text(
+                        article.headline.toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xff1a1008),
+                          fontFamily: 'Georgia',
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          height: 1.05,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          game.keepIssueAircraftFlying(
-                            article.actionAircraftId!,
-                          );
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.warning_amber),
-                        label: const Text('Keep flying'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xffff6b6b),
+                      Text(
+                        article.subheadline,
+                        style: const TextStyle(
+                          color: Color(0xcc1a1008),
+                          fontFamily: 'Georgia',
+                          fontStyle: FontStyle.italic,
+                          fontSize: 15,
+                          height: 1.3,
                         ),
                       ),
+                      const Divider(height: 24, color: Color(0x331a1008)),
+                      ...article.paragraphs.indexed.map((entry) {
+                        final paragraph = entry.$2;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: RichText(
+                            textAlign: TextAlign.justify,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Color(0xff1a1008),
+                                fontFamily: 'Georgia',
+                                fontSize: 15,
+                                height: 1.42,
+                              ),
+                              children: entry.$1 == 0 && paragraph.isNotEmpty
+                                  ? [
+                                      TextSpan(
+                                        text: paragraph[0],
+                                        style: const TextStyle(
+                                          fontSize: 46,
+                                          height: 0.9,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      TextSpan(text: paragraph.substring(1)),
+                                    ]
+                                  : [TextSpan(text: paragraph)],
+                            ),
+                          ),
+                        );
+                      }),
+                      if (article.actionAircraftId != null && !readOnly)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Divider(color: Color(0x331a1008)),
+                              const Text(
+                                'Your operations team requires a decision.',
+                                style: TextStyle(
+                                  color: Color(0xcc1a1008),
+                                  fontFamily: 'Georgia',
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  game.startMaintenance(
+                                    article.actionAircraftId!,
+                                    MaintenanceTier.standard,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                                icon: const Icon(Icons.build),
+                                label: Text(
+                                  'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  game.updateMaintenancePolicy(
+                                    game.player.maintenancePolicy.copyWith(
+                                      enabled: true,
+                                      autoMaintainIssues: true,
+                                    ),
+                                  );
+                                  game.startMaintenance(
+                                    article.actionAircraftId!,
+                                    MaintenanceTier.standard,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                                icon: const Icon(Icons.engineering),
+                                label: const Text(
+                                  'Always maintain aircraft with issues',
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  game.keepIssueAircraftFlying(
+                                    article.actionAircraftId!,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                                icon: const Icon(Icons.warning_amber),
+                                label: const Text('Keep flying'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xffb91c1c),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
