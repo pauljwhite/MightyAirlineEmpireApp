@@ -9,6 +9,7 @@ import 'core/geo.dart';
 import 'data/aircraft_types.dart';
 import 'data/airports.dart';
 import 'engine/demand_model.dart';
+import 'engine/economics_engine.dart';
 import 'engine/finance.dart';
 import 'engine/hub_upgrades.dart';
 import 'models/models.dart';
@@ -1939,6 +1940,8 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
   late final bizController = TextEditingController(
     text: widget.route.priceBusiness.toString(),
   );
+  var buyManufacturer = 'All';
+  String? aircraftError;
 
   @override
   void dispose() {
@@ -1949,84 +1952,261 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final ac = widget.route.aircraftId == null
+    final route = widget.game.routes[widget.route.id] ?? widget.route;
+    final origin = widget.game.airportByIata(route.originIata);
+    final destination = widget.game.airportByIata(route.destinationIata);
+    final ac = route.aircraftId == null
         ? null
-        : widget.game.aircraft[widget.route.aircraftId!];
+        : widget.game.aircraft[route.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
     final hasBusiness = (type?.seatsBusiness ?? 0) > 0;
+    final eligibleAircraft = widget.game.playerFleet.where((candidate) {
+      if (candidate.id == route.aircraftId) return false;
+      if (candidate.status == AircraftStatus.maintenance) return false;
+      final candidateType = aircraftTypesById[candidate.typeId];
+      if (candidateType == null || origin == null || destination == null) {
+        return false;
+      }
+      return candidateType.rangeKm >= route.distanceKm &&
+          canAirportHandleAircraft(origin, candidateType) &&
+          canAirportHandleAircraft(destination, candidateType);
+    }).toList();
+    final manufacturers = [
+      'All',
+      ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
+        ..sort(),
+    ];
+    final shopTypes = aircraftTypes
+        .where((candidateType) {
+          final byManufacturer =
+              buyManufacturer == 'All' ||
+              candidateType.manufacturer == buyManufacturer;
+          final fits =
+              origin != null &&
+              destination != null &&
+              candidateType.rangeKm >= route.distanceKm &&
+              canAirportHandleAircraft(origin, candidateType) &&
+              canAirportHandleAircraft(destination, candidateType);
+          return byManufacturer && fits;
+        })
+        .take(80)
+        .toList();
     return AlertDialog(
-      title: Text(
-        '${widget.route.originIata} -> ${widget.route.destinationIata}',
-      ),
+      title: Text('${route.originIata} -> ${route.destinationIata}'),
       content: SizedBox(
         width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Flights per week: $flights'),
-            Slider(
-              value: flights.toDouble(),
-              min: 1,
-              max: 21,
-              divisions: 20,
-              label: '$flights/week',
-              onChanged: (value) => setState(() => flights = value.round()),
-            ),
-            TextField(
-              controller: ecoController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Economy fare (${widget.currency.code})',
-                prefixIcon: const Icon(Icons.payments),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Flights per week: $flights'),
+              Slider(
+                value: flights.toDouble(),
+                min: 1,
+                max: 21,
+                divisions: 20,
+                label: '$flights/week',
+                onChanged: (value) => setState(() => flights = value.round()),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: bizController,
-              enabled: hasBusiness,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: hasBusiness
-                    ? 'Business fare (${widget.currency.code})'
-                    : 'No business cabin',
-                prefixIcon: const Icon(Icons.business_center),
+              TextField(
+                controller: ecoController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Economy fare (${widget.currency.code})',
+                  prefixIcon: const Icon(Icons.payments),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      final result = widget.game.optimiseRoute(widget.route.id);
-                      setState(() {
-                        flights = result.flightsPerWeek;
-                        ecoController.text = result.priceEconomy.toString();
-                        bizController.text = result.priceBusiness.toString();
-                      });
-                    },
-                    icon: const Icon(Icons.auto_fix_high),
-                    label: const Text('Optimise'),
-                  ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: bizController,
+                enabled: hasBusiness,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: hasBusiness
+                      ? 'Business fare (${widget.currency.code})'
+                      : 'No business cabin',
+                  prefixIcon: const Icon(Icons.business_center),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => widget.game.updateRouteSettings(
-                      widget.route.id,
-                      isActive: !widget.route.isActive,
+              ),
+              const SizedBox(height: 12),
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Assigned aircraft',
+                      style: TextStyle(fontWeight: FontWeight.w900),
                     ),
-                    icon: Icon(
-                      widget.route.isActive
-                          ? Icons.pause_circle
-                          : Icons.play_circle,
+                    const SizedBox(height: 8),
+                    if (ac == null)
+                      const Text(
+                        'No aircraft assigned. The route is inactive until one is assigned.',
+                        style: TextStyle(color: Color(0xff9aa4b5)),
+                      )
+                    else ...[
+                      Text(
+                        '${ac.name} · ${type?.displayName ?? ac.typeId}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        '${ac.condition.toStringAsFixed(0)}% condition · ${type == null ? '' : '${type.rangeKm} km range'}',
+                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              widget.game.assignAircraftToRoute(ac.id, null);
+                              setState(() => aircraftError = null);
+                            },
+                            icon: const Icon(Icons.link_off),
+                            label: const Text('Unassign'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              try {
+                                widget.game.sellAircraft(ac.id);
+                                setState(() => aircraftError = null);
+                              } catch (e) {
+                                setState(() => aircraftError = e.toString());
+                              }
+                            },
+                            icon: const Icon(Icons.sell),
+                            label: const Text('Sell aircraft'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: null,
+                      decoration: const InputDecoration(
+                        labelText: 'Assign existing aircraft',
+                      ),
+                      items: eligibleAircraft.map((candidate) {
+                        final candidateType =
+                            aircraftTypesById[candidate.typeId];
+                        return DropdownMenuItem(
+                          value: candidate.id,
+                          child: Text(
+                            '${candidate.name} · ${candidateType?.model ?? candidate.typeId}',
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: eligibleAircraft.isEmpty
+                          ? null
+                          : (id) {
+                              if (id == null) return;
+                              try {
+                                widget.game.assignAircraftToRoute(id, route.id);
+                                setState(() => aircraftError = null);
+                              } catch (e) {
+                                setState(() => aircraftError = e.toString());
+                              }
+                            },
                     ),
-                    label: Text(widget.route.isActive ? 'Suspend' : 'Resume'),
-                  ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: buyManufacturer,
+                      decoration: const InputDecoration(
+                        labelText: 'Manufacturer',
+                      ),
+                      items: manufacturers
+                          .map(
+                            (manufacturer) => DropdownMenuItem(
+                              value: manufacturer,
+                              child: Text(manufacturer),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => buyManufacturer = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: null,
+                      decoration: const InputDecoration(
+                        labelText: 'Buy new and assign',
+                      ),
+                      items: shopTypes
+                          .map(
+                            (candidateType) => DropdownMenuItem(
+                              value: candidateType.id,
+                              enabled:
+                                  widget.game.player.cashUSD >=
+                                  candidateType.purchasePrice,
+                              child: Text(
+                                '${candidateType.displayName} · ${money(candidateType.purchasePrice, widget.currency)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: shopTypes.isEmpty
+                          ? null
+                          : (typeId) {
+                              if (typeId == null) return;
+                              try {
+                                widget.game.buyAircraftForRoute(
+                                  typeId,
+                                  route.id,
+                                );
+                                setState(() => aircraftError = null);
+                              } catch (e) {
+                                setState(() => aircraftError = e.toString());
+                              }
+                            },
+                    ),
+                    if (aircraftError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          aircraftError!,
+                          style: const TextStyle(color: Color(0xffff6b6b)),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        final result = widget.game.optimiseRoute(route.id);
+                        setState(() {
+                          flights = result.flightsPerWeek;
+                          ecoController.text = result.priceEconomy.toString();
+                          bizController.text = result.priceBusiness.toString();
+                        });
+                      },
+                      icon: const Icon(Icons.auto_fix_high),
+                      label: const Text('Optimise'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => widget.game.updateRouteSettings(
+                        route.id,
+                        isActive: !route.isActive,
+                      ),
+                      icon: Icon(
+                        route.isActive ? Icons.pause_circle : Icons.play_circle,
+                      ),
+                      label: Text(route.isActive ? 'Suspend' : 'Resume'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -2037,7 +2217,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
         FilledButton(
           onPressed: () {
             widget.game.updateRouteSettings(
-              widget.route.id,
+              route.id,
               flightsPerWeek: flights,
               priceEconomy: int.tryParse(ecoController.text) ?? 0,
               priceBusiness: hasBusiness

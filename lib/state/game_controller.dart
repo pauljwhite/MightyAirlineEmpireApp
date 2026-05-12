@@ -562,6 +562,109 @@ class GameController extends ChangeNotifier {
     return ac;
   }
 
+  Aircraft buyAircraftForRoute(String typeId, String routeId) {
+    final route = routes[routeId];
+    final type = aircraftTypesById[typeId];
+    final origin = route == null ? null : airportByIata(route.originIata);
+    final destination = route == null
+        ? null
+        : airportByIata(route.destinationIata);
+    if (route == null ||
+        type == null ||
+        origin == null ||
+        destination == null) {
+      throw StateError('Route or aircraft data missing');
+    }
+    if (type.rangeKm < route.distanceKm) {
+      throw StateError('Aircraft range too short for route');
+    }
+    if (!canAirportHandleAircraft(origin, type) ||
+        !canAirportHandleAircraft(destination, type)) {
+      throw StateError('Airport runway too short for aircraft');
+    }
+    final ac = buyAircraft(typeId);
+    assignAircraftToRoute(ac.id, routeId);
+    return aircraft[ac.id]!;
+  }
+
+  void assignAircraftToRoute(String aircraftId, String? routeId) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player') {
+      throw StateError('Aircraft not found');
+    }
+    if (routeId != null) {
+      final route = routes[routeId];
+      final type = aircraftTypesById[ac.typeId];
+      final origin = route == null ? null : airportByIata(route.originIata);
+      final destination = route == null
+          ? null
+          : airportByIata(route.destinationIata);
+      if (route == null ||
+          type == null ||
+          origin == null ||
+          destination == null) {
+        throw StateError('Route data missing');
+      }
+      if (type.rangeKm < route.distanceKm) {
+        throw StateError('Aircraft range too short for route');
+      }
+      if (!canAirportHandleAircraft(origin, type) ||
+          !canAirportHandleAircraft(destination, type)) {
+        throw StateError('Airport runway too short for aircraft');
+      }
+      final previousAircraftId = route.aircraftId;
+      if (previousAircraftId != null &&
+          previousAircraftId != aircraftId &&
+          aircraft[previousAircraftId] != null) {
+        aircraft[previousAircraftId] = aircraft[previousAircraftId]!.copyWith(
+          clearAssignedRoute: true,
+          status: AircraftStatus.idle,
+        );
+      }
+      routes[routeId] = route.copyWith(aircraftId: aircraftId, isActive: true);
+    }
+    if (ac.assignedRouteId != null && ac.assignedRouteId != routeId) {
+      final oldRoute = routes[ac.assignedRouteId!];
+      if (oldRoute != null) {
+        routes[oldRoute.id] = oldRoute.copyWith(
+          clearAircraft: true,
+          isActive: false,
+        );
+      }
+    }
+    aircraft[aircraftId] = ac.copyWith(
+      assignedRouteId: routeId,
+      clearAssignedRoute: routeId == null,
+      status: routeId == null ? AircraftStatus.idle : AircraftStatus.flying,
+    );
+    notifyListeners();
+  }
+
+  double sellAircraft(String aircraftId) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player') {
+      throw StateError('Aircraft not found');
+    }
+    if (ac.status == AircraftStatus.maintenance) {
+      throw StateError('Cannot sell aircraft in maintenance');
+    }
+    final value = computeAircraftValue(ac, gameDay);
+    if (ac.assignedRouteId != null) {
+      final route = routes[ac.assignedRouteId!];
+      if (route != null) {
+        routes[route.id] = route.copyWith(clearAircraft: true, isActive: false);
+      }
+    }
+    aircraft.remove(aircraftId);
+    airlines['player'] = player.copyWith(
+      cashUSD: player.cashUSD + value,
+      fleetIds: player.fleetIds.where((id) => id != aircraftId).toList(),
+    );
+    newsTicker.add('${ac.name} sold for \$${value.round()}.');
+    notifyListeners();
+    return value;
+  }
+
   RoutePlan createRoute({
     required String originIata,
     required String destinationIata,

@@ -252,6 +252,40 @@ void main() {
     expect(edited.isActive, isFalse);
   });
 
+  test(
+    'route aircraft can be assigned, bought for route, and sold cleanly',
+    () {
+      final game = GameController();
+      final type = aircraftTypesById['b707-120']!;
+      final route = game.createRoute(
+        originIata: 'LHR',
+        destinationIata: 'JFK',
+        aircraftTypeId: type.id,
+        buyNewAircraft: false,
+      );
+
+      expect(game.routes[route.id]!.aircraftId, isNull);
+      final bought = game.buyAircraftForRoute(type.id, route.id);
+      expect(game.routes[route.id]!.aircraftId, bought.id);
+      expect(game.aircraft[bought.id]!.assignedRouteId, route.id);
+      expect(game.routes[route.id]!.isActive, isTrue);
+
+      game.assignAircraftToRoute(bought.id, null);
+      expect(game.routes[route.id]!.aircraftId, isNull);
+      expect(game.routes[route.id]!.isActive, isFalse);
+      expect(game.aircraft[bought.id]!.assignedRouteId, isNull);
+
+      game.assignAircraftToRoute(bought.id, route.id);
+      final cashBeforeSale = game.player.cashUSD;
+      final saleValue = game.sellAircraft(bought.id);
+      expect(saleValue, greaterThan(0));
+      expect(game.aircraft[bought.id], isNull);
+      expect(game.routes[route.id]!.aircraftId, isNull);
+      expect(game.routes[route.id]!.isActive, isFalse);
+      expect(game.player.cashUSD, cashBeforeSale + saleValue);
+    },
+  );
+
   test('aircraft can enter and complete maintenance', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;

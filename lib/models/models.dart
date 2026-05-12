@@ -276,6 +276,7 @@ class Aircraft {
     String? name,
     String? airlineId,
     String? assignedRouteId,
+    bool clearAssignedRoute = false,
     double? totalFlightHours,
     double? condition,
     double? maintenanceHoursOwed,
@@ -298,7 +299,9 @@ class Aircraft {
     lastMaintenanceGameDay:
         lastMaintenanceGameDay ?? this.lastMaintenanceGameDay,
     crashRisk: crashRisk,
-    assignedRouteId: assignedRouteId ?? this.assignedRouteId,
+    assignedRouteId: clearAssignedRoute
+        ? null
+        : assignedRouteId ?? this.assignedRouteId,
     status: status ?? this.status,
     currentLat: currentLat,
     currentLon: currentLon,
@@ -421,6 +424,7 @@ class RoutePlan {
   RoutePlan copyWith({
     String? airlineId,
     String? aircraftId,
+    bool clearAircraft = false,
     int? flightsPerWeek,
     int? priceEconomy,
     int? priceBusiness,
@@ -437,7 +441,7 @@ class RoutePlan {
     airlineId: airlineId ?? this.airlineId,
     originIata: originIata,
     destinationIata: destinationIata,
-    aircraftId: aircraftId ?? this.aircraftId,
+    aircraftId: clearAircraft ? null : aircraftId ?? this.aircraftId,
     flightsPerWeek: flightsPerWeek ?? this.flightsPerWeek,
     priceEconomy: priceEconomy ?? this.priceEconomy,
     priceBusiness: priceBusiness ?? this.priceBusiness,
