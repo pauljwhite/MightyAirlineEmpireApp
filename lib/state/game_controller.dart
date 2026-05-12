@@ -7,6 +7,7 @@ import '../core/constants.dart';
 import '../core/geo.dart';
 import '../data/aircraft_types.dart';
 import '../data/airports.dart';
+import '../engine/ai_preferences.dart';
 import '../engine/demand_model.dart';
 import '../engine/economics_engine.dart';
 import '../engine/finance.dart';
@@ -1574,6 +1575,7 @@ class GameController extends ChangeNotifier {
     final affordable = aircraftTypes
         .where(
           (type) =>
+              type.yearIntroduced <= settings.startingYear + gameDay ~/ 365 &&
               type.rangeKm >= distance &&
               canAirportHandleAircraft(origin, type) &&
               canAirportHandleAircraft(destination, type) &&
@@ -1581,8 +1583,20 @@ class GameController extends ChangeNotifier {
         )
         .toList();
     if (affordable.isEmpty) return null;
-    affordable.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
-    return affordable[affordable.length ~/ 2];
+    final homeAirport = airportByIata(airline.hubIatas.firstOrNull ?? '');
+    affordable.sort((a, b) {
+      final scoreA =
+          (a.seatsEconomy + a.seatsBusiness * 1.8) *
+          aiManufacturerPreferenceWeight(airline, a, homeAirport);
+      final scoreB =
+          (b.seatsEconomy + b.seatsBusiness * 1.8) *
+          aiManufacturerPreferenceWeight(airline, b, homeAirport);
+      final scoreCompare = scoreB.compareTo(scoreA);
+      return scoreCompare == 0
+          ? a.purchasePrice.compareTo(b.purchasePrice)
+          : scoreCompare;
+    });
+    return affordable.first;
   }
 
   double playerLoanCreditLimit() {

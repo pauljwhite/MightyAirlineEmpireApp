@@ -4,6 +4,7 @@ import 'package:mighty_airline_empire_app/core/format.dart';
 import 'package:mighty_airline_empire_app/core/geo.dart';
 import 'package:mighty_airline_empire_app/data/aircraft_types.dart';
 import 'package:mighty_airline_empire_app/data/airports.dart';
+import 'package:mighty_airline_empire_app/engine/ai_preferences.dart';
 import 'package:mighty_airline_empire_app/engine/demand_model.dart';
 import 'package:mighty_airline_empire_app/models/models.dart';
 
@@ -43,5 +44,48 @@ void main() {
   test('currency formatter honours selected currency', () {
     final gbp = currencyOptions.firstWhere((c) => c.code == 'GBP');
     expect(money(1000000, gbp), startsWith('£'));
+  });
+
+  test('AI manufacturer preference follows home-market bias', () {
+    const airline = Airline(
+      id: 'preference-test',
+      name: 'Preference Test',
+      iataPrefix: 'PT',
+      isPlayer: false,
+      color: '#ffffff',
+      logoEmoji: 'PT',
+      cashUSD: 100000000,
+      hubIatas: ['SVO'],
+      foundedGameDay: 0,
+    );
+    final svo = airportsByIata['SVO']!;
+    final jfk = airportsByIata['JFK']!;
+    final gru = airportsByIata['GRU']!;
+    final pek = airportsByIata['PEK']!;
+    final tupolev = aircraftTypes.firstWhere(
+      (t) => t.manufacturer == 'Tupolev',
+    );
+    final boeing = aircraftTypes.firstWhere((t) => t.manufacturer == 'Boeing');
+    final embraer = aircraftTypes.firstWhere(
+      (t) => t.manufacturer == 'Embraer',
+    );
+    final comac = aircraftTypes.firstWhere((t) => t.manufacturer == 'COMAC');
+
+    expect(
+      aiManufacturerPreferenceWeight(airline, tupolev, svo),
+      greaterThan(aiManufacturerPreferenceWeight(airline, boeing, svo)),
+    );
+    expect(
+      aiManufacturerPreferenceWeight(airline, boeing, jfk),
+      greaterThan(aiManufacturerPreferenceWeight(airline, tupolev, jfk)),
+    );
+    expect(
+      aiManufacturerPreferenceWeight(airline, embraer, gru),
+      greaterThan(aiManufacturerPreferenceWeight(airline, boeing, gru)),
+    );
+    expect(
+      aiManufacturerPreferenceWeight(airline, comac, pek),
+      greaterThan(aiManufacturerPreferenceWeight(airline, boeing, pek)),
+    );
   });
 }
