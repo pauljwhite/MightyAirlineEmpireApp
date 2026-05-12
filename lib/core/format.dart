@@ -28,6 +28,18 @@ const currencyOptions = <CurrencyOption>[
     name: 'Australian Dollar',
     rateFromUsd: 1.52,
   ),
+  CurrencyOption(
+    code: 'CHF',
+    symbol: 'CHF ',
+    name: 'Swiss Franc',
+    rateFromUsd: 0.9,
+  ),
+  CurrencyOption(
+    code: 'CNY',
+    symbol: '¥',
+    name: 'Chinese Yuan',
+    rateFromUsd: 7.22,
+  ),
 ];
 
 String money(num usd, CurrencyOption currency, {bool compact = true}) {

@@ -24,8 +24,10 @@ enum GameObjective { lastAirlineStanding, marketShare }
 
 T _enumValue<T extends Enum>(List<T> values, Object? value, T fallback) {
   if (value is String) {
+    final normalizedValue = value.replaceAll('_', '').toLowerCase();
     for (final item in values) {
-      if (item.name == value) return item;
+      final normalizedName = item.name.replaceAll('_', '').toLowerCase();
+      if (normalizedName == normalizedValue) return item;
     }
   }
   return fallback;
@@ -724,6 +726,30 @@ class GameSettings {
   final GameObjective objective;
   final double targetMarketShare;
   final String currency;
+  GameSettings copyWith({
+    String? playerAirlineName,
+    String? playerAirlineColor,
+    String? playerAirlineEmoji,
+    double? startingCash,
+    Difficulty? difficulty,
+    int? aiCount,
+    int? startingYear,
+    GameObjective? objective,
+    double? targetMarketShare,
+    String? currency,
+  }) => GameSettings(
+    playerAirlineName: playerAirlineName ?? this.playerAirlineName,
+    playerAirlineColor: playerAirlineColor ?? this.playerAirlineColor,
+    playerAirlineEmoji: playerAirlineEmoji ?? this.playerAirlineEmoji,
+    startingCash: startingCash ?? this.startingCash,
+    difficulty: difficulty ?? this.difficulty,
+    aiCount: aiCount ?? this.aiCount,
+    startingYear: startingYear ?? this.startingYear,
+    objective: objective ?? this.objective,
+    targetMarketShare: targetMarketShare ?? this.targetMarketShare,
+    currency: currency ?? this.currency,
+  );
+
   Map<String, Object?> toJson() => {
     'playerAirlineName': playerAirlineName,
     'playerAirlineColor': playerAirlineColor,

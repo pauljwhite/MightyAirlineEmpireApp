@@ -204,7 +204,7 @@ class _TopBar extends StatelessWidget {
             children: [
               _AirlineBadge(game: game, currency: currency),
               const SizedBox(width: 6),
-              _GameMenu(game: game),
+              _GameMenu(game: game, currency: currency, onCurrency: onCurrency),
               const SizedBox(width: 12),
               _DateBadge(game: game),
               const Spacer(),
@@ -296,8 +296,14 @@ class _AirlineBadge extends StatelessWidget {
 }
 
 class _GameMenu extends StatelessWidget {
-  const _GameMenu({required this.game});
+  const _GameMenu({
+    required this.game,
+    required this.currency,
+    required this.onCurrency,
+  });
   final GameController game;
+  final CurrencyOption currency;
+  final ValueChanged<CurrencyOption> onCurrency;
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
@@ -308,9 +314,9 @@ class _GameMenu extends StatelessWidget {
         case 'export':
           _showExportDialog(context, game);
         case 'import':
-          _showImportDialog(context, game);
+          _showImportDialog(context, game, onCurrency);
         case 'new':
-          game.startNewGame();
+          _showNewGameDialog(context, game, currency, onCurrency);
       }
     },
     itemBuilder: (context) => const [
@@ -319,6 +325,205 @@ class _GameMenu extends StatelessWidget {
       PopupMenuDivider(),
       PopupMenuItem(value: 'new', child: Text('Start again')),
     ],
+  );
+}
+
+void _showNewGameDialog(
+  BuildContext context,
+  GameController game,
+  CurrencyOption currentCurrency,
+  ValueChanged<CurrencyOption> onCurrency,
+) {
+  final nameController = TextEditingController(
+    text: game.settings.playerAirlineName,
+  );
+  final emojiController = TextEditingController(
+    text: game.settings.playerAirlineEmoji,
+  );
+  var difficulty = game.settings.difficulty;
+  var aiCount = game.settings.aiCount.clamp(0, 12).toInt();
+  var objective = game.settings.objective;
+  var targetMarketShare = game.settings.targetMarketShare
+      .clamp(60, 100)
+      .toDouble();
+  var selectedCurrency = currencyOptions.firstWhere(
+    (option) => option.code == game.settings.currency,
+    orElse: () => currentCurrency,
+  );
+  final startingCashByDifficulty = {
+    Difficulty.easy: 50000000.0,
+    Difficulty.normal: 30000000.0,
+    Difficulty.hard: 15000000.0,
+  };
+
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final startingCash = startingCashByDifficulty[difficulty]!;
+        return AlertDialog(
+          title: const Text('Start new airline'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Airline name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emojiController,
+                    maxLength: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Logo emoji',
+                      counterText: '',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<Difficulty>(
+                    initialValue: difficulty,
+                    decoration: const InputDecoration(
+                      labelText: 'Difficulty',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: Difficulty.values
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(
+                              '${value.name[0].toUpperCase()}${value.name.substring(1)} · ${money(startingCashByDifficulty[value]!, selectedCurrency)}',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => difficulty = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text('AI airlines: $aiCount'),
+                  Slider(
+                    value: aiCount.toDouble(),
+                    min: 0,
+                    max: 12,
+                    divisions: 12,
+                    label: '$aiCount',
+                    onChanged: (value) =>
+                        setState(() => aiCount = value.round()),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<GameObjective>(
+                    segments: const [
+                      ButtonSegment(
+                        value: GameObjective.lastAirlineStanding,
+                        label: Text('Last airline standing'),
+                      ),
+                      ButtonSegment(
+                        value: GameObjective.marketShare,
+                        label: Text('Market share'),
+                      ),
+                    ],
+                    selected: {objective},
+                    onSelectionChanged: (value) =>
+                        setState(() => objective = value.first),
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: objective == GameObjective.marketShare
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Target market share: ${targetMarketShare.round()}%',
+                                ),
+                                Slider(
+                                  value: targetMarketShare.toDouble(),
+                                  min: 60,
+                                  max: 100,
+                                  divisions: 40,
+                                  label: '${targetMarketShare.round()}%',
+                                  onChanged: (value) => setState(
+                                    () => targetMarketShare = value
+                                        .roundToDouble(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<CurrencyOption>(
+                    initialValue: selectedCurrency,
+                    decoration: const InputDecoration(
+                      labelText: 'Currency',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: currencyOptions
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text('${value.code} · ${value.name}'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => selectedCurrency = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Starting cash: ${money(startingCash, selectedCurrency)}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final emoji = emojiController.text.trim();
+                game.startNewGame(
+                  game.settings.copyWith(
+                    playerAirlineName: name.isEmpty ? 'My Airline' : name,
+                    playerAirlineEmoji: emoji.isEmpty ? '✈️' : emoji,
+                    difficulty: difficulty,
+                    startingCash: startingCash,
+                    aiCount: aiCount,
+                    objective: objective,
+                    targetMarketShare: targetMarketShare,
+                    currency: selectedCurrency.code,
+                  ),
+                );
+                onCurrency(selectedCurrency);
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.flight_takeoff),
+              label: const Text('Start'),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 
@@ -359,7 +564,11 @@ void _showExportDialog(BuildContext context, GameController game) {
   );
 }
 
-void _showImportDialog(BuildContext context, GameController game) {
+void _showImportDialog(
+  BuildContext context,
+  GameController game,
+  ValueChanged<CurrencyOption> onCurrency,
+) {
   final controller = TextEditingController();
   String? error;
   showDialog<void>(
@@ -401,6 +610,11 @@ void _showImportDialog(BuildContext context, GameController game) {
             onPressed: () {
               try {
                 game.importJson(controller.text);
+                final importedCurrency = currencyOptions.firstWhere(
+                  (option) => option.code == game.settings.currency,
+                  orElse: () => currencyOptions.first,
+                );
+                onCurrency(importedCurrency);
                 Navigator.pop(context);
               } catch (e) {
                 setState(() => error = 'Could not import that save JSON.');

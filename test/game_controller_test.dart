@@ -70,6 +70,18 @@ void main() {
 
   test('export and import preserves a freeze-frame of progress', () {
     final game = GameController();
+    game.startNewGame(
+      const GameSettings(
+        playerAirlineName: 'Soviet Airlines',
+        playerAirlineEmoji: '🌐',
+        startingCash: 50000000,
+        difficulty: Difficulty.easy,
+        aiCount: 4,
+        objective: GameObjective.marketShare,
+        targetMarketShare: 75,
+        currency: 'GBP',
+      ),
+    );
     final type = aircraftTypesById['b707-120']!;
     game.createRoute(
       originIata: 'LHR',
@@ -85,6 +97,36 @@ void main() {
     expect(restored.playerRoutes.length, game.playerRoutes.length);
     expect(restored.playerFleet.length, game.playerFleet.length);
     expect(restored.player.cashUSD, game.player.cashUSD);
+    expect(restored.settings.playerAirlineName, 'Soviet Airlines');
+    expect(restored.settings.aiCount, 4);
+    expect(restored.settings.objective, GameObjective.marketShare);
+    expect(restored.settings.targetMarketShare, 75);
+    expect(restored.settings.currency, 'GBP');
+  });
+
+  test('new game settings are applied to the player and AI setup', () {
+    final game = GameController();
+    game.startNewGame(
+      const GameSettings(
+        playerAirlineName: 'Danube Airways',
+        playerAirlineEmoji: '🛫',
+        startingCash: 15000000,
+        difficulty: Difficulty.hard,
+        aiCount: 2,
+        objective: GameObjective.marketShare,
+        targetMarketShare: 80,
+        currency: 'EUR',
+      ),
+    );
+
+    expect(game.player.name, 'Danube Airways');
+    expect(game.player.logoEmoji, '🛫');
+    expect(game.player.cashUSD, 15000000);
+    expect(game.competitors, hasLength(2));
+    expect(game.settings.difficulty, Difficulty.hard);
+    expect(game.settings.objective, GameObjective.marketShare);
+    expect(game.settings.targetMarketShare, 80);
+    expect(game.settings.currency, 'EUR');
   });
 
   test(

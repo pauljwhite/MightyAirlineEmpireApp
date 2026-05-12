@@ -852,6 +852,15 @@ class GameController extends ChangeNotifier {
           : ((passengerTotals[entry.key] ?? 0) / total) * 100;
       airlines[entry.key] = entry.value.copyWith(marketSharePercent: share);
     }
+    final playerShare = airlines['player']?.marketSharePercent ?? 0;
+    final competitorsWithShare = competitors.any(
+      (airline) => airline.marketSharePercent > 0,
+    );
+    if (settings.objective == GameObjective.marketShare &&
+        competitorsWithShare &&
+        playerShare >= settings.targetMarketShare) {
+      hasWon = true;
+    }
   }
 
   void _maybeExpandAI() {
