@@ -69,6 +69,37 @@ void main() {
     expect(game.player.totalDebt, lessThan(loan.principalUSD));
   });
 
+  test('player insolvency creates a game over state', () {
+    final game = GameController();
+    game.airlines['player'] = game.player.copyWith(cashUSD: -120000000);
+
+    game.runDailyTick();
+
+    expect(game.hasLost, isTrue);
+    expect(game.hasWon, isFalse);
+
+    game.dismissGameOutcome();
+    expect(game.hasLost, isFalse);
+  });
+
+  test('last airline standing objective wins after competitors collapse', () {
+    final game = GameController();
+    game.startNewGame(
+      const GameSettings(
+        objective: GameObjective.lastAirlineStanding,
+        aiCount: 2,
+      ),
+    );
+    for (final competitor in game.competitors) {
+      game.airlines[competitor.id] = competitor.copyWith(cashUSD: -120000000);
+    }
+
+    game.runDailyTick();
+
+    expect(game.hasWon, isTrue);
+    expect(game.competitors.every((airline) => airline.isInsolvent), isTrue);
+  });
+
   test('export and import preserves a freeze-frame of progress', () {
     final game = GameController();
     game.startNewGame(

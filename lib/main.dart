@@ -159,6 +159,19 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                         bottom: 0,
                         child: _Ticker(game: game),
                       ),
+                      if (game.hasWon || game.hasLost)
+                        Positioned.fill(
+                          child: _GameOutcomeOverlay(
+                            game: game,
+                            currency: currency,
+                            onNewGame: () => _showNewGameDialog(
+                              context,
+                              game,
+                              currency,
+                              (v) => setState(() => currency = v),
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -172,6 +185,170 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
 }
 
 enum _Panel { routes, fleet, finance, competitors }
+
+class _GameOutcomeOverlay extends StatelessWidget {
+  const _GameOutcomeOverlay({
+    required this.game,
+    required this.currency,
+    required this.onNewGame,
+  });
+
+  final GameController game;
+  final CurrencyOption currency;
+  final VoidCallback onNewGame;
+
+  @override
+  Widget build(BuildContext context) {
+    final won = game.hasWon;
+    final player = game.player;
+    final last = player.dailyStats.lastOrNull;
+    final title = won ? 'Victory' : 'Game over';
+    final message = won
+        ? game.settings.objective == GameObjective.marketShare
+              ? 'You reached ${game.settings.targetMarketShare.round()}% market share.'
+              : 'You are the last airline standing.'
+        : '${player.name} has become insolvent.';
+    return Material(
+      color: Colors.black.withValues(alpha: 0.56),
+      child: Center(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.96, end: 1),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          builder: (context, scale, child) => Transform.scale(
+            scale: scale,
+            child: Opacity(opacity: scale.clamp(0, 1), child: child),
+          ),
+          child: Container(
+            width: math.min(520, MediaQuery.sizeOf(context).width - 32),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xff0b1020),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 36,
+                  offset: Offset(0, 18),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: const TextStyle(color: Colors.white70, fontSize: 17),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _OutcomeStat(
+                      label: 'Cash',
+                      value: money(player.cashUSD, currency),
+                    ),
+                    _OutcomeStat(
+                      label: 'Routes',
+                      value: player.routeIds.length.toString(),
+                    ),
+                    _OutcomeStat(
+                      label: 'Fleet',
+                      value: player.fleetIds.length.toString(),
+                    ),
+                    _OutcomeStat(
+                      label: 'Passengers',
+                      value: player.totalPassengersAllTime.toString(),
+                    ),
+                    _OutcomeStat(
+                      label: 'Market share',
+                      value: '${player.marketSharePercent.toStringAsFixed(1)}%',
+                    ),
+                    _OutcomeStat(
+                      label: 'Last day',
+                      value: money(
+                        last?.profit ?? player.lastDailyProfit,
+                        currency,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: game.dismissGameOutcome,
+                        child: const Text('Continue Playing'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: onNewGame,
+                        child: const Text('Start Again'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OutcomeStat extends StatelessWidget {
+  const _OutcomeStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white54)),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _TopBar extends StatelessWidget {
   const _TopBar({

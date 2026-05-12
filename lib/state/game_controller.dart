@@ -185,6 +185,7 @@ class GameController extends ChangeNotifier {
   int speed = 300;
   bool isPaused = false;
   bool hasWon = false;
+  bool hasLost = false;
   double globalFuelPrice = fuelPriceUsdPerLiter;
   final airlines = <String, Airline>{};
   final aircraft = <String, Aircraft>{};
@@ -300,6 +301,12 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void dismissGameOutcome() {
+    hasWon = false;
+    hasLost = false;
+    notifyListeners();
+  }
+
   void _markAirportHub(String iata) {
     final current = airportUpgrades[iata] ?? const AirportUpgrade();
     airportUpgrades[iata] = current.copyWith(isHub: true);
@@ -357,6 +364,7 @@ class GameController extends ChangeNotifier {
     speed = 300;
     isPaused = false;
     hasWon = false;
+    hasLost = false;
     globalFuelPrice = fuelPriceUsdPerLiter;
     airlines.clear();
     aircraft.clear();
@@ -1145,6 +1153,7 @@ class GameController extends ChangeNotifier {
     }
 
     _updateMarketShare(passengerTotals);
+    _resolveInsolvencies();
     _maybeExpandAI();
     airportDailyPax
       ..clear()
@@ -1168,6 +1177,44 @@ class GameController extends ChangeNotifier {
       newsTicker.removeRange(0, newsTicker.length - 20);
     notifyListeners();
     return playerSnapshot;
+  }
+
+  void _resolveInsolvencies() {
+    const insolvencyLimit = -100000000.0;
+    final playerAirline = airlines['player'];
+    if (playerAirline != null && playerAirline.cashUSD <= insolvencyLimit) {
+      hasLost = true;
+      newsTicker.add(
+        '${playerAirline.name} is insolvent after cash fell below -\$100M.',
+      );
+    }
+
+    var anyCompetitor = false;
+    var allCompetitorsInsolvent = true;
+    for (final airline in competitors) {
+      anyCompetitor = true;
+      if (airline.cashUSD > insolvencyLimit) {
+        allCompetitorsInsolvent = false;
+        continue;
+      }
+      if (airline.isInsolvent) continue;
+      for (final routeId in airline.routeIds) {
+        final route = routes[routeId];
+        if (route != null) routes[routeId] = route.copyWith(isActive: false);
+      }
+      airlines[airline.id] = airline.copyWith(
+        isInsolvent: true,
+        canBeTakenOver: true,
+        marketSharePercent: 0,
+      );
+      newsTicker.add('${airline.name} has entered insolvency protection.');
+    }
+
+    if (settings.objective == GameObjective.lastAirlineStanding &&
+        anyCompetitor &&
+        allCompetitorsInsolvent) {
+      hasWon = true;
+    }
   }
 
   void _updateMarketShare(Map<String, int> passengerTotals) {
@@ -1482,6 +1529,7 @@ class GameController extends ChangeNotifier {
     'speed': speed,
     'isPaused': isPaused,
     'hasWon': hasWon,
+    'hasLost': hasLost,
     'globalFuelPrice': globalFuelPrice,
     'airlines': airlines.map((key, value) => MapEntry(key, value.toJson())),
     'aircraft': aircraft.map((key, value) => MapEntry(key, value.toJson())),
@@ -1510,6 +1558,7 @@ class GameController extends ChangeNotifier {
     speed = (raw['speed'] as num?)?.round() ?? 300;
     isPaused = raw['isPaused'] == true;
     hasWon = raw['hasWon'] == true;
+    hasLost = raw['hasLost'] == true;
     globalFuelPrice =
         (raw['globalFuelPrice'] as num?)?.toDouble() ?? fuelPriceUsdPerLiter;
     airlines
