@@ -17,6 +17,7 @@ import '../models/models.dart';
 
 const optimiseAllBaseCostUSD = 2000000.0;
 const optimiseAllCostPerRouteUSD = 2500000.0;
+const gameDayMs = 86400000;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -317,6 +318,20 @@ class GameController extends ChangeNotifier {
     speed = nextSpeed;
     isPaused = nextSpeed == 0;
     notifyListeners();
+  }
+
+  void advanceGameClock(Duration realDelta) {
+    if (isPaused || speed <= 0) return;
+    final delta = (realDelta.inMilliseconds * speed).round();
+    if (delta <= 0) return;
+    gameTimeMs += delta;
+    final targetDay = gameTimeMs ~/ gameDayMs;
+    var daysProcessed = 0;
+    while (gameDay < targetDay && daysProcessed < 14) {
+      runDailyTick();
+      daysProcessed += 1;
+    }
+    if (daysProcessed == 0) notifyListeners();
   }
 
   void dismissGameOutcome() {
@@ -1332,6 +1347,8 @@ class GameController extends ChangeNotifier {
       ..clear()
       ..addAll(nextAirportPax);
     gameDay += 1;
+    final dayBoundaryMs = gameDay * gameDayMs;
+    if (gameTimeMs < dayBoundaryMs) gameTimeMs = dayBoundaryMs;
     _maybeRunRandomFleetEvent();
     final playerSnapshot =
         snapshots['player'] ??

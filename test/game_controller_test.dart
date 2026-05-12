@@ -85,6 +85,22 @@ void main() {
     expect(game.player.cashUSD, cashBefore - type.purchasePrice);
   });
 
+  test('game clock advances time and runs daily ticks at speed', () {
+    final game = GameController();
+    game.setSpeed(300);
+
+    game.advanceGameClock(const Duration(milliseconds: 288000));
+
+    expect(game.gameDay, 1);
+    expect(game.gameTimeMs, greaterThanOrEqualTo(gameDayMs));
+    expect(game.player.dailyStats, hasLength(1));
+
+    game.setSpeed(0);
+    final pausedTime = game.gameTimeMs;
+    game.advanceGameClock(const Duration(days: 1));
+    expect(game.gameTimeMs, pausedTime);
+  });
+
   test('player insolvency creates a game over state', () {
     final game = GameController();
     game.airlines['player'] = game.player.copyWith(cashUSD: -120000000);

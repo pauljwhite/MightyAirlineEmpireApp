@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ class MightyAirlineEmpireApp extends StatefulWidget {
 
 class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   late final GameController game;
+  Timer? _gameLoop;
+  DateTime? _lastTickAt;
   var currency = currencyOptions.first;
   Airport? selectedAirport = airportsByIata['LHR'];
   var panel = _Panel.routes;
@@ -36,10 +39,23 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   void initState() {
     super.initState();
     game = GameController();
+    _lastTickAt = DateTime.now();
+    _gameLoop = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final now = DateTime.now();
+      final previous = _lastTickAt ?? now;
+      _lastTickAt = now;
+      final delta = now.difference(previous);
+      game.advanceGameClock(
+        delta > const Duration(milliseconds: 500)
+            ? const Duration(milliseconds: 500)
+            : delta,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _gameLoop?.cancel();
     game.dispose();
     super.dispose();
   }
@@ -1119,6 +1135,9 @@ class _DateBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final year = game.settings.startingYear + game.gameDay ~/ 365;
     final day = game.gameDay % 365 + 1;
+    final dayMs = game.gameTimeMs % gameDayMs;
+    final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
+    final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -1127,7 +1146,7 @@ class _DateBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
       ),
       child: Text(
-        'Day $day, $year',
+        'Day $day, $year · $hour:$minute',
         style: const TextStyle(fontWeight: FontWeight.w800),
       ),
     );
