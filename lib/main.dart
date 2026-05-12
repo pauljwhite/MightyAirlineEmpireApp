@@ -4217,46 +4217,104 @@ class _PanelShell extends StatelessWidget {
   );
 }
 
-class _Ticker extends StatelessWidget {
+class _Ticker extends StatefulWidget {
   const _Ticker({required this.game});
   final GameController game;
+
+  @override
+  State<_Ticker> createState() => _TickerState();
+}
+
+class _TickerState extends State<_Ticker> {
+  var index = 0;
+  var animationCycle = 0;
+
+  @override
+  void didUpdateWidget(covariant _Ticker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final items = _items;
+    if (index >= items.length) {
+      index = 0;
+      return;
+    }
+    final currentId = items[index].id;
+    if (!items.any((item) => item.id == currentId)) index = 0;
+  }
+
+  List<NewsTickerItem> get _items => widget.game.newsTicker.isEmpty
+      ? const [
+          NewsTickerItem(
+            id: 'fallback',
+            text: 'Welcome to Mighty Airline Empire!',
+          ),
+        ]
+      : widget.game.newsTicker.take(8).toList(growable: false);
+
+  void _advanceTicker() {
+    if (!mounted) return;
+    final items = _items;
+    setState(() {
+      index = items.isEmpty ? 0 : (index + 1) % items.length;
+      animationCycle += 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final text = game.newsTicker.isEmpty
-        ? 'Native Flutter parity port underway'
-        : game.newsTicker.last;
-    final speed = game.speed == 0 ? 1 : (game.speed / 300).round();
-    final article = game.latestArticle;
+    final items = _items;
+    final item = items[index.clamp(0, items.length - 1)];
+    final speed = widget.game.speed == 0
+        ? 1
+        : (widget.game.speed / 300).round();
+    final article = item.articleId == null
+        ? null
+        : widget.game.newsArticles[item.articleId!];
+    final isAlert =
+        item.playerRelated ||
+        item.severity == 'fleet' ||
+        item.severity == 'breaking';
+    final tickerText =
+        '${isAlert ? '‼️ ' : ''}${item.text}${article == null ? '' : ' Read the article'}';
     return InkWell(
       onTap: article == null
           ? null
-          : () => _showHeraldArticle(context, game, article),
+          : () => _showHeraldArticle(
+              context,
+              widget.game,
+              article,
+              readOnly: true,
+            ),
       child: Container(
         height: 42,
         color: const Color(0xff050915),
         alignment: Alignment.centerLeft,
         child: TweenAnimationBuilder<double>(
-          key: ValueKey(text + speed.toString()),
+          key: ValueKey('${item.id}-$animationCycle-$speed'),
           tween: Tween(begin: 1, end: -1),
           duration: Duration(
-            seconds: speed <= 1
-                ? 24
-                : speed == 3
-                ? 16
-                : 10,
+            seconds: speed >= 6
+                ? 10
+                : speed >= 3
+                ? 14
+                : speed >= 1
+                ? 18
+                : 24,
           ),
+          onEnd: _advanceTicker,
           builder: (context, value, child) => FractionalTranslation(
             translation: Offset(value, 0),
             child: child,
           ),
           child: Text(
-            '  $text',
+            '  $tickerText     $tickerText',
             maxLines: 1,
             style: TextStyle(
-              color: article == null
-                  ? const Color(0xffc7d2e5)
-                  : const Color(0xffffd166),
-              fontWeight: FontWeight.w700,
+              color: article != null || isAlert
+                  ? const Color(0xffffd166)
+                  : const Color(0xffc7d2e5),
+              fontWeight: article != null || isAlert
+                  ? FontWeight.w900
+                  : FontWeight.w700,
               decoration: article == null
                   ? TextDecoration.none
                   : TextDecoration.underline,
@@ -4271,8 +4329,9 @@ class _Ticker extends StatelessWidget {
 void _showHeraldArticle(
   BuildContext context,
   GameController game,
-  NewsArticle article,
-) {
+  NewsArticle article, {
+  bool readOnly = false,
+}) {
   showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
@@ -4298,7 +4357,7 @@ void _showHeraldArticle(
                   child: Text(paragraph),
                 ),
               ),
-              if (article.actionAircraftId != null)
+              if (article.actionAircraftId != null && !readOnly)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Column(

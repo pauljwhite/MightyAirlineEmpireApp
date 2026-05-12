@@ -579,6 +579,50 @@ class Loan {
   );
 }
 
+class NewsTickerItem {
+  const NewsTickerItem({
+    required this.id,
+    required this.text,
+    this.severity = 'normal',
+    this.articleId,
+    this.playerRelated = false,
+  });
+
+  final String id;
+  final String text;
+  final String severity;
+  final String? articleId;
+  final bool playerRelated;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'text': text,
+    'severity': severity,
+    'articleId': articleId,
+    'playerRelated': playerRelated,
+  };
+
+  factory NewsTickerItem.fromJson(Object? raw, int fallbackIndex) {
+    if (raw is String) {
+      final playerRelated = raw.startsWith('!!') || raw.startsWith('‼️');
+      return NewsTickerItem(
+        id: 'legacy-$fallbackIndex',
+        text: raw,
+        severity: playerRelated ? 'fleet' : 'normal',
+        playerRelated: playerRelated,
+      );
+    }
+    final json = Map<String, Object?>.from(raw as Map? ?? const {});
+    return NewsTickerItem(
+      id: json['id'] as String? ?? 'ticker-$fallbackIndex',
+      text: json['text'] as String? ?? '',
+      severity: json['severity'] as String? ?? 'normal',
+      articleId: json['articleId'] as String?,
+      playerRelated: json['playerRelated'] == true,
+    );
+  }
+}
+
 class MaintenancePolicy {
   const MaintenancePolicy({
     this.enabled = false,

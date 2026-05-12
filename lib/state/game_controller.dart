@@ -211,12 +211,34 @@ class GameController extends ChangeNotifier {
   final routes = <String, RoutePlan>{};
   final airportUpgrades = <String, AirportUpgrade>{};
   final airportDailyPax = <String, double>{};
-  final newsTicker = <String>[];
+  final newsTicker = <NewsTickerItem>[];
   final newsArticles = <String, NewsArticle>{};
   String? latestArticleId;
   int _nextAircraft = 1;
   int _nextRoute = 1;
   int _nextLoan = 1;
+  int _nextTicker = 1;
+
+  void pushNewsItem(
+    String text, {
+    String severity = 'normal',
+    String? articleId,
+    bool playerRelated = false,
+  }) {
+    newsTicker.insert(
+      0,
+      NewsTickerItem(
+        id: 'ticker-$gameDay-${_nextTicker++}',
+        text: text,
+        severity: severity,
+        articleId: articleId,
+        playerRelated: playerRelated,
+      ),
+    );
+    if (newsTicker.length > 20) {
+      newsTicker.removeRange(20, newsTicker.length);
+    }
+  }
 
   Airline get player => airlines['player']!;
   List<RoutePlan> get playerRoutes => player.routeIds
@@ -414,7 +436,7 @@ class GameController extends ChangeNotifier {
     if (current != null) {
       airportUpgrades[iata] = current.copyWith(isHub: false);
     }
-    newsTicker.add('$iata removed from your hub network.');
+    pushNewsItem('$iata removed from your hub network.', playerRelated: true);
     notifyListeners();
     return true;
   }
@@ -430,7 +452,7 @@ class GameController extends ChangeNotifier {
       isHub: true,
       hubTerminalLevel: getHubTerminalLevel(airport) + 1,
     );
-    newsTicker.add('${airport.iata} terminal upgraded.');
+    pushNewsItem('${airport.iata} terminal upgraded.', playerRelated: true);
     notifyListeners();
     return true;
   }
@@ -446,7 +468,10 @@ class GameController extends ChangeNotifier {
       isHub: true,
       firstClassLoungeLevel: getFirstClassLoungeLevel(airport) + 1,
     );
-    newsTicker.add('${airport.iata} first class lounge upgraded.');
+    pushNewsItem(
+      '${airport.iata} first class lounge upgraded.',
+      playerRelated: true,
+    );
     notifyListeners();
     return true;
   }
@@ -471,6 +496,7 @@ class GameController extends ChangeNotifier {
     _nextAircraft = 1;
     _nextRoute = 1;
     _nextLoan = 1;
+    _nextTicker = 1;
     airlines['player'] = Airline(
       id: 'player',
       name: settings.playerAirlineName,
@@ -485,7 +511,7 @@ class GameController extends ChangeNotifier {
     );
     _markAirportHub('LHR');
     _initAIAirlines();
-    newsTicker.add(
+    pushNewsItem(
       'Welcome to Mighty Airline Empire. Build routes, buy aircraft, and outlast the market.',
     );
     notifyListeners();
@@ -762,7 +788,10 @@ class GameController extends ChangeNotifier {
       cashUSD: player.cashUSD + value,
       fleetIds: player.fleetIds.where((id) => id != aircraftId).toList(),
     );
-    newsTicker.add('${ac.name} sold for \$${value.round()}.');
+    pushNewsItem(
+      '${ac.name} sold for \$${value.round()}.',
+      playerRelated: true,
+    );
     notifyListeners();
     return value;
   }
@@ -783,8 +812,9 @@ class GameController extends ChangeNotifier {
     airlines['player'] = player.copyWith(
       routeIds: player.routeIds.where((id) => id != routeId).toList(),
     );
-    newsTicker.add(
+    pushNewsItem(
       '${route.originIata}-${route.destinationIata} route deleted.',
+      playerRelated: true,
     );
     notifyListeners();
     return true;
@@ -929,16 +959,17 @@ class GameController extends ChangeNotifier {
     );
     newsArticles[article.id] = article;
     latestArticleId = article.id;
-    newsTicker.add(
-      '!! ${article.headline}: ${article.subheadline} · Read the article',
+    pushNewsItem(
+      '${article.headline}: ${article.subheadline}',
+      severity: ground ? 'breaking' : 'fleet',
+      articleId: article.id,
+      playerRelated: airline.isPlayer,
     );
     if (airline.isPlayer &&
         ground &&
         airline.maintenancePolicy.autoMaintainIssues) {
       _startMaintenanceInternal(aircraftId, airline.maintenancePolicy.tier);
     }
-    if (newsTicker.length > 20)
-      newsTicker.removeRange(0, newsTicker.length - 20);
     notifyListeners();
     return article;
   }
@@ -1000,7 +1031,11 @@ class GameController extends ChangeNotifier {
       maintenanceHoursOwed: ac.maintenanceHoursOwed + 18,
       knownFaultRiskMod: math.max(ac.knownFaultRiskMod, 3),
     );
-    newsTicker.add('${ac.name} returned to service with a known fault logged.');
+    pushNewsItem(
+      '${ac.name} returned to service with a known fault logged.',
+      severity: 'fleet',
+      playerRelated: true,
+    );
     notifyListeners();
   }
 
@@ -1023,7 +1058,10 @@ class GameController extends ChangeNotifier {
       activeMaintTier: tier,
     );
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
-    newsTicker.add('${ac.name} entered ${tier.name} maintenance.');
+    pushNewsItem(
+      '${ac.name} entered ${tier.name} maintenance.',
+      playerRelated: true,
+    );
     return true;
   }
 
@@ -1045,7 +1083,7 @@ class GameController extends ChangeNotifier {
       maintenanceHoursOwed: 0,
       lastMaintenanceGameDay: gameDay,
     );
-    newsTicker.add('${ac.name} returned from maintenance.');
+    pushNewsItem('${ac.name} returned from maintenance.', playerRelated: true);
     notifyListeners();
   }
 
@@ -1255,8 +1293,9 @@ class GameController extends ChangeNotifier {
         priceBusiness: result.priceBusiness,
       );
     }
-    newsTicker.add(
+    pushNewsItem(
       'Network optimisation completed for ${changes.length} routes at a consulting cost of \$${cost.round()}.',
+      playerRelated: true,
     );
     notifyListeners();
     return true;
@@ -1375,8 +1414,9 @@ class GameController extends ChangeNotifier {
       );
     }
     if (playerDividendTotal > 500000) {
-      newsTicker.add(
+      pushNewsItem(
         'Dividends: \$${playerDividendTotal.round()} received from shareholdings today.',
+        playerRelated: true,
       );
     }
 
@@ -1400,11 +1440,9 @@ class GameController extends ChangeNotifier {
           passengers: 0,
           cashEnd: player.cashUSD,
         );
-    newsTicker.add(
+    pushNewsItem(
       'Day $gameDay: profit ${playerSnapshot.profit.round()} USD, passengers ${playerSnapshot.passengers}.',
     );
-    if (newsTicker.length > 20)
-      newsTicker.removeRange(0, newsTicker.length - 20);
     notifyListeners();
     return playerSnapshot;
   }
@@ -1414,8 +1452,10 @@ class GameController extends ChangeNotifier {
     final playerAirline = airlines['player'];
     if (playerAirline != null && playerAirline.cashUSD <= insolvencyLimit) {
       hasLost = true;
-      newsTicker.add(
+      pushNewsItem(
         '${playerAirline.name} is insolvent after cash fell below -\$100M.',
+        severity: 'breaking',
+        playerRelated: true,
       );
     }
 
@@ -1437,7 +1477,7 @@ class GameController extends ChangeNotifier {
         canBeTakenOver: true,
         marketSharePercent: 0,
       );
-      newsTicker.add('${airline.name} has entered insolvency protection.');
+      pushNewsItem('${airline.name} has entered insolvency protection.');
     }
 
     if (settings.objective == GameObjective.lastAirlineStanding &&
@@ -1509,7 +1549,7 @@ class GameController extends ChangeNotifier {
             buyNewAircraft: true,
           );
           _optimiseRouteForAirline(route.id, airline.id);
-          newsTicker.add(
+          pushNewsItem(
             '${airline.name} launches ${hub.iata}-${candidate.airport.iata}.',
           );
           break;
@@ -1621,8 +1661,9 @@ class GameController extends ChangeNotifier {
       totalDebt: loans.fold<double>(0, (sum, loan) => sum + loan.principalUSD),
       loans: loans,
     );
-    newsTicker.add(
+    pushNewsItem(
       'Loan repayment made: ${payment.round()} USD principal paid.',
+      playerRelated: true,
     );
     notifyListeners();
   }
@@ -1673,7 +1714,10 @@ class GameController extends ChangeNotifier {
           : logoEmoji.trim(),
       cashUSD: player.cashUSD - cost,
     );
-    newsTicker.add('AIRLINE: ${airlines['player']!.name} completed a rebrand.');
+    pushNewsItem(
+      'AIRLINE: ${airlines['player']!.name} completed a rebrand.',
+      playerRelated: true,
+    );
     notifyListeners();
     return cost;
   }
@@ -1695,8 +1739,9 @@ class GameController extends ChangeNotifier {
       cashUSD: target.cashUSD + cost,
       shareholders: nextShareholders,
     );
-    newsTicker.add(
+    pushNewsItem(
       'You acquired ${amount.toStringAsFixed(0)}% of ${target.name} for \$${cost.round()}.',
+      playerRelated: true,
     );
     notifyListeners();
     return cost;
@@ -1722,8 +1767,9 @@ class GameController extends ChangeNotifier {
     }
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD + proceeds);
     airlines[targetAirlineId] = target.copyWith(shareholders: nextShareholders);
-    newsTicker.add(
+    pushNewsItem(
       'You sold ${amount.toStringAsFixed(0)}% of ${target.name} for \$${proceeds.round()}.',
+      playerRelated: true,
     );
     notifyListeners();
     return proceeds;
@@ -1793,7 +1839,10 @@ class GameController extends ChangeNotifier {
       routeIds: [...player.routeIds, ...acquiredRoutes],
     );
     airlines.remove(targetAirlineId);
-    newsTicker.add('${player.name} has acquired ${target.name}.');
+    pushNewsItem(
+      '${player.name} has acquired ${target.name}.',
+      playerRelated: true,
+    );
     notifyListeners();
     return price;
   }
@@ -1818,7 +1867,7 @@ class GameController extends ChangeNotifier {
       (key, value) => MapEntry(key, value.toJson()),
     ),
     'airportDailyPax': airportDailyPax,
-    'newsTicker': newsTicker,
+    'newsTicker': newsTicker.map((item) => item.toJson()).toList(),
     'newsArticles': newsArticles.map(
       (key, value) => MapEntry(key, value.toJson()),
     ),
@@ -1891,7 +1940,11 @@ class GameController extends ChangeNotifier {
       );
     newsTicker
       ..clear()
-      ..addAll(List<String>.from(raw['newsTicker'] as List? ?? const []));
+      ..addAll(
+        (raw['newsTicker'] as List? ?? const []).indexed.map(
+          (entry) => NewsTickerItem.fromJson(entry.$2, entry.$1),
+        ),
+      );
     newsArticles
       ..clear()
       ..addAll(

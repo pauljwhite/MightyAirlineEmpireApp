@@ -581,7 +581,8 @@ void main() {
     final article = game.triggerAircraftIncident(aircraftId);
     expect(game.latestArticleId, article.id);
     expect(game.newsArticles[article.id], isNotNull);
-    expect(game.newsTicker.last, contains('Read the article'));
+    expect(game.newsTicker.first.articleId, article.id);
+    expect(game.newsTicker.first.playerRelated, isTrue);
     expect(game.aircraft[aircraftId]!.isGrounded, isTrue);
 
     final restored = GameController()..importJson(game.exportJson());
