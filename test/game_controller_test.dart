@@ -119,4 +119,29 @@ void main() {
       );
     },
   );
+
+  test('route settings can be edited after creation', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+
+    game.updateRouteSettings(
+      route.id,
+      flightsPerWeek: 3,
+      priceEconomy: 1234,
+      priceBusiness: 5678,
+      isActive: false,
+    );
+
+    final edited = game.routes[route.id]!;
+    expect(edited.flightsPerWeek, 3);
+    expect(edited.priceEconomy, 1234);
+    expect(edited.priceBusiness, 5678);
+    expect(edited.isActive, isFalse);
+  });
 }

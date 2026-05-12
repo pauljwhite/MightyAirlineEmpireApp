@@ -522,6 +522,24 @@ class GameController extends ChangeNotifier {
     return routes[routeId]!;
   }
 
+  void updateRouteSettings(
+    String routeId, {
+    int? flightsPerWeek,
+    int? priceEconomy,
+    int? priceBusiness,
+    bool? isActive,
+  }) {
+    final route = routes[routeId];
+    if (route == null) throw StateError('Route not found');
+    routes[routeId] = route.copyWith(
+      flightsPerWeek: flightsPerWeek?.clamp(1, 21),
+      priceEconomy: priceEconomy == null ? null : math.max(0, priceEconomy),
+      priceBusiness: priceBusiness == null ? null : math.max(0, priceBusiness),
+      isActive: isActive,
+    );
+    notifyListeners();
+  }
+
   RouteOptimisationResult optimiseRoute(String routeId) =>
       _optimiseRouteForAirline(routeId, 'player');
 

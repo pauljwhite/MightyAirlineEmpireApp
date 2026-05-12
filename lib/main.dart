@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'core/airport_search.dart';
 import 'core/format.dart';
@@ -189,6 +190,8 @@ class _TopBar extends StatelessWidget {
           Row(
             children: [
               _AirlineBadge(game: game, currency: currency),
+              const SizedBox(width: 6),
+              _GameMenu(game: game),
               const SizedBox(width: 12),
               _DateBadge(game: game),
               const Spacer(),
@@ -275,6 +278,125 @@ class _AirlineBadge extends StatelessWidget {
           ],
         ),
       ],
+    ),
+  );
+}
+
+class _GameMenu extends StatelessWidget {
+  const _GameMenu({required this.game});
+  final GameController game;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+    tooltip: 'Game menu',
+    icon: const Icon(Icons.more_horiz),
+    onSelected: (value) {
+      switch (value) {
+        case 'export':
+          _showExportDialog(context, game);
+        case 'import':
+          _showImportDialog(context, game);
+        case 'new':
+          game.startNewGame();
+      }
+    },
+    itemBuilder: (context) => const [
+      PopupMenuItem(value: 'export', child: Text('Export progress')),
+      PopupMenuItem(value: 'import', child: Text('Import progress')),
+      PopupMenuDivider(),
+      PopupMenuItem(value: 'new', child: Text('Start again')),
+    ],
+  );
+}
+
+void _showExportDialog(BuildContext context, GameController game) {
+  final json = game.exportJson();
+  final controller = TextEditingController(text: json);
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Export progress'),
+      content: SizedBox(
+        width: 620,
+        child: TextField(
+          controller: controller,
+          readOnly: true,
+          minLines: 8,
+          maxLines: 14,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: json));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Progress JSON copied')),
+            );
+          },
+          icon: const Icon(Icons.copy),
+          label: const Text('Copy'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showImportDialog(BuildContext context, GameController game) {
+  final controller = TextEditingController();
+  String? error;
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('Import progress'),
+        content: SizedBox(
+          width: 620,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                minLines: 8,
+                maxLines: 14,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Paste exported JSON',
+                ),
+              ),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: Color(0xffff6b6b)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              try {
+                game.importJson(controller.text);
+                Navigator.pop(context);
+              } catch (e) {
+                setState(() => error = 'Could not import that save JSON.');
+              }
+            },
+            child: const Text('Import'),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -1043,6 +1165,142 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
               ),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteEditDialog extends StatefulWidget {
+  const _RouteEditDialog({
+    required this.game,
+    required this.route,
+    required this.currency,
+  });
+  final GameController game;
+  final RoutePlan route;
+  final CurrencyOption currency;
+
+  @override
+  State<_RouteEditDialog> createState() => _RouteEditDialogState();
+}
+
+class _RouteEditDialogState extends State<_RouteEditDialog> {
+  late int flights = widget.route.flightsPerWeek;
+  late final ecoController = TextEditingController(
+    text: widget.route.priceEconomy.toString(),
+  );
+  late final bizController = TextEditingController(
+    text: widget.route.priceBusiness.toString(),
+  );
+
+  @override
+  void dispose() {
+    ecoController.dispose();
+    bizController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ac = widget.route.aircraftId == null
+        ? null
+        : widget.game.aircraft[widget.route.aircraftId!];
+    final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    final hasBusiness = (type?.seatsBusiness ?? 0) > 0;
+    return AlertDialog(
+      title: Text(
+        '${widget.route.originIata} -> ${widget.route.destinationIata}',
+      ),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Flights per week: $flights'),
+            Slider(
+              value: flights.toDouble(),
+              min: 1,
+              max: 21,
+              divisions: 20,
+              label: '$flights/week',
+              onChanged: (value) => setState(() => flights = value.round()),
+            ),
+            TextField(
+              controller: ecoController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Economy fare (${widget.currency.code})',
+                prefixIcon: const Icon(Icons.payments),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: bizController,
+              enabled: hasBusiness,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: hasBusiness
+                    ? 'Business fare (${widget.currency.code})'
+                    : 'No business cabin',
+                prefixIcon: const Icon(Icons.business_center),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final result = widget.game.optimiseRoute(widget.route.id);
+                      setState(() {
+                        flights = result.flightsPerWeek;
+                        ecoController.text = result.priceEconomy.toString();
+                        bizController.text = result.priceBusiness.toString();
+                      });
+                    },
+                    icon: const Icon(Icons.auto_fix_high),
+                    label: const Text('Optimise'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => widget.game.updateRouteSettings(
+                      widget.route.id,
+                      isActive: !widget.route.isActive,
+                    ),
+                    icon: Icon(
+                      widget.route.isActive
+                          ? Icons.pause_circle
+                          : Icons.play_circle,
+                    ),
+                    label: Text(widget.route.isActive ? 'Suspend' : 'Resume'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            widget.game.updateRouteSettings(
+              widget.route.id,
+              flightsPerWeek: flights,
+              priceEconomy: int.tryParse(ecoController.text) ?? 0,
+              priceBusiness: hasBusiness
+                  ? int.tryParse(bizController.text) ?? 0
+                  : 0,
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
         ),
       ],
     );
