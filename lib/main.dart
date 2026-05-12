@@ -3837,18 +3837,57 @@ void _showHeraldArticle(
               if (article.actionAircraftId != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      game.startMaintenance(
-                        article.actionAircraftId!,
-                        MaintenanceTier.standard,
-                      );
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.build),
-                    label: Text(
-                      'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          game.startMaintenance(
+                            article.actionAircraftId!,
+                            MaintenanceTier.standard,
+                          );
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.build),
+                        label: Text(
+                          'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          game.updateMaintenancePolicy(
+                            game.player.maintenancePolicy.copyWith(
+                              enabled: true,
+                              autoMaintainIssues: true,
+                            ),
+                          );
+                          game.startMaintenance(
+                            article.actionAircraftId!,
+                            MaintenanceTier.standard,
+                          );
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.engineering),
+                        label: const Text(
+                          'Always maintain aircraft with issues',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          game.keepIssueAircraftFlying(
+                            article.actionAircraftId!,
+                          );
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.warning_amber),
+                        label: const Text('Keep flying'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xffff6b6b),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],

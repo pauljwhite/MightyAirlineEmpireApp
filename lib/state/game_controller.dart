@@ -928,6 +928,27 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void keepIssueAircraftFlying(String aircraftId) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player')
+      throw StateError('Aircraft not found');
+    final route = ac.assignedRouteId == null
+        ? null
+        : routes[ac.assignedRouteId!];
+    if (route != null) {
+      routes[route.id] = route.copyWith(isActive: true);
+    }
+    aircraft[aircraftId] = ac.copyWith(
+      isGrounded: false,
+      clearGroundedReason: true,
+      status: route == null ? AircraftStatus.idle : AircraftStatus.flying,
+      maintenanceHoursOwed: ac.maintenanceHoursOwed + 18,
+      knownFaultRiskMod: math.max(ac.knownFaultRiskMod, 3),
+    );
+    newsTicker.add('${ac.name} returned to service with a known fault logged.');
+    notifyListeners();
+  }
+
   bool _startMaintenanceInternal(String aircraftId, MaintenanceTier tier) {
     final ac = aircraft[aircraftId];
     if (ac == null || ac.airlineId != 'player') return false;

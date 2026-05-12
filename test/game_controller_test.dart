@@ -514,4 +514,30 @@ void main() {
     expect(restored.latestArticleId, article.id);
     expect(restored.newsArticles[article.id]?.headline, article.headline);
   });
+
+  test(
+    'grounded incident aircraft can be kept flying with fault risk logged',
+    () {
+      final game = GameController();
+      final type = aircraftTypesById['b707-120']!;
+      final route = game.createRoute(
+        originIata: 'LHR',
+        destinationIata: 'JFK',
+        aircraftTypeId: type.id,
+        buyNewAircraft: true,
+      );
+      final aircraftId = game.routes[route.id]!.aircraftId!;
+
+      game.triggerAircraftIncident(aircraftId);
+      game.keepIssueAircraftFlying(aircraftId);
+
+      final aircraft = game.aircraft[aircraftId]!;
+      expect(aircraft.isGrounded, isFalse);
+      expect(aircraft.groundedReason, isNull);
+      expect(aircraft.status, AircraftStatus.flying);
+      expect(aircraft.knownFaultRiskMod, greaterThanOrEqualTo(3));
+      expect(aircraft.maintenanceHoursOwed, greaterThan(0));
+      expect(game.routes[route.id]!.isActive, isTrue);
+    },
+  );
 }

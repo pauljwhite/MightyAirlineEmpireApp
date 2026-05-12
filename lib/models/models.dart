@@ -285,11 +285,13 @@ class Aircraft {
     AircraftStatus? status,
     bool? isGrounded,
     String? groundedReason,
+    bool clearGroundedReason = false,
     int? lastMaintenanceGameDay,
     MaintenanceTier? activeMaintTier,
     bool? autoMaintenanceEnabled,
     double? autoMaintenanceThreshold,
     MaintenanceTier? autoMaintenanceTier,
+    double? knownFaultRiskMod,
     bool? excludedFromPolicy,
   }) => Aircraft(
     id: id,
@@ -301,7 +303,9 @@ class Aircraft {
     condition: condition ?? this.condition,
     maintenanceHoursOwed: maintenanceHoursOwed ?? this.maintenanceHoursOwed,
     isGrounded: isGrounded ?? this.isGrounded,
-    groundedReason: groundedReason ?? this.groundedReason,
+    groundedReason: clearGroundedReason
+        ? null
+        : groundedReason ?? this.groundedReason,
     lastMaintenanceGameDay:
         lastMaintenanceGameDay ?? this.lastMaintenanceGameDay,
     crashRisk: crashRisk,
@@ -318,7 +322,7 @@ class Aircraft {
     autoMaintenanceThreshold:
         autoMaintenanceThreshold ?? this.autoMaintenanceThreshold,
     autoMaintenanceTier: autoMaintenanceTier ?? this.autoMaintenanceTier,
-    knownFaultRiskMod: knownFaultRiskMod,
+    knownFaultRiskMod: knownFaultRiskMod ?? this.knownFaultRiskMod,
     excludedFromPolicy: excludedFromPolicy ?? this.excludedFromPolicy,
   );
   Map<String, Object?> toJson() => {
