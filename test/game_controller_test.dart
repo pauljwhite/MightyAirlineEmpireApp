@@ -464,6 +464,32 @@ void main() {
     );
   });
 
+  test(
+    'daily flying recalculates crash risk and grounds critical aircraft',
+    () {
+      final game = GameController();
+      final route = game.createRoute(
+        originIata: 'LHR',
+        destinationIata: 'JFK',
+        aircraftTypeId: 'b707-120',
+        flightsPerWeek: 21,
+        buyNewAircraft: true,
+      );
+      final aircraftId = game.routes[route.id]!.aircraftId!;
+      final ac = game.aircraft[aircraftId]!;
+      game.aircraft[aircraftId] = ac.copyWith(condition: 20.05, crashRisk: 0);
+
+      game.runDailyTick();
+
+      final updated = game.aircraft[aircraftId]!;
+      expect(updated.condition, lessThan(20));
+      expect(updated.crashRisk, greaterThan(0));
+      expect(updated.isGrounded, isTrue);
+      expect(updated.groundedReason, contains('Critical condition'));
+      expect(game.routes[route.id]!.isActive, isFalse);
+    },
+  );
+
   test('healthy AI airlines can acquire distressed competitors', () {
     final game = GameController();
     game.startNewGame(const GameSettings(aiCount: 2));

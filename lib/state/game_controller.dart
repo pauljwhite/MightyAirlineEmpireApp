@@ -1271,6 +1271,10 @@ class GameController extends ChangeNotifier {
         : null;
     aircraft[aircraftId] = ac.copyWith(
       condition: nextCondition,
+      crashRisk: aircraftCrashRisk(
+        ac.copyWith(condition: nextCondition),
+        gameDay,
+      ),
       isGrounded: ground,
       groundedReason: reason,
       status: ground ? AircraftStatus.idle : ac.status,
@@ -1394,6 +1398,7 @@ class GameController extends ChangeNotifier {
       isGrounded: true,
       lastMaintenanceGameDay: gameDay,
       activeMaintTier: tier,
+      knownFaultRiskMod: 1,
     );
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
     pushNewsItem(
@@ -1419,6 +1424,8 @@ class GameController extends ChangeNotifier {
           : null,
       condition: condition,
       maintenanceHoursOwed: 0,
+      crashRisk: aircraftCrashRisk(ac.copyWith(condition: condition), gameDay),
+      knownFaultRiskMod: 1,
       lastMaintenanceGameDay: gameDay,
     );
     pushNewsItem('${ac.name} returned from maintenance.', playerRelated: true);
@@ -1684,7 +1691,7 @@ class GameController extends ChangeNotifier {
         );
         routes[routeId] = result.route;
         aircraft[ac.id] = result.aircraft;
-        if (_shouldAircraftCrash(result.aircraft, result.route)) {
+        if (_shouldAircraftCrash(ac, result.route)) {
           crashEvents.add((
             aircraftId: ac.id,
             routeId: routeId,

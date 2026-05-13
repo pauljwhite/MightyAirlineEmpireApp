@@ -301,12 +301,30 @@ RouteEconomicsResult calculateRouteEconomics({
       ecoPax * route.priceEconomy + bizPax * route.priceBusiness.toDouble();
   final cost = costs.totalCost * flightsPerDay;
   final hours = costs.flightDurationHours * flightsPerDay;
-  final updatedAircraft = aircraft.copyWith(
+  var updatedAircraft = aircraft.copyWith(
     totalFlightHours: aircraft.totalFlightHours + hours,
     maintenanceHoursOwed: aircraft.maintenanceHoursOwed + hours,
     condition: math.max(0, aircraft.condition - hours * 0.08),
   );
+  updatedAircraft = updatedAircraft.copyWith(
+    crashRisk: aircraftCrashRisk(updatedAircraft, gameDay),
+  );
+  var routeActive = route.isActive;
+  if (updatedAircraft.condition < (airline.isPlayer ? 20 : 15) &&
+      !updatedAircraft.isGrounded) {
+    routeActive = false;
+    updatedAircraft = updatedAircraft.copyWith(
+      isGrounded: true,
+      status: AircraftStatus.idle,
+      groundedReason:
+          'Critical condition (${updatedAircraft.condition.toStringAsFixed(0)}%) - requires maintenance',
+      knownFaultRiskMod: airline.isPlayer
+          ? updatedAircraft.knownFaultRiskMod
+          : 1,
+    );
+  }
   final updatedRoute = route.copyWith(
+    isActive: routeActive,
     dailyRevenue: revenue,
     dailyCost: cost,
     dailyProfit: revenue - cost,
@@ -328,4 +346,12 @@ RouteEconomicsResult calculateRouteEconomics({
 bool _isAirportClosed(Airport airport, int gameDay) {
   final closedUntil = airport.closedUntilGameDay;
   return closedUntil != null && closedUntil >= gameDay;
+}
+
+double aircraftCrashRisk(Aircraft aircraft, int gameDay) {
+  final conditionFraction = math.max(0.0, 1 - aircraft.condition / 100);
+  final baseRisk = math.pow(conditionFraction, 3).toDouble();
+  final ageYears = (gameDay - aircraft.purchasedGameDay) / 365;
+  final agePenalty = math.max(0.0, (ageYears - 15) * 0.01);
+  return math.min(0.95, baseRisk + agePenalty).toDouble();
 }
