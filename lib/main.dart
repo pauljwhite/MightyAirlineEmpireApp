@@ -2267,10 +2267,6 @@ class _MapPainter extends CustomPainter {
       final y = ((85 - lat) / 170) * size.height;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
-    final routePaint = Paint()
-      ..color = const Color(0xff2f8cff).withValues(alpha: 0.45)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
     final drawableRoutes = game.routes.values.where((route) {
       if (!route.isActive || route.aircraftId == null) return false;
       if (showAiOnMap) return true;
@@ -2282,15 +2278,33 @@ class _MapPainter extends CustomPainter {
       if (origin == null || dest == null) continue;
       final segments = _routeArcSegments(origin, dest, size);
       final airline = game.airlines[route.airlineId];
-      routePaint.color = _colorFromHex(
-        airline?.color ?? '#2f8cff',
-      ).withValues(alpha: airline?.isPlayer == true ? 0.62 : 0.32);
+      final isPlayer = airline?.isPlayer == true;
+      final color = _colorFromHex(airline?.color ?? '#2f8cff');
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: isPlayer ? 0.22 : 0.10)
+        ..strokeWidth = isPlayer ? 5 : 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      final routePaint = Paint()
+        ..color = color.withValues(alpha: isPlayer ? 0.86 : 0.46)
+        ..strokeWidth = isPlayer ? 2.2 : 1.35
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
       for (final segment in segments) {
         final path = Path()..moveTo(segment.first.dx, segment.first.dy);
         for (var i = 1; i < segment.length; i += 1) {
           path.lineTo(segment[i].dx, segment[i].dy);
         }
-        canvas.drawPath(path, routePaint);
+        canvas.drawPath(path, glowPaint);
+        _drawDashedPolyline(
+          canvas,
+          segment,
+          routePaint,
+          dash: isPlayer ? 10 : 5,
+          gap: isPlayer ? 9 : 10,
+        );
       }
     }
     for (final route in drawableRoutes) {
@@ -2399,6 +2413,40 @@ class _MapPainter extends CustomPainter {
         ..strokeWidth = 0.05,
     );
     canvas.restore();
+  }
+
+  void _drawDashedPolyline(
+    Canvas canvas,
+    List<Offset> points,
+    Paint paint, {
+    required double dash,
+    required double gap,
+  }) {
+    if (points.length < 2) return;
+    var drawDash = true;
+    var remaining = dash;
+    for (var i = 1; i < points.length; i += 1) {
+      var start = points[i - 1];
+      final end = points[i];
+      var vector = end - start;
+      var segmentLength = vector.distance;
+      if (segmentLength <= 0) continue;
+      final direction = vector / segmentLength;
+      while (segmentLength > 0) {
+        final step = math.min(remaining, segmentLength);
+        final next = start + direction * step;
+        if (drawDash) {
+          canvas.drawLine(start, next, paint);
+        }
+        start = next;
+        segmentLength -= step;
+        remaining -= step;
+        if (remaining <= 0.0001) {
+          drawDash = !drawDash;
+          remaining = drawDash ? dash : gap;
+        }
+      }
+    }
   }
 
   Path _planePathForCategory(AircraftCategory? category) {
