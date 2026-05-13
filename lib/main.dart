@@ -438,20 +438,21 @@ class _OutcomeStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted = _mutedText(context);
     return SizedBox(
       width: 140,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: _subtleSurface(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(color: _hairline(context)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Colors.white54)),
+              Text(label, style: TextStyle(color: muted)),
               const SizedBox(height: 4),
               Text(
                 value,
@@ -497,7 +498,10 @@ class _TopBar extends StatelessWidget {
         ? 0
         : (game.speed / 300).round().clamp(1, 6);
     return Container(
-      color: const Color(0xee050915),
+      decoration: BoxDecoration(
+        color: _chromeSurface(context),
+        border: Border(bottom: BorderSide(color: _hairline(context))),
+      ),
       padding: const EdgeInsets.all(8),
       child: Column(
         children: [
@@ -572,45 +576,49 @@ class _AirlineBadge extends StatelessWidget {
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(28),
-    onTap: () => _showAirlineProfileDialog(context, game, currency, onCurrency),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xff111827),
-        border: Border.all(color: const Color(0xff263247)),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _AirlineLogo(logo: game.player.logoEmoji, size: 34),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                game.player.name,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              Text(
-                money(game.player.cashUSD, currency),
-                style: TextStyle(
-                  color: game.player.cashUSD >= 0
-                      ? const Color(0xff3af083)
-                      : const Color(0xffff6b6b),
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final muted = _mutedText(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(28),
+      onTap: () =>
+          _showAirlineProfileDialog(context, game, currency, onCurrency),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _cardSurface(context),
+          border: Border.all(color: _hairline(context)),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AirlineLogo(logo: game.player.logoEmoji, size: 34),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  game.player.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 6),
-          const Icon(Icons.expand_more, size: 18, color: Color(0xff8b95a8)),
-        ],
+                Text(
+                  money(game.player.cashUSD, currency),
+                  style: TextStyle(
+                    color: game.player.cashUSD >= 0
+                        ? const Color(0xff25c96b)
+                        : const Color(0xffff6b6b),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.expand_more, size: 18, color: muted),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 void _showAirlineProfileDialog(
@@ -956,12 +964,12 @@ class _LogoPicker extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: value == option
                         ? const Color(0xff2f8cff).withValues(alpha: 0.22)
-                        : Colors.white.withValues(alpha: 0.05),
+                        : _subtleSurface(context),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: value == option
                           ? const Color(0xff77c9ff)
-                          : Colors.white.withValues(alpha: 0.1),
+                          : _hairline(context),
                     ),
                   ),
                   child: Center(
@@ -1100,12 +1108,10 @@ class _ThemeOption extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected
             ? const Color(0xff2f8cff).withValues(alpha: 0.16)
-            : Colors.white.withValues(alpha: 0.04),
+            : _subtleSurface(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: selected
-              ? const Color(0xff77c9ff)
-              : Colors.white.withValues(alpha: 0.12),
+          color: selected ? const Color(0xff77c9ff) : _hairline(context),
         ),
       ),
       child: Padding(
@@ -2782,9 +2788,9 @@ class _RouteMiniStat extends StatelessWidget {
     width: 126,
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.035),
+      color: _subtleSurface(context),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      border: Border.all(color: _hairline(context)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3119,9 +3125,9 @@ class _HubUpgradeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.035),
+      color: _subtleSurface(context),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      border: Border.all(color: _hairline(context)),
     ),
     child: Padding(
       padding: const EdgeInsets.all(12),
@@ -5940,9 +5946,9 @@ class _Card extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xff151b2b),
+      color: _cardSurface(context),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xff273246)),
+      border: Border.all(color: _hairline(context)),
     ),
     child: child,
   );
@@ -5986,14 +5992,45 @@ class _PanelShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: const Color(0xee0b1020),
+      color: _panelSurface(context),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xff263247)),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 22)],
+      border: Border.all(color: _hairline(context)),
+      boxShadow: [
+        BoxShadow(
+          color: _isLight(context)
+              ? Colors.black.withValues(alpha: 0.16)
+              : Colors.black.withValues(alpha: 0.54),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+        ),
+      ],
     ),
     child: ClipRRect(borderRadius: BorderRadius.circular(16), child: child),
   );
 }
+
+bool _isLight(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light;
+
+Color _chromeSurface(BuildContext context) =>
+    _isLight(context) ? const Color(0xf7ffffff) : const Color(0xee050915);
+
+Color _panelSurface(BuildContext context) =>
+    _isLight(context) ? const Color(0xf7ffffff) : const Color(0xee0b1020);
+
+Color _cardSurface(BuildContext context) =>
+    _isLight(context) ? const Color(0xfff8fafc) : const Color(0xff151b2b);
+
+Color _subtleSurface(BuildContext context) => _isLight(context)
+    ? const Color(0xffeef2f7)
+    : Colors.white.withValues(alpha: 0.04);
+
+Color _hairline(BuildContext context) => _isLight(context)
+    ? const Color(0xffd3dce8)
+    : Colors.white.withValues(alpha: 0.12);
+
+Color _mutedText(BuildContext context) =>
+    _isLight(context) ? const Color(0xff64748b) : const Color(0xff9aa4b5);
 
 class _Ticker extends StatefulWidget {
   const _Ticker({required this.game});
