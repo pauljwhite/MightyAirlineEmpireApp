@@ -831,6 +831,7 @@ void main() {
     final article = game.triggerAircraftIncident(aircraftId);
     expect(game.latestArticleId, article.id);
     expect(game.newsArticles[article.id], isNotNull);
+    expect(game.queuedNewspaperArticles.single.id, article.id);
     expect(game.newsTicker.first.articleId, article.id);
     expect(game.newsTicker.first.playerRelated, isTrue);
     expect(game.aircraft[aircraftId]!.isGrounded, isTrue);
@@ -838,6 +839,27 @@ void main() {
     final restored = GameController()..importJson(game.exportJson());
     expect(restored.latestArticleId, article.id);
     expect(restored.newsArticles[article.id]?.headline, article.headline);
+    expect(restored.queuedNewspaperArticles.single.id, article.id);
+    expect(restored.nextAutoOpenArticle?.id, article.id);
+    restored.popNewspaper(article.id);
+    expect(restored.queuedNewspaperArticles, isEmpty);
+  });
+
+  test('player-related ticker items create suppressed read-only articles', () {
+    final game = GameController();
+
+    game.pushNewsItem(
+      'Auto-maintenance triggered for Test Aircraft.',
+      playerRelated: true,
+    );
+
+    final ticker = game.newsTicker.first;
+    expect(ticker.articleId, isNotNull);
+    final article = game.newsArticles[ticker.articleId]!;
+    expect(article.subheadline, contains('Auto-maintenance'));
+    expect(article.suppressAutoOpen, isTrue);
+    expect(game.queuedNewspaperArticles.single.id, article.id);
+    expect(game.nextAutoOpenArticle, isNull);
   });
 
   test(

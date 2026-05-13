@@ -529,6 +529,7 @@ class GameController extends ChangeNotifier {
   final airportDailyPax = <String, double>{};
   final newsTicker = <NewsTickerItem>[];
   final newsArticles = <String, NewsArticle>{};
+  final newspaperQueue = <String>[];
   String? latestArticleId;
   int _nextAircraft = 1;
   int _nextRoute = 1;
@@ -542,13 +543,28 @@ class GameController extends ChangeNotifier {
     String? articleId,
     bool playerRelated = false,
   }) {
+    var linkedArticleId = articleId;
+    if (playerRelated && linkedArticleId == null) {
+      linkedArticleId = 'ticker-article-$gameDay-${newsArticles.length + 1}';
+      _publishNewsArticle(
+        NewsArticle(
+          id: linkedArticleId,
+          headline: player.name,
+          subheadline: text,
+          paragraphs: [text],
+          severity: severity == 'breaking' ? 'crash' : 'incident',
+          gameDay: gameDay,
+          suppressAutoOpen: true,
+        ),
+      );
+    }
     newsTicker.insert(
       0,
       NewsTickerItem(
         id: 'ticker-$gameDay-${_nextTicker++}',
         text: text,
         severity: severity,
-        articleId: articleId,
+        articleId: linkedArticleId,
         playerRelated: playerRelated,
       ),
     );
@@ -556,6 +572,22 @@ class GameController extends ChangeNotifier {
       newsTicker.removeRange(20, newsTicker.length);
     }
   }
+
+  void _publishNewsArticle(NewsArticle article) {
+    newsArticles[article.id] = article;
+    latestArticleId = article.id;
+    newspaperQueue
+      ..remove(article.id)
+      ..add(article.id);
+    if (newspaperQueue.length > 8) {
+      newspaperQueue.removeRange(0, newspaperQueue.length - 8);
+    }
+  }
+
+  List<NewsArticle> get queuedNewspaperArticles => newspaperQueue
+      .map((id) => newsArticles[id])
+      .whereType<NewsArticle>()
+      .toList(growable: false);
 
   Airline get player => airlines['player']!;
   List<RoutePlan> get playerRoutes => player.routeIds
@@ -830,6 +862,7 @@ class GameController extends ChangeNotifier {
     airportDailyPax.clear();
     newsTicker.clear();
     newsArticles.clear();
+    newspaperQueue.clear();
     latestArticleId = null;
     _nextAircraft = 1;
     _nextRoute = 1;
@@ -1272,6 +1305,22 @@ class GameController extends ChangeNotifier {
   NewsArticle? get latestArticle =>
       latestArticleId == null ? null : newsArticles[latestArticleId];
 
+  NewsArticle? get nextAutoOpenArticle {
+    for (final article in queuedNewspaperArticles) {
+      if (!article.suppressAutoOpen) return article;
+    }
+    return null;
+  }
+
+  void popNewspaper([String? articleId]) {
+    if (articleId == null) {
+      if (newspaperQueue.isNotEmpty) newspaperQueue.removeAt(0);
+    } else {
+      newspaperQueue.remove(articleId);
+    }
+    notifyListeners();
+  }
+
   NewsArticle triggerAircraftIncident(String aircraftId, {bool ground = true}) {
     final ac = aircraft[aircraftId];
     if (ac == null) throw StateError('Aircraft not found');
@@ -1321,8 +1370,7 @@ class GameController extends ChangeNotifier {
       actionAircraftId: aircraftId,
       actionMaintenanceCost: maintenanceCost.round(),
     );
-    newsArticles[article.id] = article;
-    latestArticleId = article.id;
+    _publishNewsArticle(article);
     pushNewsItem(
       '${article.headline}: ${article.subheadline}',
       severity: ground ? 'breaking' : 'fleet',
@@ -1946,8 +1994,7 @@ class GameController extends ChangeNotifier {
       severity: 'crash',
       gameDay: gameDay,
     );
-    newsArticles[article.id] = article;
-    latestArticleId = article.id;
+    _publishNewsArticle(article);
     pushNewsItem(
       '${airline.isPlayer ? 'BREAKING' : 'CRASH'}: ${airline.name} ${type?.model ?? 'aircraft'} lost on $routeLabel.',
       severity: 'breaking',
@@ -2749,6 +2796,7 @@ class GameController extends ChangeNotifier {
     'newsArticles': newsArticles.map(
       (key, value) => MapEntry(key, value.toJson()),
     ),
+    'newspaperQueue': newspaperQueue,
     'latestArticleId': latestArticleId,
     'nextAircraft': _nextAircraft,
     'nextRoute': _nextRoute,
@@ -2832,6 +2880,13 @@ class GameController extends ChangeNotifier {
             key as String,
             NewsArticle.fromJson(Map<String, Object?>.from(value as Map)),
           ),
+        ),
+      );
+    newspaperQueue
+      ..clear()
+      ..addAll(
+        (raw['newspaperQueue'] as List? ?? const []).whereType<String>().where(
+          newsArticles.containsKey,
         ),
       );
     latestArticleId = raw['latestArticleId'] as String?;

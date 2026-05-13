@@ -220,6 +220,7 @@ class NewsArticle {
     required this.gameDay,
     this.actionAircraftId,
     this.actionMaintenanceCost,
+    this.suppressAutoOpen = false,
   });
   final String id;
   final String headline;
@@ -229,6 +230,7 @@ class NewsArticle {
   final int gameDay;
   final String? actionAircraftId;
   final int? actionMaintenanceCost;
+  final bool suppressAutoOpen;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -239,6 +241,7 @@ class NewsArticle {
     'gameDay': gameDay,
     'actionAircraftId': actionAircraftId,
     'actionMaintenanceCost': actionMaintenanceCost,
+    'suppressAutoOpen': suppressAutoOpen,
   };
 
   factory NewsArticle.fromJson(Map<String, Object?> json) => NewsArticle(
@@ -250,6 +253,7 @@ class NewsArticle {
     gameDay: (json['gameDay'] as num?)?.round() ?? 0,
     actionAircraftId: json['actionAircraftId'] as String?,
     actionMaintenanceCost: (json['actionMaintenanceCost'] as num?)?.round(),
+    suppressAutoOpen: json['suppressAutoOpen'] == true,
   );
 }
 

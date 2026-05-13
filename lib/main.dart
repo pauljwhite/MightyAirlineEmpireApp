@@ -96,9 +96,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   }
 
   void _scheduleHeraldAutoOpen(BuildContext context) {
-    final article = game.latestArticle;
+    final article = game.nextAutoOpenArticle;
     if (article == null) {
-      if (game.newsArticles.isEmpty) _autoOpenedArticleIds.clear();
+      if (game.newspaperQueue.isEmpty) _autoOpenedArticleIds.clear();
       return;
     }
     if (_autoOpenedArticleIds.contains(article.id)) return;
@@ -6454,6 +6454,11 @@ void _showHeraldArticle(
   NewsArticle article, {
   bool readOnly = false,
 }) {
+  void dismiss(BuildContext dialogContext) {
+    if (!readOnly) game.popNewspaper(article.id);
+    Navigator.pop(dialogContext);
+  }
+
   final severity = article.severity.toLowerCase();
   final accent = severity == 'crash' || severity == 'breaking'
       ? const Color(0xffb91c1c)
@@ -6467,7 +6472,7 @@ void _showHeraldArticle(
       : 'INCIDENT REPORT';
   showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (dialogContext) => AlertDialog(
       backgroundColor: const Color(0xfff5f0e8),
       surfaceTintColor: Colors.transparent,
       contentPadding: EdgeInsets.zero,
@@ -6607,7 +6612,7 @@ void _showHeraldArticle(
                                     article.actionAircraftId!,
                                     MaintenanceTier.standard,
                                   );
-                                  Navigator.pop(context);
+                                  dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.build),
                                 label: Text(
@@ -6627,7 +6632,7 @@ void _showHeraldArticle(
                                     article.actionAircraftId!,
                                     MaintenanceTier.standard,
                                   );
-                                  Navigator.pop(context);
+                                  dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.engineering),
                                 label: const Text(
@@ -6640,7 +6645,7 @@ void _showHeraldArticle(
                                   game.keepIssueAircraftFlying(
                                     article.actionAircraftId!,
                                   );
-                                  Navigator.pop(context);
+                                  dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.warning_amber),
                                 label: const Text('Keep flying'),
@@ -6661,7 +6666,7 @@ void _showHeraldArticle(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => dismiss(dialogContext),
           child: const Text('Close'),
         ),
       ],
