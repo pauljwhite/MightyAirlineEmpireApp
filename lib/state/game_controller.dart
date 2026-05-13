@@ -29,6 +29,7 @@ const _aiLossMakingRouteThreshold = -2500.0;
 const _aiBuyoutIntervalDays = 90;
 const _aiDissolveIntervalDays = 30;
 const _aiDissolveThreshold = -100000000.0;
+const _aiShareSaleCashThreshold = 8000000.0;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -614,6 +615,9 @@ class GameController extends ChangeNotifier {
   double playerStakeIn(String airlineId) =>
       airlines[airlineId]?.shareholders['player'] ?? 0;
 
+  double stakeInAirline(String targetAirlineId, String ownerAirlineId) =>
+      airlines[targetAirlineId]?.shareholders[ownerAirlineId] ?? 0;
+
   double marketFloatForAirline(String airlineId) {
     final target = airlines[airlineId];
     if (target == null) return 0;
@@ -896,6 +900,24 @@ class GameController extends ChangeNotifier {
       } catch (_) {
         // Seed data should be valid, but a skipped AI is better than blocking a new game.
       }
+    }
+    _seedAICrossShareholdings();
+  }
+
+  void _seedAICrossShareholdings() {
+    final skyPacific = airlines['ai-8'];
+    final eagleAir = airlines['ai-1'];
+    if (skyPacific != null && eagleAir != null) {
+      airlines[skyPacific.id] = skyPacific.copyWith(
+        shareholders: {...skyPacific.shareholders, eagleAir.id: 8},
+      );
+    }
+    final gulfConnect = airlines['ai-5'];
+    final pacificCoast = airlines['ai-2'];
+    if (gulfConnect != null && pacificCoast != null) {
+      airlines[gulfConnect.id] = gulfConnect.copyWith(
+        shareholders: {...gulfConnect.shareholders, pacificCoast.id: 5},
+      );
     }
   }
 
@@ -1782,6 +1804,7 @@ class GameController extends ChangeNotifier {
     _updateMarketShare(passengerTotals);
     _resolveInsolvencies();
     _pruneDistressedAIRoutes();
+    _maybeSellAICrossHoldings();
     _maybeRunAIMarketConsolidation();
     _maybeSpawnNewAI();
     _maybeExpandAI();
@@ -2081,6 +2104,56 @@ class GameController extends ChangeNotifier {
         pushNewsItem('${airline.name} has suspended a loss-making route.');
       }
     }
+  }
+
+  void _maybeSellAICrossHoldings() {
+    for (final seller in competitors) {
+      if (seller.isInsolvent || seller.cashUSD > _aiShareSaleCashThreshold) {
+        continue;
+      }
+      for (final target in competitors) {
+        if (target.id == seller.id) continue;
+        final stake = target.shareholders[seller.id] ?? 0;
+        if (stake <= 0) continue;
+        final amount = math.max(1, (stake / 2).floor()).toDouble();
+        _sellAIShareholding(seller.id, target.id, amount);
+      }
+    }
+  }
+
+  double _sellAIShareholding(
+    String sellerId,
+    String targetAirlineId,
+    double percent,
+  ) {
+    final seller = airlines[sellerId];
+    final target = airlines[targetAirlineId];
+    if (seller == null ||
+        target == null ||
+        seller.isPlayer ||
+        target.isPlayer ||
+        percent <= 0) {
+      return 0;
+    }
+    final currentStake = target.shareholders[sellerId] ?? 0;
+    if (currentStake <= 0) return 0;
+    final amount = percent.clamp(1, currentStake).toDouble();
+    final proceeds =
+        (companyValue(targetAirlineId) / 100 * amount / 100000).round() *
+        100000.0;
+    final nextShareholders = Map<String, double>.from(target.shareholders);
+    final remaining = currentStake - amount;
+    if (remaining <= 0) {
+      nextShareholders.remove(sellerId);
+    } else {
+      nextShareholders[sellerId] = remaining;
+    }
+    airlines[sellerId] = seller.copyWith(cashUSD: seller.cashUSD + proceeds);
+    airlines[targetAirlineId] = target.copyWith(shareholders: nextShareholders);
+    pushNewsItem(
+      '${seller.name} sold ${amount.toStringAsFixed(0)}% of ${target.name}.',
+    );
+    return proceeds;
   }
 
   void _maybeRunAIMarketConsolidation() {

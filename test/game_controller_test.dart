@@ -392,6 +392,24 @@ void main() {
     },
   );
 
+  test('AI airlines seed and sell cross-shareholdings when cash is tight', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(aiCount: 8));
+    expect(game.stakeInAirline('ai-8', 'ai-1'), 8);
+
+    final seller = game.airlines['ai-1']!;
+    const distressedCash = 7000000.0;
+    game.airlines['ai-1'] = seller.copyWith(cashUSD: distressedCash);
+
+    game.runDailyTick();
+
+    expect(game.stakeInAirline('ai-8', 'ai-1'), 4);
+    expect(game.airlines['ai-1']!.cashUSD, greaterThan(distressedCash));
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.stakeInAirline('ai-8', 'ai-1'), 4);
+  });
+
   test('new AI airlines can enter during long-running games', () {
     final game = GameController();
     game.startNewGame(const GameSettings(aiCount: 0));
