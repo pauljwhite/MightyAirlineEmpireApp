@@ -6021,6 +6021,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   String? selectedAircraftId;
   String buyManufacturer = 'All';
   bool showAircraftShop = false;
+  bool buyNewAircraft = true;
   int flights = 7;
   bool optimise = true;
   String? error;
@@ -6068,6 +6069,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     }
     final effectiveType = selectedAircraftType ?? type;
     type = effectiveType;
+    final hasAircraftForRoute = selectedAircraft != null || buyNewAircraft;
     final availableAircraft = widget.game.player.fleetIds
         .map((id) => widget.game.aircraft[id])
         .whereType<Aircraft>()
@@ -6100,7 +6102,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       purchasedGameDay: widget.game.gameDay,
       condition: selectedAircraft?.condition ?? 100,
     );
-    final previewEconomics = buyableAircraft.isEmpty && selectedAircraft == null
+    final previewEconomics = !hasAircraftForRoute
         ? null
         : calculateRouteEconomics(
             route: previewRoute,
@@ -6137,13 +6139,21 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               _RouteAircraftPicker(
                 availableAircraft: availableAircraft,
                 selectedAircraftId: selectedAircraftId,
-                pendingType: selectedAircraft == null ? type : null,
+                pendingType: selectedAircraft == null && buyNewAircraft
+                    ? type
+                    : null,
+                noAircraftSelected: selectedAircraft == null && !buyNewAircraft,
                 distanceKm: distance,
                 origin: origin,
                 destination: destination,
                 currency: widget.currency,
+                onSelectNoAircraft: () => setState(() {
+                  selectedAircraftId = null;
+                  buyNewAircraft = false;
+                }),
                 onSelectAircraft: (id) => setState(() {
                   selectedAircraftId = id;
+                  buyNewAircraft = false;
                   final acType =
                       aircraftTypesById[widget.game.aircraft[id]!.typeId];
                   if (acType != null) type = acType;
@@ -6181,6 +6191,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                   onSelected: (selectedType) => setState(() {
                     type = selectedType;
                     selectedAircraftId = null;
+                    buyNewAircraft = true;
                     showAircraftShop = false;
                   }),
                 ),
@@ -6243,7 +6254,8 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                     ),
                     FilledButton.icon(
                       onPressed:
-                          (buyableAircraft.isEmpty &&
+                          !hasAircraftForRoute ||
+                              (buyableAircraft.isEmpty &&
                                   selectedAircraft == null) ||
                               (selectedAircraft != null &&
                                   !selectedAircraftUsable)
@@ -6278,7 +6290,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               ? null
               : _create,
           child: Text(
-            selectedAircraft == null
+            !hasAircraftForRoute
+                ? 'Create inactive route'
+                : selectedAircraft == null
                 ? 'Create + buy ${type.model}'
                 : 'Create + assign ${type.model}',
           ),
@@ -6393,9 +6407,10 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
             ? null
             : _clampedFare(bizController.text, fareGuide.maxBusiness),
-        buyNewAircraft: selectedAircraftId == null,
+        buyNewAircraft: buyNewAircraft && selectedAircraftId == null,
       );
-      if (optimise) widget.game.optimiseRoute(route.id);
+      if (optimise && route.aircraftId != null)
+        widget.game.optimiseRoute(route.id);
       Navigator.pop(context);
     } catch (e) {
       setState(() => error = e.toString().replaceFirst('Bad state: ', ''));
@@ -6408,20 +6423,24 @@ class _RouteAircraftPicker extends StatelessWidget {
     required this.availableAircraft,
     required this.selectedAircraftId,
     required this.pendingType,
+    required this.noAircraftSelected,
     required this.distanceKm,
     required this.origin,
     required this.destination,
     required this.currency,
+    required this.onSelectNoAircraft,
     required this.onSelectAircraft,
   });
 
   final List<Aircraft> availableAircraft;
   final String? selectedAircraftId;
   final AircraftType? pendingType;
+  final bool noAircraftSelected;
   final double distanceKm;
   final Airport origin;
   final Airport destination;
   final CurrencyOption currency;
+  final VoidCallback onSelectNoAircraft;
   final ValueChanged<String> onSelectAircraft;
 
   @override
@@ -6434,9 +6453,18 @@ class _RouteAircraftPicker extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             pendingType == null
-                ? 'Use an idle aircraft from your fleet.'
+                ? 'Use an idle aircraft from your fleet, or create the route inactive.'
                 : '${pendingType!.displayName} will be purchased when this route is created.',
             style: const TextStyle(color: Color(0xff9aa4b5)),
+          ),
+          const SizedBox(height: 10),
+          _SelectableInfoRow(
+            selected: noAircraftSelected,
+            enabled: true,
+            title: 'No aircraft',
+            subtitle: 'Create the route inactive and assign a plane later.',
+            trailing: 'inactive',
+            onTap: onSelectNoAircraft,
           ),
           if (pendingType != null) ...[
             const SizedBox(height: 10),
