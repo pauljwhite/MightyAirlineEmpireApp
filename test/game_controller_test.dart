@@ -432,6 +432,67 @@ void main() {
     expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
   });
 
+  test('healthy AI airlines can acquire distressed competitors', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(aiCount: 2));
+    final buyer = game.competitors.firstWhere(
+      (airline) =>
+          airline.personality == AirlinePersonality.aggressive ||
+          airline.personality == AirlinePersonality.balanced,
+    );
+    final target = game.competitors.firstWhere(
+      (airline) => airline.id != buyer.id,
+    );
+    final targetRouteIds = [...target.routeIds];
+    final targetFleetIds = [...target.fleetIds];
+
+    game.airlines[buyer.id] = buyer.copyWith(cashUSD: 150000000);
+    game.airlines[target.id] = target.copyWith(
+      cashUSD: 20000000,
+      canBeTakenOver: true,
+    );
+
+    for (var i = 0; i < 91; i += 1) {
+      game.runDailyTick();
+    }
+
+    expect(game.airlines[target.id], isNull);
+    final updatedBuyer = game.airlines[buyer.id]!;
+    expect(updatedBuyer.routeIds, containsAll(targetRouteIds));
+    expect(updatedBuyer.fleetIds, containsAll(targetFleetIds));
+    for (final routeId in targetRouteIds) {
+      expect(game.routes[routeId]!.airlineId, buyer.id);
+    }
+    for (final aircraftId in targetFleetIds) {
+      expect(game.aircraft[aircraftId]!.airlineId, buyer.id);
+    }
+  });
+
+  test('hopeless insolvent AI airlines can be dissolved', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(aiCount: 1));
+    final target = game.competitors.single;
+    final targetRouteIds = [...target.routeIds];
+    final targetFleetIds = [...target.fleetIds];
+    game.airlines[target.id] = target.copyWith(
+      cashUSD: -150000000,
+      isInsolvent: true,
+      canBeTakenOver: true,
+    );
+
+    for (var i = 0; i < 31; i += 1) {
+      game.runDailyTick();
+    }
+
+    expect(game.airlines[target.id], isNull);
+    for (final routeId in targetRouteIds) {
+      expect(game.routes[routeId], isNull);
+    }
+    for (final aircraftId in targetFleetIds) {
+      expect(game.aircraft[aircraftId], isNull);
+    }
+  });
+
   test(
     'share purchases fund competitors and majority stake enables takeover',
     () {

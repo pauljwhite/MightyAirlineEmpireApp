@@ -26,6 +26,9 @@ const _aiSpawnIntervalDays = 15;
 const _aiCashStressThreshold = 15000000.0;
 const _aiCriticalCashThreshold = 5000000.0;
 const _aiLossMakingRouteThreshold = -2500.0;
+const _aiBuyoutIntervalDays = 90;
+const _aiDissolveIntervalDays = 30;
+const _aiDissolveThreshold = -100000000.0;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -1759,6 +1762,7 @@ class GameController extends ChangeNotifier {
     _updateMarketShare(passengerTotals);
     _resolveInsolvencies();
     _pruneDistressedAIRoutes();
+    _maybeRunAIMarketConsolidation();
     _maybeSpawnNewAI();
     _maybeExpandAI();
     airportDailyPax
@@ -1968,6 +1972,113 @@ class GameController extends ChangeNotifier {
         _removeAIRoute(route);
         pushNewsItem('${airline.name} has suspended a loss-making route.');
       }
+    }
+  }
+
+  void _maybeRunAIMarketConsolidation() {
+    if (gameDay > 0 && gameDay % _aiBuyoutIntervalDays == 0) {
+      _maybeRunAIBuyout();
+    }
+    if (gameDay > 0 && gameDay % _aiDissolveIntervalDays == 0) {
+      _dissolveHopelessAIAirlines();
+    }
+  }
+
+  void _maybeRunAIBuyout() {
+    final targets = competitors
+        .where((airline) => airline.canBeTakenOver || airline.isInsolvent)
+        .toList(growable: false);
+    final buyers = competitors
+        .where(
+          (airline) =>
+              !airline.isInsolvent &&
+              airline.cashUSD > 30000000 &&
+              (airline.personality == AirlinePersonality.aggressive ||
+                  airline.personality == AirlinePersonality.balanced),
+        )
+        .toList(growable: false);
+    if (targets.isEmpty || buyers.isEmpty) return;
+
+    targets.sort((a, b) => a.cashUSD.compareTo(b.cashUSD));
+    buyers.sort((a, b) => b.cashUSD.compareTo(a.cashUSD));
+    for (final target in targets) {
+      for (final buyer in buyers) {
+        if (buyer.id == target.id) continue;
+        final price = math
+            .max(
+              0,
+              target.fleetIds.length * 5000000 -
+                  math.max(0, -target.cashUSD).round(),
+            )
+            .toDouble();
+        if (buyer.cashUSD < price) continue;
+        _aiAcquireAirline(buyer.id, target.id, price);
+        pushNewsItem('ACQUISITION: ${buyer.name} has acquired ${target.name}.');
+        return;
+      }
+    }
+  }
+
+  void _aiAcquireAirline(String buyerId, String targetId, double price) {
+    final buyer = airlines[buyerId];
+    final target = airlines[targetId];
+    if (buyer == null || target == null || buyer.isPlayer || target.isPlayer) {
+      return;
+    }
+    final acquiredFleet = <String>[];
+    for (final aircraftId in target.fleetIds) {
+      final ac = aircraft[aircraftId];
+      if (ac == null) continue;
+      aircraft[aircraftId] = ac.copyWith(airlineId: buyerId);
+      acquiredFleet.add(aircraftId);
+    }
+    final acquiredRoutes = <String>[];
+    for (final routeId in target.routeIds) {
+      final route = routes[routeId];
+      if (route == null) continue;
+      routes[routeId] = route.copyWith(airlineId: buyerId);
+      acquiredRoutes.add(routeId);
+    }
+    for (final entry in airlines.entries.toList()) {
+      if (entry.key == targetId) continue;
+      final holdings = Map<String, double>.from(entry.value.shareholders);
+      final transferred = holdings.remove(targetId);
+      if (transferred != null) {
+        holdings[buyerId] = (holdings[buyerId] ?? 0) + transferred;
+        airlines[entry.key] = entry.value.copyWith(shareholders: holdings);
+      }
+    }
+    airlines[buyerId] = buyer.copyWith(
+      cashUSD: buyer.cashUSD - price,
+      fleetIds: [...buyer.fleetIds, ...acquiredFleet],
+      routeIds: [...buyer.routeIds, ...acquiredRoutes],
+    );
+    airlines.remove(targetId);
+  }
+
+  void _dissolveHopelessAIAirlines() {
+    for (final airline in competitors.toList()) {
+      if (!airline.isInsolvent || airline.cashUSD > _aiDissolveThreshold) {
+        continue;
+      }
+      for (final routeId in airline.routeIds) {
+        routes.remove(routeId);
+      }
+      for (final aircraftId in airline.fleetIds) {
+        aircraft.remove(aircraftId);
+      }
+      for (final entry in airlines.entries.toList()) {
+        if (entry.key == airline.id) continue;
+        final holdings = Map<String, double>.from(entry.value.shareholders)
+          ..remove(airline.id);
+        if (holdings.length != entry.value.shareholders.length) {
+          airlines[entry.key] = entry.value.copyWith(shareholders: holdings);
+        }
+      }
+      airlines.remove(airline.id);
+      pushNewsItem(
+        '${airline.name} has been dissolved after prolonged insolvency.',
+      );
     }
   }
 
