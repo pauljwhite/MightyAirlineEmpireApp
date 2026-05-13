@@ -2844,6 +2844,14 @@ class GameController extends ChangeNotifier {
           ),
         ),
       );
+    airlines.addAll(
+      (raw['aiAirlines'] as Map? ?? const {}).map(
+        (key, value) => MapEntry(
+          key as String,
+          Airline.fromJson(Map<String, Object?>.from(value as Map)),
+        ),
+      ),
+    );
     aircraft
       ..clear()
       ..addAll(
@@ -2854,6 +2862,14 @@ class GameController extends ChangeNotifier {
           ),
         ),
       );
+    aircraft.addAll(
+      (raw['aiAircraft'] as Map? ?? const {}).map(
+        (key, value) => MapEntry(
+          key as String,
+          Aircraft.fromJson(Map<String, Object?>.from(value as Map)),
+        ),
+      ),
+    );
     routes
       ..clear()
       ..addAll(
@@ -2864,6 +2880,14 @@ class GameController extends ChangeNotifier {
           ),
         ),
       );
+    routes.addAll(
+      (raw['aiRoutes'] as Map? ?? const {}).map(
+        (key, value) => MapEntry(
+          key as String,
+          RoutePlan.fromJson(Map<String, Object?>.from(value as Map)),
+        ),
+      ),
+    );
     airportUpgrades
       ..clear()
       ..addAll(

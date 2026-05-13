@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mighty_airline_empire_app/core/constants.dart';
 import 'package:mighty_airline_empire_app/data/aircraft_types.dart';
@@ -265,6 +267,78 @@ void main() {
     expect(restored.gameDay, game.gameDay);
     expect(restored.playerRoutes.length, game.playerRoutes.length);
     expect(restored.playerFleet.length, game.playerFleet.length);
+  });
+
+  test('web-style exports merge AI airline maps on import', () {
+    final game = GameController();
+    game.startNewGame(
+      const GameSettings(
+        playerAirlineName: 'Web Import Air',
+        objective: GameObjective.marketShare,
+        currency: 'GBP',
+      ),
+    );
+    final state = Map<String, Object?>.from(game.toJson());
+    state['settings'] = {
+      ...Map<String, Object?>.from(state['settings'] as Map),
+      'objective': 'market_share',
+    };
+    state['aiAirlines'] = {
+      'ai-web': {
+        'id': 'ai-web',
+        'name': 'Web Rival',
+        'iataPrefix': 'WR',
+        'isPlayer': false,
+        'color': '#14b8a6',
+        'logoEmoji': 'WR',
+        'cashUSD': 123000000,
+        'hubIatas': ['JFK'],
+        'fleetIds': ['ac-web'],
+        'routeIds': ['rt-web'],
+        'personality': 'aggressive',
+        'shareholders': {'player': 12},
+      },
+    };
+    state['aiAircraft'] = {
+      'ac-web': {
+        'id': 'ac-web',
+        'typeId': 'b707-120',
+        'name': 'Web Rival #1',
+        'airlineId': 'ai-web',
+        'purchasedGameDay': 0,
+        'condition': 88,
+        'status': 'flying',
+        'assignedRouteId': 'rt-web',
+      },
+    };
+    state['aiRoutes'] = {
+      'rt-web': {
+        'id': 'rt-web',
+        'airlineId': 'ai-web',
+        'originIata': 'JFK',
+        'destinationIata': 'LAX',
+        'aircraftId': 'ac-web',
+        'flightsPerWeek': 7,
+        'priceEconomy': 320,
+        'priceBusiness': 1300,
+        'isActive': true,
+        'createdGameDay': 0,
+        'distanceKm': 3974,
+      },
+    };
+    final wrapped = jsonEncode({
+      'kind': 'mighty-airline-empire-save',
+      'state': state,
+    });
+
+    final restored = GameController()..importJson(wrapped);
+
+    expect(restored.settings.objective, GameObjective.marketShare);
+    expect(restored.settings.currency, 'GBP');
+    expect(restored.airlines['ai-web']?.name, 'Web Rival');
+    expect(restored.aircraft['ac-web']?.airlineId, 'ai-web');
+    expect(restored.routes['rt-web']?.destinationIata, 'LAX');
+    expect(restored.playerStakeIn('ai-web'), 12);
   });
 
   test('new game settings are applied to the player and AI setup', () {
