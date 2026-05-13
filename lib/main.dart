@@ -3693,6 +3693,9 @@ class _FleetViewState extends State<_FleetView> {
       ? 'SST'
       : category.name[0].toUpperCase() + category.name.substring(1);
 
+  String _maintenanceTierLabel(MaintenanceTier tier) =>
+      tier.name[0].toUpperCase() + tier.name.substring(1);
+
   Color _conditionColor(double condition) => condition >= 60
       ? const Color(0xff3af083)
       : condition >= 30
@@ -4115,11 +4118,29 @@ class _FleetViewState extends State<_FleetView> {
                     runSpacing: 8,
                     children: MaintenanceTier.values.map((tier) {
                       final cost = game.maintenanceCost(ac.id, tier);
+                      final cfg = maintenanceTiers[tier]!;
+                      final conditionGain = cfg.conditionGain >= 999
+                          ? math.max(0.0, 100 - ac.condition)
+                          : math.min(cfg.conditionGain, 100 - ac.condition);
+                      final costPerPoint = conditionGain <= 0
+                          ? cost
+                          : (cost / conditionGain).round();
                       return OutlinedButton(
                         onPressed: ac.status == AircraftStatus.maintenance
                             ? null
                             : () => game.startMaintenance(ac.id, tier),
-                        child: Text('${tier.name} · ${money(cost, currency)}'),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${_maintenanceTierLabel(tier)} · ${money(cost, currency)}',
+                            ),
+                            Text(
+                              '${cfg.durationDays}d · ${cfg.conditionGain >= 999 ? 'to 100%' : '+${cfg.conditionGain.round()}%'} · ${money(costPerPoint, currency)}/pt',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ],
+                        ),
                       );
                     }).toList(),
                   ),
