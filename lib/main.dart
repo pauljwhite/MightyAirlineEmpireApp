@@ -40,6 +40,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   var panel = _Panel.routes;
   var mobileSearchOpen = false;
   var showAiOnMap = true;
+  final _autoOpenedArticleIds = <String>{};
 
   @override
   void initState() {
@@ -94,6 +95,22 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     );
   }
 
+  void _scheduleHeraldAutoOpen(BuildContext context) {
+    final article = game.latestArticle;
+    if (article == null) {
+      if (game.newsArticles.isEmpty) _autoOpenedArticleIds.clear();
+      return;
+    }
+    if (_autoOpenedArticleIds.contains(article.id)) return;
+    if (article.actionAircraftId == null) return;
+    if (game.player.maintenancePolicy.autoMaintainIssues) return;
+    _autoOpenedArticleIds.add(article.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !game.newsArticles.containsKey(article.id)) return;
+      _showHeraldArticle(context, game, article);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -124,6 +141,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 980;
+                  _scheduleHeraldAutoOpen(context);
                   return Stack(
                     children: [
                       Positioned.fill(
