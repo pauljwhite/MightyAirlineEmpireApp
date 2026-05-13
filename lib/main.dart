@@ -2091,18 +2091,15 @@ class _WorldMap extends StatelessWidget {
       final origin = airportsByIata[route.originIata];
       final dest = airportsByIata[route.destinationIata];
       if (origin == null || dest == null) continue;
-      final start = _airportPoint(origin, size);
-      final end = _airportPoint(dest, size);
-      final control = _routeControlPoint(start, end);
+      final segments = _routeArcSegments(origin, dest, size, pointCount: 28);
       var routeDistance = 999.0;
-      var previous = start;
-      for (var i = 1; i <= 24; i++) {
-        final point = _quadraticPoint(start, control, end, i / 24);
-        routeDistance = math.min(
-          routeDistance,
-          _distanceToSegment(p, previous, point),
-        );
-        previous = point;
+      for (final segment in segments) {
+        for (var i = 1; i < segment.length; i += 1) {
+          routeDistance = math.min(
+            routeDistance,
+            _distanceToSegment(p, segment[i - 1], segment[i]),
+          );
+        }
       }
       if (routeDistance < 18 && routeDistance < bestDistance) {
         best = route;
@@ -2118,18 +2115,120 @@ Offset _airportPoint(Airport a, Size size) => Offset(
   ((85 - a.lat.clamp(-85.0, 85.0)) / 170) * size.height,
 );
 
-Offset _routeControlPoint(Offset start, Offset end) {
-  final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-  final lift = ((end - start).distance * 0.12).clamp(16, 80).toDouble();
-  return Offset(mid.dx, mid.dy - lift);
+Offset _latLonPoint(double lat, double lon, Size size) => Offset(
+  ((_normalizeLon(lon) + 180) / 360) * size.width,
+  ((85 - lat.clamp(-85.0, 85.0)) / 170) * size.height,
+);
+
+List<List<Offset>> _routeArcSegments(
+  Airport origin,
+  Airport destination,
+  Size size, {
+  int pointCount = 32,
+}) {
+  final lonDelta = _shortestLonDelta(origin.lon, destination.lon);
+  final rawPoints = <({double lat, double lon})>[];
+  for (var i = 0; i <= pointCount; i += 1) {
+    rawPoints.add(
+      _visualArcPoint(
+        origin.lat,
+        origin.lon,
+        destination.lat,
+        destination.lon,
+        i / pointCount,
+        lonDelta: lonDelta,
+        normalize: false,
+      ),
+    );
+  }
+  final split = _splitArcAtAntimeridian(rawPoints);
+  return split
+      .map(
+        (segment) => segment
+            .map((point) => _latLonPoint(point.lat, point.lon, size))
+            .toList(growable: false),
+      )
+      .where((segment) => segment.length > 1)
+      .toList(growable: false);
 }
 
-Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
-  final u = 1 - t;
-  return Offset(
-    u * u * a.dx + 2 * u * t * b.dx + t * t * c.dx,
-    u * u * a.dy + 2 * u * t * b.dy + t * t * c.dy,
+({double lat, double lon}) _visualArcPoint(
+  double originLat,
+  double originLon,
+  double destinationLat,
+  double destinationLon,
+  double progress, {
+  double? lonDelta,
+  bool normalize = true,
+}) {
+  final t = progress.clamp(0.0, 1.0);
+  final delta = lonDelta ?? _shortestLonDelta(originLon, destinationLon);
+  final averageLatRad = ((originLat + destinationLat) / 2) * math.pi / 180;
+  final weightedLonDelta = delta * math.max(0.25, math.cos(averageLatRad));
+  final planarDistance = math.sqrt(
+    weightedLonDelta * weightedLonDelta +
+        (destinationLat - originLat) * (destinationLat - originLat),
   );
+  final hemisphere = ((originLat + destinationLat) / 2) >= 0 ? 1 : -1;
+  final latBow =
+      hemisphere * math.min(10.0, planarDistance * 0.065 + delta.abs() / 180);
+  final point = (
+    lat:
+        (originLat +
+                (destinationLat - originLat) * t +
+                math.sin(math.pi * t) * latBow)
+            .clamp(-85.0, 85.0),
+    lon: originLon + delta * t,
+  );
+  return normalize ? (lat: point.lat, lon: _normalizeLon(point.lon)) : point;
+}
+
+List<List<({double lat, double lon})>> _splitArcAtAntimeridian(
+  List<({double lat, double lon})> rawPoints,
+) {
+  if (rawPoints.isEmpty) return const [];
+  final segments = <List<({double lat, double lon})>>[];
+  var current = <({double lat, double lon})>[
+    (lat: rawPoints.first.lat, lon: _normalizeLon(rawPoints.first.lon)),
+  ];
+  for (var i = 1; i < rawPoints.length; i += 1) {
+    final previous = rawPoints[i - 1];
+    final next = rawPoints[i];
+    final crossing = _antimeridianBetween(previous.lon, next.lon);
+    if (crossing == null) {
+      current.add((lat: next.lat, lon: _normalizeLon(next.lon)));
+      continue;
+    }
+    final t = (crossing - previous.lon) / (next.lon - previous.lon);
+    final crossingLat = (previous.lat + (next.lat - previous.lat) * t).clamp(
+      -85.0,
+      85.0,
+    );
+    current.add((lat: crossingLat, lon: crossing > 0 ? 180 : -180));
+    segments.add(current);
+    current = [
+      (lat: crossingLat, lon: crossing > 0 ? -180 : 180),
+      (lat: next.lat, lon: _normalizeLon(next.lon)),
+    ];
+  }
+  if (current.length > 1) segments.add(current);
+  return segments;
+}
+
+double _shortestLonDelta(double fromLon, double toLon) =>
+    ((toLon - fromLon) % 360 + 540) % 360 - 180;
+
+double _normalizeLon(double lon) => ((lon + 180) % 360 + 360) % 360 - 180;
+
+double? _antimeridianBetween(double fromLon, double toLon) {
+  final low = math.min(fromLon, toLon);
+  final high = math.max(fromLon, toLon);
+  final start = ((low - 180) / 360).ceil();
+  final end = ((high - 180) / 360).floor();
+  if (start > end) return null;
+  final crossing = 180 + start * 360;
+  if (crossing <= low || crossing >= high) return null;
+  return crossing.toDouble();
 }
 
 double _distanceToSegment(Offset p, Offset a, Offset b) {
@@ -2181,20 +2280,18 @@ class _MapPainter extends CustomPainter {
       final origin = airportsByIata[route.originIata];
       final dest = airportsByIata[route.destinationIata];
       if (origin == null || dest == null) continue;
-      final start = _airportPoint(origin, size);
-      final end = _airportPoint(dest, size);
-      final control = _routeControlPoint(start, end);
-      final path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
+      final segments = _routeArcSegments(origin, dest, size);
       final airline = game.airlines[route.airlineId];
-      canvas.drawPath(
-        path,
-        routePaint
-          ..color = _colorFromHex(
-            airline?.color ?? '#2f8cff',
-          ).withValues(alpha: airline?.isPlayer == true ? 0.62 : 0.32),
-      );
+      routePaint.color = _colorFromHex(
+        airline?.color ?? '#2f8cff',
+      ).withValues(alpha: airline?.isPlayer == true ? 0.62 : 0.32);
+      for (final segment in segments) {
+        final path = Path()..moveTo(segment.first.dx, segment.first.dy);
+        for (var i = 1; i < segment.length; i += 1) {
+          path.lineTo(segment[i].dx, segment[i].dy);
+        }
+        canvas.drawPath(path, routePaint);
+      }
     }
     for (final route in drawableRoutes) {
       _drawPlane(canvas, size, route);
@@ -2244,17 +2341,24 @@ class _MapPainter extends CustomPainter {
     final origin = airportsByIata[route.originIata];
     final dest = airportsByIata[route.destinationIata];
     if (origin == null || dest == null) return;
-    final start = _airportPoint(origin, size);
-    final end = _airportPoint(dest, size);
-    final control = _routeControlPoint(start, end);
     final cycle = (ac.flightProgress * 2).clamp(0, 2).toDouble();
     final t = cycle <= 1 ? cycle : 2 - cycle;
-    final from = cycle <= 1 ? start : end;
-    final to = cycle <= 1 ? end : start;
-    final controlPoint = control;
-    final point = _quadraticPoint(from, controlPoint, to, t);
-    final tangent = _quadraticTangent(from, controlPoint, to, t);
-    final angle = math.atan2(tangent.dy, tangent.dx);
+    final from = cycle <= 1 ? origin : dest;
+    final to = cycle <= 1 ? dest : origin;
+    final visualPoint = _visualArcPoint(from.lat, from.lon, to.lat, to.lon, t);
+    final ahead = _visualArcPoint(
+      from.lat,
+      from.lon,
+      to.lat,
+      to.lon,
+      math.min(1, t + 0.01),
+    );
+    final point = _latLonPoint(visualPoint.lat, visualPoint.lon, size);
+    final aheadPoint = _latLonPoint(ahead.lat, ahead.lon, size);
+    final angle = math.atan2(
+      aheadPoint.dy - point.dy,
+      aheadPoint.dx - point.dx,
+    );
     final airline = game.airlines[route.airlineId];
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
@@ -2361,19 +2465,6 @@ class _MapPainter extends CustomPainter {
           ..close();
     }
   }
-
-  Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
-    final u = 1 - t;
-    return Offset(
-      u * u * a.dx + 2 * u * t * b.dx + t * t * c.dx,
-      u * u * a.dy + 2 * u * t * b.dy + t * t * c.dy,
-    );
-  }
-
-  Offset _quadraticTangent(Offset a, Offset b, Offset c, double t) => Offset(
-    2 * (1 - t) * (b.dx - a.dx) + 2 * t * (c.dx - b.dx),
-    2 * (1 - t) * (b.dy - a.dy) + 2 * t * (c.dy - b.dy),
-  );
 
   static Color _colorFromHex(String hex) {
     final clean = hex.replaceFirst('#', '');
