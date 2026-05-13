@@ -5727,65 +5727,194 @@ class _RouteSummaryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final latestRoute = game.routes[route.id] ?? route;
     final airline = game.airlines[latestRoute.airlineId];
+    final origin = game.airportByIata(latestRoute.originIata);
+    final destination = game.airportByIata(latestRoute.destinationIata);
     final ac = latestRoute.aircraftId == null
         ? null
         : game.aircraft[latestRoute.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
+    final condition = ac?.condition ?? 100;
+    final conditionColor = condition >= 70
+        ? const Color(0xff3af083)
+        : condition >= 40
+        ? const Color(0xffffd166)
+        : const Color(0xffff6b6b);
     return AlertDialog(
       title: Text(
-        '${latestRoute.originIata} -> ${latestRoute.destinationIata}',
+        latestRoute.airlineId == 'player' ? 'Route Detail' : 'Competitor Route',
       ),
       content: SizedBox(
-        width: 430,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (airline != null)
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (airline != null)
+                Row(
+                  children: [
+                    Container(
+                      width: 11,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: _MapPainter._colorFromHex(airline.color),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _AirlineLogo(logo: airline.logoEmoji, size: 30),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        airline.name,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    if (!airline.isPlayer)
+                      Text(
+                        airline.personality.name,
+                        style: const TextStyle(color: Color(0xff8b95a8)),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  _AirlineLogo(logo: airline.logoEmoji, size: 30),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      airline.name,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+                  Text(
+                    latestRoute.originIata,
+                    style: const TextStyle(
+                      color: Color(0xff58a6ff),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(Icons.arrow_forward, color: Color(0xff8b95a8)),
+                  ),
+                  Text(
+                    latestRoute.destinationIata,
+                    style: const TextStyle(
+                      color: Color(0xff58a6ff),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
               ),
-            const SizedBox(height: 12),
-            _InfoRow(
-              'Distance',
-              '${latestRoute.distanceKm.round().toString()} km',
-            ),
-            _InfoRow(
-              'Economy fare',
-              money(latestRoute.priceEconomy.toDouble(), currency),
-            ),
-            if (latestRoute.priceBusiness > 0)
-              _InfoRow(
-                'Business fare',
-                money(latestRoute.priceBusiness.toDouble(), currency),
+              Text(
+                origin != null && destination != null
+                    ? '${origin.city} -> ${destination.city}'
+                    : '${latestRoute.originIata} -> ${latestRoute.destinationIata}',
+                style: const TextStyle(color: Color(0xff8b95a8)),
               ),
-            _InfoRow('Daily profit', money(latestRoute.dailyProfit, currency)),
-            _InfoRow(
-              'Daily revenue',
-              money(latestRoute.dailyRevenue, currency),
-            ),
-            _InfoRow('Daily cost', money(latestRoute.dailyCost, currency)),
-            _InfoRow('Flights', '${latestRoute.flightsPerWeek}/week'),
-            _InfoRow(
-              'Load factor',
-              '${(latestRoute.loadFactorEconomy * 100).round()}%',
-            ),
-            _InfoRow(
-              'Aircraft',
-              type == null ? 'No aircraft assigned' : type.displayName,
-            ),
-            if (ac != null)
-              _InfoRow('Condition', '${ac.condition.toStringAsFixed(0)}%'),
-          ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _RouteSummaryStat(
+                    label: 'Distance',
+                    value: '${_formatCount(latestRoute.distanceKm)} km',
+                  ),
+                  _RouteSummaryStat(
+                    label: 'Economy fare',
+                    value: money(latestRoute.priceEconomy, currency),
+                  ),
+                  if (latestRoute.priceBusiness > 0)
+                    _RouteSummaryStat(
+                      label: 'Business fare',
+                      value: money(latestRoute.priceBusiness, currency),
+                    ),
+                  _RouteSummaryStat(
+                    label: 'Flights',
+                    value: '${latestRoute.flightsPerWeek}/week',
+                  ),
+                  _RouteSummaryStat(
+                    label: 'Daily revenue',
+                    value: money(latestRoute.dailyRevenue, currency),
+                    color: const Color(0xff3af083),
+                  ),
+                  _RouteSummaryStat(
+                    label: 'Daily profit',
+                    value: latestRoute.dailyProfit == 0
+                        ? '-'
+                        : money(latestRoute.dailyProfit, currency),
+                    color: latestRoute.dailyProfit >= 0
+                        ? const Color(0xff3af083)
+                        : const Color(0xffff6b6b),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Load factor',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 10),
+                    _LoadFactorLine(
+                      label: 'Eco',
+                      value: latestRoute.loadFactorEconomy,
+                      color: const Color(0xff3af083),
+                    ),
+                    if (latestRoute.priceBusiness > 0 ||
+                        latestRoute.loadFactorBusiness > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _LoadFactorLine(
+                          label: 'Biz',
+                          value: latestRoute.loadFactorBusiness,
+                          color: const Color(0xff77c9ff),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Aircraft',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 8),
+                    if (ac == null || type == null)
+                      const Text(
+                        'No aircraft assigned',
+                        style: TextStyle(color: Color(0xff8b95a8)),
+                      )
+                    else ...[
+                      Text(
+                        type.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        '${type.seatsEconomy} eco · ${type.seatsBusiness} biz · ${_formatCount(type.rangeKm)} km range',
+                        style: const TextStyle(color: Color(0xff8b95a8)),
+                      ),
+                      const SizedBox(height: 10),
+                      LinearProgressIndicator(
+                        value: (condition / 100).clamp(0, 1),
+                        color: conditionColor,
+                        backgroundColor: const Color(0xff293244),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Condition ${condition.toStringAsFixed(0)}%',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(color: Color(0xff8b95a8)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -5796,6 +5925,44 @@ class _RouteSummaryDialog extends StatelessWidget {
       ],
     );
   }
+}
+
+class _RouteSummaryStat extends StatelessWidget {
+  const _RouteSummaryStat({
+    required this.label,
+    required this.value,
+    this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 150,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: _subtleSurface(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _hairline(context)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Color(0xff8b95a8))),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(color: color, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _FareGuide {
