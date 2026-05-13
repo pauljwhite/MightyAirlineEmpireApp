@@ -5140,6 +5140,15 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                     subtitle: Text(
                       '${route.flightsPerWeek}/week · ${money(route.dailyProfit, widget.currency)}/day',
                     ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => _RouteSummaryDialog(
+                        game: widget.game,
+                        route: route,
+                        currency: widget.currency,
+                      ),
+                    ),
                   ),
                 )
                 .toList(),
@@ -5439,6 +5448,19 @@ class _RouteSummaryDialog extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 12),
+            _InfoRow(
+              'Distance',
+              '${latestRoute.distanceKm.round().toString()} km',
+            ),
+            _InfoRow(
+              'Economy fare',
+              money(latestRoute.priceEconomy.toDouble(), currency),
+            ),
+            if (latestRoute.priceBusiness > 0)
+              _InfoRow(
+                'Business fare',
+                money(latestRoute.priceBusiness.toDouble(), currency),
+              ),
             _InfoRow('Daily profit', money(latestRoute.dailyProfit, currency)),
             _InfoRow(
               'Daily revenue',
