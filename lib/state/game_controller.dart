@@ -661,6 +661,9 @@ class GameController extends ChangeNotifier {
     _nextRoute = 1;
     _nextLoan = 1;
     _nextTicker = 1;
+    final startingHub = airportsByIata.containsKey(settings.startingHubIata)
+        ? settings.startingHubIata
+        : 'LHR';
     airlines['player'] = Airline(
       id: 'player',
       name: settings.playerAirlineName,
@@ -669,11 +672,11 @@ class GameController extends ChangeNotifier {
       color: settings.playerAirlineColor,
       logoEmoji: settings.playerAirlineEmoji,
       cashUSD: settings.startingCash,
-      hubIatas: const ['LHR'],
+      hubIatas: [startingHub],
       foundedGameDay: 0,
       reputationScore: 55,
     );
-    _markAirportHub('LHR');
+    _markAirportHub(startingHub);
     _initAIAirlines();
     pushNewsItem(
       'Welcome to Mighty Airline Empire. Build routes, buy aircraft, and outlast the market.',

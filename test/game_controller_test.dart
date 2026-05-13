@@ -246,10 +246,13 @@ void main() {
     game.startNewGame(
       const GameSettings(
         playerAirlineName: 'Danube Airways',
+        playerAirlineColor: '#14b8a6',
         playerAirlineEmoji: '🛫',
+        startingHubIata: 'VIE',
         startingCash: 15000000,
         difficulty: Difficulty.hard,
         aiCount: 2,
+        startingYear: 1990,
         objective: GameObjective.marketShare,
         targetMarketShare: 80,
         currency: 'EUR',
@@ -257,10 +260,14 @@ void main() {
     );
 
     expect(game.player.name, 'Danube Airways');
+    expect(game.player.color, '#14b8a6');
     expect(game.player.logoEmoji, '🛫');
+    expect(game.player.hubIatas, contains('VIE'));
+    expect(game.airportByIata('VIE')!.isHub, isTrue);
     expect(game.player.cashUSD, 15000000);
     expect(game.competitors, hasLength(2));
     expect(game.settings.difficulty, Difficulty.hard);
+    expect(game.settings.startingYear, 1990);
     expect(game.settings.objective, GameObjective.marketShare);
     expect(game.settings.targetMarketShare, 80);
     expect(game.settings.currency, 'EUR');

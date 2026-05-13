@@ -868,6 +868,7 @@ class GameSettings {
     this.playerAirlineName = 'My Airline',
     this.playerAirlineColor = '#3b82f6',
     this.playerAirlineEmoji = '✈️',
+    this.startingHubIata = 'LHR',
     this.startingCash = 30000000,
     this.difficulty = Difficulty.normal,
     this.aiCount = 6,
@@ -879,6 +880,7 @@ class GameSettings {
   final String playerAirlineName;
   final String playerAirlineColor;
   final String playerAirlineEmoji;
+  final String startingHubIata;
   final double startingCash;
   final Difficulty difficulty;
   final int aiCount;
@@ -890,6 +892,7 @@ class GameSettings {
     String? playerAirlineName,
     String? playerAirlineColor,
     String? playerAirlineEmoji,
+    String? startingHubIata,
     double? startingCash,
     Difficulty? difficulty,
     int? aiCount,
@@ -901,6 +904,7 @@ class GameSettings {
     playerAirlineName: playerAirlineName ?? this.playerAirlineName,
     playerAirlineColor: playerAirlineColor ?? this.playerAirlineColor,
     playerAirlineEmoji: playerAirlineEmoji ?? this.playerAirlineEmoji,
+    startingHubIata: startingHubIata ?? this.startingHubIata,
     startingCash: startingCash ?? this.startingCash,
     difficulty: difficulty ?? this.difficulty,
     aiCount: aiCount ?? this.aiCount,
@@ -914,6 +918,7 @@ class GameSettings {
     'playerAirlineName': playerAirlineName,
     'playerAirlineColor': playerAirlineColor,
     'playerAirlineEmoji': playerAirlineEmoji,
+    'startingHubIata': startingHubIata,
     'startingCash': startingCash,
     'difficulty': difficulty.name,
     'aiCount': aiCount,
@@ -926,6 +931,7 @@ class GameSettings {
     playerAirlineName: json['playerAirlineName'] as String? ?? 'My Airline',
     playerAirlineColor: json['playerAirlineColor'] as String? ?? '#3b82f6',
     playerAirlineEmoji: json['playerAirlineEmoji'] as String? ?? '✈️',
+    startingHubIata: json['startingHubIata'] as String? ?? 'LHR',
     startingCash: (json['startingCash'] as num?)?.toDouble() ?? 30000000,
     difficulty: _enumValue(
       Difficulty.values,

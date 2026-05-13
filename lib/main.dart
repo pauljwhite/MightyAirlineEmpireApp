@@ -1351,6 +1351,13 @@ void _showNewGameDialog(
   final emojiController = TextEditingController(
     text: game.settings.playerAirlineEmoji,
   );
+  final colorController = TextEditingController(
+    text: game.settings.playerAirlineColor,
+  );
+  var startingHub =
+      game.airportByIata(game.settings.startingHubIata) ??
+      airportsByIata['LHR']!;
+  var startingYear = game.settings.startingYear;
   var difficulty = game.settings.difficulty;
   var aiCount = game.settings.aiCount.clamp(0, 12).toInt();
   var objective = game.settings.objective;
@@ -1373,6 +1380,14 @@ void _showNewGameDialog(
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
         final startingCash = startingCashByDifficulty[difficulty]!;
+        final availableAircraft = aircraftTypes
+            .where((type) => type.yearIntroduced <= startingYear)
+            .length;
+        final era = _newGameEras.firstWhere(
+          (era) => era.year == startingYear,
+          orElse: () => _newGameEras.first,
+        );
+        final selectedColor = _normaliseHexColor(colorController.text);
         return AlertDialog(
           title: const Text('Start new airline'),
           content: SizedBox(
@@ -1388,6 +1403,53 @@ void _showNewGameDialog(
                       labelText: 'Airline name',
                       border: OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Airline colour',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _airlineColorOptions
+                        .map(
+                          (color) => InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () {
+                              colorController.text = color;
+                              setState(() {});
+                            },
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: _MapPainter._colorFromHex(color),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: selectedColor == color.toLowerCase()
+                                      ? Theme.of(context).colorScheme.primary
+                                      : _hairline(context),
+                                  width: selectedColor == color.toLowerCase()
+                                      ? 3
+                                      : 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: colorController,
+                    decoration: const InputDecoration(
+                      labelText: 'Custom colour',
+                      hintText: '#3b82f6',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -1438,6 +1500,54 @@ void _showNewGameDialog(
                         style: const TextStyle(color: Color(0xffff6b6b)),
                       ),
                     ),
+                  const SizedBox(height: 16),
+                  _AirportDropdown(
+                    label: 'Starting hub',
+                    value: startingHub,
+                    onChanged: (airport) =>
+                        setState(() => startingHub = airport),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Starting era',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _newGameEras
+                        .map(
+                          (option) => ChoiceChip(
+                            label: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  option.year.toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  option.label,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            ),
+                            selected: startingYear == option.year,
+                            onSelected: (_) =>
+                                setState(() => startingYear = option.year),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$availableAircraft aircraft available · ${era.flagship}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: _mutedText(context)),
+                  ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<Difficulty>(
                     initialValue: difficulty,
@@ -1556,10 +1666,14 @@ void _showNewGameDialog(
                 game.startNewGame(
                   game.settings.copyWith(
                     playerAirlineName: name.isEmpty ? 'My Airline' : name,
+                    playerAirlineColor:
+                        _normaliseHexColor(colorController.text) ?? '#3b82f6',
                     playerAirlineEmoji: emoji.isEmpty ? '✈️' : emoji,
+                    startingHubIata: startingHub.iata,
                     difficulty: difficulty,
                     startingCash: startingCash,
                     aiCount: aiCount,
+                    startingYear: startingYear,
                     objective: objective,
                     targetMarketShare: targetMarketShare,
                     currency: selectedCurrency.code,
@@ -1576,6 +1690,46 @@ void _showNewGameDialog(
       },
     ),
   );
+}
+
+class _NewGameEra {
+  const _NewGameEra(this.year, this.label, this.flagship);
+  final int year;
+  final String label;
+  final String flagship;
+}
+
+const _newGameEras = [
+  _NewGameEra(1960, 'Jet Age', '707, DC-8, Il-18'),
+  _NewGameEra(1970, 'Wide-body', '747, DC-10, Il-62'),
+  _NewGameEra(1980, 'Glass cockpit', '757, 767, A300'),
+  _NewGameEra(1990, 'FBW era', 'A320, 777, A330'),
+  _NewGameEra(2000, 'Low-cost boom', '737NG, A319/320/321'),
+  _NewGameEra(2010, 'Composite', '787, A380, A350'),
+  _NewGameEra(2020, 'New gen', 'MAX, NEO, 777X'),
+];
+
+const _airlineColorOptions = [
+  '#3b82f6',
+  '#14b8a6',
+  '#22c55e',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#8b5cf6',
+  '#06b6d4',
+  '#84cc16',
+  '#f97316',
+  '#64748b',
+  '#111827',
+];
+
+String? _normaliseHexColor(String value) {
+  final trimmed = value.trim();
+  final match = RegExp(r'^#?[0-9a-fA-F]{6}$').firstMatch(trimmed);
+  if (match == null) return null;
+  final withHash = trimmed.startsWith('#') ? trimmed : '#$trimmed';
+  return withHash.toLowerCase();
 }
 
 void _showExportDialog(BuildContext context, GameController game) {
