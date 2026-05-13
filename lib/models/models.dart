@@ -51,6 +51,8 @@ class Airport {
     this.isHub = false,
     this.hubTerminalLevel = 0,
     this.firstClassLoungeLevel = 0,
+    this.closedUntilGameDay,
+    this.closureReason,
   });
   final String iata;
   final String? icao;
@@ -66,10 +68,15 @@ class Airport {
   final bool isHub;
   final int hubTerminalLevel;
   final int firstClassLoungeLevel;
+  final int? closedUntilGameDay;
+  final String? closureReason;
   Airport copyWith({
     bool? isHub,
     int? hubTerminalLevel,
     int? firstClassLoungeLevel,
+    int? closedUntilGameDay,
+    String? closureReason,
+    bool clearClosure = false,
   }) => Airport(
     iata: iata,
     icao: icao,
@@ -85,6 +92,10 @@ class Airport {
     isHub: isHub ?? this.isHub,
     hubTerminalLevel: hubTerminalLevel ?? this.hubTerminalLevel,
     firstClassLoungeLevel: firstClassLoungeLevel ?? this.firstClassLoungeLevel,
+    closedUntilGameDay: clearClosure
+        ? null
+        : closedUntilGameDay ?? this.closedUntilGameDay,
+    closureReason: clearClosure ? null : closureReason ?? this.closureReason,
   );
 }
 
@@ -93,31 +104,46 @@ class AirportUpgrade {
     this.isHub = false,
     this.hubTerminalLevel = 0,
     this.firstClassLoungeLevel = 0,
+    this.closedUntilGameDay,
+    this.closureReason,
   });
   final bool isHub;
   final int hubTerminalLevel;
   final int firstClassLoungeLevel;
+  final int? closedUntilGameDay;
+  final String? closureReason;
 
   Airport apply(Airport airport) => airport.copyWith(
     isHub: isHub || airport.isHub,
     hubTerminalLevel: hubTerminalLevel,
     firstClassLoungeLevel: firstClassLoungeLevel,
+    closedUntilGameDay: closedUntilGameDay,
+    closureReason: closureReason,
   );
 
   AirportUpgrade copyWith({
     bool? isHub,
     int? hubTerminalLevel,
     int? firstClassLoungeLevel,
+    int? closedUntilGameDay,
+    String? closureReason,
+    bool clearClosure = false,
   }) => AirportUpgrade(
     isHub: isHub ?? this.isHub,
     hubTerminalLevel: hubTerminalLevel ?? this.hubTerminalLevel,
     firstClassLoungeLevel: firstClassLoungeLevel ?? this.firstClassLoungeLevel,
+    closedUntilGameDay: clearClosure
+        ? null
+        : closedUntilGameDay ?? this.closedUntilGameDay,
+    closureReason: clearClosure ? null : closureReason ?? this.closureReason,
   );
 
   Map<String, Object?> toJson() => {
     'isHub': isHub,
     'hubTerminalLevel': hubTerminalLevel,
     'firstClassLoungeLevel': firstClassLoungeLevel,
+    if (closedUntilGameDay != null) 'closedUntilGameDay': closedUntilGameDay,
+    if (closureReason != null) 'closureReason': closureReason,
   };
 
   factory AirportUpgrade.fromJson(Map<String, Object?> json) => AirportUpgrade(
@@ -130,6 +156,8 @@ class AirportUpgrade {
         (json['firstClassLoungeLevel'] as num?)?.round() ??
         (json['loungeLevel'] as num?)?.round() ??
         0,
+    closedUntilGameDay: (json['closedUntilGameDay'] as num?)?.round(),
+    closureReason: json['closureReason'] as String?,
   );
 }
 

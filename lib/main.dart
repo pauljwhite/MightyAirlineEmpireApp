@@ -1948,6 +1948,9 @@ class _MapPainter extends CustomPainter {
       _drawPlane(canvas, size, route);
     }
     for (final a in airports) {
+      final airport = game.airportByIata(a.iata) ?? a;
+      final closedUntil = airport.closedUntilGameDay;
+      final isClosed = closedUntil != null && closedUntil >= game.gameDay;
       final r = switch (a.size) {
         AirportSize.small => 1.5,
         AirportSize.medium => 2.1,
@@ -1955,12 +1958,25 @@ class _MapPainter extends CustomPainter {
         AirportSize.major => 4.2,
       };
       final selected = selectedAirport?.iata == a.iata;
+      final point = _airportPoint(a, size);
+      if (isClosed) {
+        canvas.drawCircle(
+          point,
+          r + 4,
+          Paint()
+            ..color = const Color(0xffff6b6b).withValues(alpha: 0.88)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+      }
       canvas.drawCircle(
-        _airportPoint(a, size),
+        point,
         selected ? r + 3 : r,
         Paint()
           ..color = selected
               ? const Color(0xffffd166)
+              : isClosed
+              ? const Color(0xffff6b6b)
               : const Color(0xff58a6ff),
       );
     }
@@ -2073,6 +2089,8 @@ class _AirportPanel extends StatelessWidget {
     final utilization = capacity <= 0 ? 0.0 : dailyPax / capacity;
     final demandPct = (airportSaturationMod(utilization) * 100).round();
     final utilizationPct = (utilization * 100).round();
+    final closedUntil = airport.closedUntilGameDay;
+    final isClosed = closedUntil != null && closedUntil >= game.gameDay;
     final destinations =
         game.airportList
             .where((a) => a.iata != airport.iata)
@@ -2159,7 +2177,37 @@ class _AirportPanel extends StatelessWidget {
                 _InfoRow('IATA', airport.iata),
                 _InfoRow('ICAO', airport.icao ?? '-'),
                 _InfoRow('Size', airport.size.name),
+                _InfoRow(
+                  'Status',
+                  isClosed
+                      ? 'Closed: ${airport.closureReason ?? 'Operational disruption'} until day $closedUntil'
+                      : 'Open',
+                ),
                 _InfoRow('Hub', isPlayerHub ? 'Yes' : 'No'),
+                if (isClosed) ...[
+                  const SizedBox(height: 10),
+                  _Card(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.warning_amber,
+                          color: Color(0xffffb020),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Routes using ${airport.iata} will earn no revenue until operations reopen.',
+                            style: const TextStyle(
+                              color: Color(0xffffd166),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (isPlayerHub)
                   _InfoRow(
                     'Terminal',

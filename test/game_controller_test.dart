@@ -145,6 +145,33 @@ void main() {
     expect(after.status, AircraftStatus.flying);
   });
 
+  test('airport closures persist and suspend route economics', () {
+    final game = GameController();
+    final type = aircraftTypesById['b707-120']!;
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: type.id,
+      buyNewAircraft: true,
+    );
+
+    game.setAirportClosure('JFK', 2, 'Storm');
+    final closedSnapshot = game.runDailyTick();
+
+    expect(game.isAirportClosed('JFK'), isTrue);
+    expect(game.routes[route.id]!.dailyRevenue, 0);
+    expect(closedSnapshot.passengers, 0);
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(restored.airportByIata('JFK')!.closureReason, 'Storm');
+    expect(restored.isAirportClosed('JFK'), isTrue);
+
+    restored
+      ..runDailyTick()
+      ..runDailyTick();
+    expect(restored.isAirportClosed('JFK'), isFalse);
+  });
+
   test('player insolvency creates a game over state', () {
     final game = GameController();
     game.airlines['player'] = game.player.copyWith(cashUSD: -120000000);

@@ -19,6 +19,8 @@ import '../models/models.dart';
 const optimiseAllBaseCostUSD = 2000000.0;
 const optimiseAllCostPerRouteUSD = 2500000.0;
 const gameDayMs = 86400000;
+const _airportEventSampleSize = 45;
+const _eventScale = 0.6;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -56,6 +58,149 @@ class _AiSeed {
   final String aircraftTypeId;
   final double cashUSD;
 }
+
+class _AirportEventDef {
+  const _AirportEventDef({
+    required this.id,
+    required this.newsTemplate,
+    required this.closureReason,
+    required this.minDays,
+    required this.maxDays,
+    required this.probability,
+    required this.sizesAffected,
+  });
+
+  final String id;
+  final String newsTemplate;
+  final String closureReason;
+  final int minDays;
+  final int maxDays;
+  final double probability;
+  final Set<AirportSize> sizesAffected;
+}
+
+const _airportEvents = <_AirportEventDef>[
+  _AirportEventDef(
+    id: 'storm',
+    newsTemplate:
+        'STORM: Severe weather forces closure of {city} Airport ({airport}). Flights suspended for {duration}.',
+    closureReason: 'Storm',
+    minDays: 1,
+    maxDays: 2,
+    probability: 0.0004,
+    sizesAffected: {
+      AirportSize.small,
+      AirportSize.medium,
+      AirportSize.large,
+      AirportSize.major,
+    },
+  ),
+  _AirportEventDef(
+    id: 'blizzard',
+    newsTemplate:
+        'BLIZZARD: Heavy snowfall shuts down {city} Airport ({airport}). Operations halted for {duration}.',
+    closureReason: 'Blizzard',
+    minDays: 1,
+    maxDays: 3,
+    probability: 0.0003,
+    sizesAffected: {AirportSize.medium, AirportSize.large, AirportSize.major},
+  ),
+  _AirportEventDef(
+    id: 'fog',
+    newsTemplate:
+        'FOG: Dense fog blankets {city} Airport ({airport}), forcing a {duration} suspension of all flights.',
+    closureReason: 'Dense fog',
+    minDays: 1,
+    maxDays: 1,
+    probability: 0.0005,
+    sizesAffected: {
+      AirportSize.small,
+      AirportSize.medium,
+      AirportSize.large,
+      AirportSize.major,
+    },
+  ),
+  _AirportEventDef(
+    id: 'it_outage',
+    newsTemplate:
+        'IT OUTAGE: Systems failure at {city} Airport ({airport}) grounds all flights. Engineers working to restore services.',
+    closureReason: 'IT outage',
+    minDays: 1,
+    maxDays: 1,
+    probability: 0.0003,
+    sizesAffected: {AirportSize.large, AirportSize.major},
+  ),
+  _AirportEventDef(
+    id: 'security_alert',
+    newsTemplate:
+        'SECURITY: {city} Airport ({airport}) evacuated and closed following a security alert. Flights diverted.',
+    closureReason: 'Security alert',
+    minDays: 1,
+    maxDays: 1,
+    probability: 0.0002,
+    sizesAffected: {AirportSize.large, AirportSize.major},
+  ),
+  _AirportEventDef(
+    id: 'runway_incident',
+    newsTemplate:
+        'RUNWAY CLOSED: {city} Airport ({airport}) runway closed following an aircraft incident. Flights suspended for {duration}.',
+    closureReason: 'Runway incident',
+    minDays: 1,
+    maxDays: 2,
+    probability: 0.0003,
+    sizesAffected: {AirportSize.medium, AirportSize.large, AirportSize.major},
+  ),
+  _AirportEventDef(
+    id: 'ash_cloud',
+    newsTemplate:
+        'ASH CLOUD: Volcanic ash disruption closes {city} Airport ({airport}) for {duration}.',
+    closureReason: 'Volcanic ash',
+    minDays: 1,
+    maxDays: 3,
+    probability: 0.00015,
+    sizesAffected: {
+      AirportSize.small,
+      AirportSize.medium,
+      AirportSize.large,
+      AirportSize.major,
+    },
+  ),
+  _AirportEventDef(
+    id: 'flood',
+    newsTemplate:
+        'FLOODING: Flash flooding at {city} Airport ({airport}) suspends all operations for {duration}.',
+    closureReason: 'Flooding',
+    minDays: 1,
+    maxDays: 2,
+    probability: 0.0002,
+    sizesAffected: {
+      AirportSize.small,
+      AirportSize.medium,
+      AirportSize.large,
+      AirportSize.major,
+    },
+  ),
+  _AirportEventDef(
+    id: 'bird_flock',
+    newsTemplate:
+        'BIRD STRIKE RISK: Large bird flock grounds all traffic at {city} Airport ({airport}) for {duration}.',
+    closureReason: 'Bird flock hazard',
+    minDays: 1,
+    maxDays: 1,
+    probability: 0.0002,
+    sizesAffected: {AirportSize.small, AirportSize.medium},
+  ),
+  _AirportEventDef(
+    id: 'power_failure',
+    newsTemplate:
+        'POWER FAILURE: Major blackout at {city} Airport ({airport}) halts all operations. Backup power insufficient.',
+    closureReason: 'Power failure',
+    minDays: 1,
+    maxDays: 2,
+    probability: 0.00025,
+    sizesAffected: {AirportSize.medium, AirportSize.large, AirportSize.major},
+  ),
+];
 
 const _aiSeeds = <_AiSeed>[
   _AiSeed(
@@ -274,6 +419,22 @@ class GameController extends ChangeNotifier {
     return airportUpgrades[iata]?.apply(airport) ?? airport;
   }
 
+  bool isAirportClosed(String iata) {
+    final airport = airportByIata(iata);
+    final closedUntil = airport?.closedUntilGameDay;
+    return closedUntil != null && closedUntil >= gameDay;
+  }
+
+  void setAirportClosure(String iata, int untilGameDay, String reason) {
+    if (!airportsByIata.containsKey(iata)) return;
+    final current = airportUpgrades[iata] ?? const AirportUpgrade();
+    airportUpgrades[iata] = current.copyWith(
+      closedUntilGameDay: untilGameDay,
+      closureReason: reason,
+    );
+    notifyListeners();
+  }
+
   List<Airport> get airportList => airports
       .map(
         (airport) => airportUpgrades[airport.iata]?.apply(airport) ?? airport,
@@ -371,7 +532,9 @@ class GameController extends ChangeNotifier {
           destination == null ||
           ac.isGrounded ||
           ac.status == AircraftStatus.maintenance ||
-          ac.status == AircraftStatus.crashed) {
+          ac.status == AircraftStatus.crashed ||
+          _isAirportClosed(origin) ||
+          _isAirportClosed(destination)) {
         continue;
       }
       final flightMs = math.max(
@@ -1303,6 +1466,7 @@ class GameController extends ChangeNotifier {
   }
 
   DailySnapshot runDailyTick() {
+    _clearExpiredAirportClosures();
     final nextAirportPax = <String, double>{};
     final allRoutes = routes.values.toList(growable: false);
     final allAirlines = airlines.values.toList(growable: false);
@@ -1431,6 +1595,7 @@ class GameController extends ChangeNotifier {
     final dayBoundaryMs = gameDay * gameDayMs;
     if (gameTimeMs < dayBoundaryMs) gameTimeMs = dayBoundaryMs;
     _maybeRunRandomFleetEvent();
+    _maybeRunAirportClosureEvents();
     final playerSnapshot =
         snapshots['player'] ??
         DailySnapshot(
@@ -1446,6 +1611,57 @@ class GameController extends ChangeNotifier {
     );
     notifyListeners();
     return playerSnapshot;
+  }
+
+  bool _isAirportClosed(Airport airport) {
+    final closedUntil = airport.closedUntilGameDay;
+    return closedUntil != null && closedUntil >= gameDay;
+  }
+
+  void _clearExpiredAirportClosures() {
+    for (final entry in airportUpgrades.entries.toList()) {
+      final closedUntil = entry.value.closedUntilGameDay;
+      if (closedUntil != null && closedUntil < gameDay) {
+        airportUpgrades[entry.key] = entry.value.copyWith(clearClosure: true);
+      }
+    }
+  }
+
+  void _maybeRunAirportClosureEvents() {
+    if (airports.isEmpty) return;
+    final rng = math.Random(gameDay * 104729 + 37);
+    final checks = math.min(_airportEventSampleSize, airports.length);
+    final offset = (gameDay * _airportEventSampleSize) % airports.length;
+
+    for (var i = 0; i < checks; i++) {
+      final airport = airportByIata(
+        airports[(offset + i) % airports.length].iata,
+      );
+      if (airport == null || _isAirportClosed(airport)) continue;
+
+      for (final event in _airportEvents) {
+        if (!event.sizesAffected.contains(airport.size)) continue;
+        if (rng.nextDouble() > event.probability * _eventScale) continue;
+
+        final durationDays =
+            event.minDays + rng.nextInt(event.maxDays - event.minDays + 1);
+        final untilDay = gameDay + durationDays - 1;
+        final durationLabel = durationDays == 1
+            ? '1 day'
+            : '$durationDays days';
+        final message = event.newsTemplate
+            .replaceAll('{airport}', airport.iata)
+            .replaceAll('{city}', airport.city)
+            .replaceAll('{duration}', durationLabel);
+        final current = airportUpgrades[airport.iata] ?? const AirportUpgrade();
+        airportUpgrades[airport.iata] = current.copyWith(
+          closedUntilGameDay: untilDay,
+          closureReason: event.closureReason,
+        );
+        pushNewsItem(message, severity: 'breaking');
+        break;
+      }
+    }
   }
 
   void _resolveInsolvencies() {

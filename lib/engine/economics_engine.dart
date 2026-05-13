@@ -210,6 +210,8 @@ RouteEconomicsResult calculateRouteEconomics({
   if (!route.isActive ||
       aircraft.isGrounded ||
       aircraft.status == AircraftStatus.maintenance ||
+      _isAirportClosed(origin, gameDay) ||
+      _isAirportClosed(destination, gameDay) ||
       !canAirportHandleAircraft(origin, type) ||
       !canAirportHandleAircraft(destination, type)) {
     return RouteEconomicsResult(
@@ -321,4 +323,9 @@ RouteEconomicsResult calculateRouteEconomics({
     profit: revenue - cost,
     passengers: ecoPax + bizPax,
   );
+}
+
+bool _isAirportClosed(Airport airport, int gameDay) {
+  final closedUntil = airport.closedUntilGameDay;
+  return closedUntil != null && closedUntil >= gameDay;
 }
