@@ -252,11 +252,25 @@ class _GameOutcomeOverlay extends StatelessWidget {
     final player = game.player;
     final last = player.dailyStats.lastOrNull;
     final title = won ? 'Victory' : 'Game over';
+    final currentYear = game.settings.startingYear + game.gameDay ~/ 365;
+    final yearsOfOperation = math.max(
+      0,
+      currentYear - game.settings.startingYear,
+    );
+    final totalPassengers =
+        player.totalPassengersAllTime +
+        game.competitors.fold<int>(
+          0,
+          (sum, airline) => sum + airline.totalPassengersAllTime,
+        );
+    final allTimeMarketShare = totalPassengers <= 0
+        ? 0.0
+        : player.totalPassengersAllTime / totalPassengers * 100;
     final message = won
         ? game.settings.objective == GameObjective.marketShare
-              ? 'You reached ${game.settings.targetMarketShare.round()}% market share.'
-              : 'You are the last airline standing.'
-        : '${player.name} has become insolvent.';
+              ? 'You reached ${allTimeMarketShare.toStringAsFixed(1)}% all-time market share, beating the ${game.settings.targetMarketShare.round()}% target.'
+              : 'Every rival airline has collapsed. You are the last airline standing.'
+        : '${player.name} accumulated more than ${money(100000000, currency)} in debt and became insolvent.';
     return Material(
       color: Colors.black.withValues(alpha: 0.56),
       child: Center(
@@ -287,16 +301,40 @@ class _GameOutcomeOverlay extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+                Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        won ? Icons.emoji_events : Icons.money_off,
+                        size: 54,
+                        color: won
+                            ? const Color(0xffffd166)
+                            : const Color(0xffff6b6b),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        title.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              color: won
+                                  ? const Color(0xffffd166)
+                                  : const Color(0xffff6b6b),
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      Text(
+                        'Day ${game.gameDay} · $currentYear',
+                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 18),
                 Text(
                   message,
-                  style: const TextStyle(color: Colors.white70, fontSize: 17),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
                 const SizedBox(height: 20),
                 Wrap(
@@ -306,6 +344,9 @@ class _GameOutcomeOverlay extends StatelessWidget {
                     _OutcomeStat(
                       label: 'Cash',
                       value: money(player.cashUSD, currency),
+                      accent: player.cashUSD >= 0
+                          ? const Color(0xff3af083)
+                          : const Color(0xffff6b6b),
                     ),
                     _OutcomeStat(
                       label: 'Routes',
@@ -317,11 +358,20 @@ class _GameOutcomeOverlay extends StatelessWidget {
                     ),
                     _OutcomeStat(
                       label: 'Passengers',
-                      value: player.totalPassengersAllTime.toString(),
+                      value: _formatCount(player.totalPassengersAllTime),
                     ),
                     _OutcomeStat(
                       label: 'Market share',
-                      value: '${player.marketSharePercent.toStringAsFixed(1)}%',
+                      value: '${allTimeMarketShare.toStringAsFixed(1)}%',
+                    ),
+                    _OutcomeStat(
+                      label: 'Reputation',
+                      value: '${player.reputationScore.toStringAsFixed(0)}/100',
+                    ),
+                    _OutcomeStat(
+                      label: 'Years',
+                      value:
+                          '$yearsOfOperation yr${yearsOfOperation == 1 ? '' : 's'}',
                     ),
                     _OutcomeStat(
                       label: 'Last day',
@@ -335,17 +385,19 @@ class _GameOutcomeOverlay extends StatelessWidget {
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: game.dismissGameOutcome,
-                        child: const Text('Continue Playing'),
+                    if (won) ...[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: game.dismissGameOutcome,
+                          child: const Text('Continue Playing'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: FilledButton(
                         onPressed: onNewGame,
-                        child: const Text('Start Again'),
+                        child: const Text('Play Again'),
                       ),
                     ),
                   ],
@@ -360,10 +412,11 @@ class _GameOutcomeOverlay extends StatelessWidget {
 }
 
 class _OutcomeStat extends StatelessWidget {
-  const _OutcomeStat({required this.label, required this.value});
+  const _OutcomeStat({required this.label, required this.value, this.accent});
 
   final String label;
   final String value;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +439,8 @@ class _OutcomeStat extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
+                  color: accent,
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
                 ),
