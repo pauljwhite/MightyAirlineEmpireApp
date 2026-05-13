@@ -5886,6 +5886,8 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
     final route = widget.game.routes[widget.route.id] ?? widget.route;
     final origin = widget.game.airportByIata(route.originIata);
     final destination = widget.game.airportByIata(route.destinationIata);
+    final currentYear =
+        widget.game.settings.startingYear + widget.game.gameDay ~/ 365;
     final ac = route.aircraftId == null
         ? null
         : widget.game.aircraft[route.aircraftId!];
@@ -5925,6 +5927,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
             globalFuelPrice: widget.game.globalFuelPrice,
             gameDay: widget.game.gameDay,
           );
+    final optimisationPreview = widget.game.previewRouteOptimisation(route.id);
     final eligibleAircraft = widget.game.playerFleet.where((candidate) {
       if (candidate.id == route.aircraftId) return false;
       if (candidate.status == AircraftStatus.maintenance) return false;
@@ -5941,21 +5944,20 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
       ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
         ..sort(),
     ];
-    final shopTypes = aircraftTypes
-        .where((candidateType) {
-          final byManufacturer =
-              buyManufacturer == 'All' ||
-              candidateType.manufacturer == buyManufacturer;
-          final fits =
-              origin != null &&
-              destination != null &&
-              candidateType.rangeKm >= route.distanceKm &&
-              canAirportHandleAircraft(origin, candidateType) &&
-              canAirportHandleAircraft(destination, candidateType);
-          return byManufacturer && fits;
-        })
-        .take(80)
-        .toList();
+    final shopTypes = aircraftTypes.where((candidateType) {
+      final byManufacturer =
+          buyManufacturer == 'All' ||
+          candidateType.manufacturer == buyManufacturer;
+      final available = candidateType.yearIntroduced <= currentYear;
+      final fits =
+          origin != null &&
+          destination != null &&
+          candidateType.rangeKm >= route.distanceKm &&
+          canAirportHandleAircraft(origin, candidateType) &&
+          canAirportHandleAircraft(destination, candidateType);
+      return available && byManufacturer && fits;
+    }).toList();
+    shopTypes.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
     return AlertDialog(
       title: Text('${route.originIata} -> ${route.destinationIata}'),
       content: SizedBox(
@@ -6114,7 +6116,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                                   widget.game.player.cashUSD >=
                                   candidateType.purchasePrice,
                               child: Text(
-                                '${candidateType.displayName} · ${money(candidateType.purchasePrice, widget.currency)}',
+                                '${candidateType.displayName} · ${candidateType.seatsEconomy}Y/${candidateType.seatsBusiness}J · ${_formatCount(candidateType.rangeKm)} km · ${money(candidateType.purchasePrice, widget.currency)}',
                               ),
                             ),
                           )
@@ -6150,16 +6152,24 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        final result = widget.game.optimiseRoute(route.id);
-                        setState(() {
-                          flights = result.flightsPerWeek;
-                          ecoController.text = result.priceEconomy.toString();
-                          bizController.text = result.priceBusiness.toString();
-                        });
-                      },
+                      onPressed: optimisationPreview == null
+                          ? null
+                          : () {
+                              final result = widget.game.optimiseRoute(
+                                route.id,
+                              );
+                              setState(() {
+                                flights = result.flightsPerWeek;
+                                ecoController.text = result.priceEconomy
+                                    .toString();
+                                bizController.text = result.priceBusiness
+                                    .toString();
+                              });
+                            },
                       icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('Optimise'),
+                      label: Text(
+                        optimisationPreview == null ? 'Optimised' : 'Optimise',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
