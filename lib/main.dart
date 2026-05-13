@@ -39,7 +39,6 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   Airport? selectedAirport = airportsByIata['LHR'];
   var panel = _Panel.routes;
   var mobileSearchOpen = false;
-  var showAiOnMap = true;
   final _autoOpenedArticleIds = <String>{};
 
   @override
@@ -147,7 +146,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                       Positioned.fill(
                         child: _WorldMap(
                           game: game,
-                          showAiOnMap: showAiOnMap,
+                          showAiOnMap: game.showAiOnMap,
                           selectedAirport: selectedAirport,
                           onAirportSelected: (a) =>
                               setState(() => selectedAirport = a),
@@ -178,9 +177,8 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                         top: compact ? 112 : 92,
                         left: 12,
                         child: _MapToggle(
-                          showAi: showAiOnMap,
-                          onChanged: (value) =>
-                              setState(() => showAiOnMap = value),
+                          showAi: game.showAiOnMap,
+                          onChanged: game.setShowAiOnMap,
                         ),
                       ),
                       AnimatedPositioned(

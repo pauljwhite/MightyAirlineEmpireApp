@@ -227,6 +227,7 @@ void main() {
       buyNewAircraft: true,
     );
     game.setThemeMode(ThemeModeSetting.light);
+    game.setShowAiOnMap(false);
     game.runDailyTick();
     final exported = game.exportJson();
 
@@ -241,6 +242,7 @@ void main() {
     expect(restored.settings.targetMarketShare, 75);
     expect(restored.settings.currency, 'GBP');
     expect(restored.themeMode, ThemeModeSetting.light);
+    expect(restored.showAiOnMap, isFalse);
   });
 
   test('wrapped progress export can be imported', () {

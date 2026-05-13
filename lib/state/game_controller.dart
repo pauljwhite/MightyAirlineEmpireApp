@@ -523,6 +523,7 @@ class GameController extends ChangeNotifier {
   bool hasWon = false;
   bool hasLost = false;
   ThemeModeSetting themeMode = ThemeModeSetting.dark;
+  bool showAiOnMap = true;
   double globalFuelPrice = fuelPriceUsdPerLiter;
   final airlines = <String, Airline>{};
   final aircraft = <String, Aircraft>{};
@@ -779,6 +780,11 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setShowAiOnMap(bool show) {
+    showAiOnMap = show;
+    notifyListeners();
+  }
+
   void _markAirportHub(String iata) {
     final current = airportUpgrades[iata] ?? const AirportUpgrade();
     airportUpgrades[iata] = current.copyWith(isHub: true);
@@ -856,6 +862,7 @@ class GameController extends ChangeNotifier {
     isPaused = false;
     hasWon = false;
     hasLost = false;
+    showAiOnMap = true;
     globalFuelPrice = fuelPriceUsdPerLiter;
     airlines.clear();
     aircraft.clear();
@@ -2797,6 +2804,7 @@ class GameController extends ChangeNotifier {
     'hasWon': hasWon,
     'hasLost': hasLost,
     'themeMode': themeMode.name,
+    'showAiOnMap': showAiOnMap,
     'globalFuelPrice': globalFuelPrice,
     'airlines': airlines.map((key, value) => MapEntry(key, value.toJson())),
     'aircraft': aircraft.map((key, value) => MapEntry(key, value.toJson())),
@@ -2832,6 +2840,7 @@ class GameController extends ChangeNotifier {
     hasWon = raw['hasWon'] == true;
     hasLost = raw['hasLost'] == true;
     themeMode = _themeModeFromJson(raw['themeMode']);
+    showAiOnMap = raw['showAiOnMap'] != false;
     globalFuelPrice =
         (raw['globalFuelPrice'] as num?)?.toDouble() ?? fuelPriceUsdPerLiter;
     airlines
