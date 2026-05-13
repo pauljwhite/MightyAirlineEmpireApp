@@ -432,6 +432,38 @@ void main() {
     expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
   });
 
+  test('high crash risk aircraft can be lost during daily economics', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 200000000));
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: 'b707-120',
+      flightsPerWeek: 21,
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    final ac = game.aircraft[aircraftId]!;
+    final cashBefore = game.player.cashUSD;
+    game.aircraft[aircraftId] = ac.copyWith(
+      crashRisk: 1,
+      knownFaultRiskMod: 10000,
+    );
+
+    game.runDailyTick();
+
+    final crashed = game.aircraft[aircraftId]!;
+    expect(crashed.status, AircraftStatus.crashed);
+    expect(crashed.condition, 0);
+    expect(game.routes[route.id]!.isActive, isFalse);
+    expect(game.player.cashUSD, lessThan(cashBefore));
+    expect(game.player.crashPenaltyDaysLeft, 60);
+    expect(
+      game.newsArticles.values.any((article) => article.severity == 'crash'),
+      isTrue,
+    );
+  });
+
   test('healthy AI airlines can acquire distressed competitors', () {
     final game = GameController();
     game.startNewGame(const GameSettings(aiCount: 2));

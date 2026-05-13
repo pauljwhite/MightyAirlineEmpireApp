@@ -1647,6 +1647,8 @@ class GameController extends ChangeNotifier {
     final snapshots = <String, DailySnapshot>{};
     final passengerTotals = <String, int>{};
     final netProfits = <String, double>{};
+    final crashEvents =
+        <({String aircraftId, String routeId, String airlineId})>[];
 
     for (final airlineId in airlines.keys.toList()) {
       final airline = airlines[airlineId];
@@ -1682,6 +1684,13 @@ class GameController extends ChangeNotifier {
         );
         routes[routeId] = result.route;
         aircraft[ac.id] = result.aircraft;
+        if (_shouldAircraftCrash(result.aircraft, result.route)) {
+          crashEvents.add((
+            aircraftId: ac.id,
+            routeId: routeId,
+            airlineId: airlineId,
+          ));
+        }
         totalRevenue += result.revenue;
         totalCost += result.cost;
         totalPassengers += result.passengers;
@@ -1730,6 +1739,10 @@ class GameController extends ChangeNotifier {
             ? history.sublist(history.length - 30)
             : history,
       );
+    }
+
+    for (final crash in crashEvents) {
+      _triggerAircraftCrash(crash.aircraftId, crash.routeId, crash.airlineId);
     }
 
     var playerDividendTotal = 0.0;
@@ -1793,6 +1806,94 @@ class GameController extends ChangeNotifier {
   bool _isAirportClosed(Airport airport) {
     final closedUntil = airport.closedUntilGameDay;
     return closedUntil != null && closedUntil >= gameDay;
+  }
+
+  bool _shouldAircraftCrash(Aircraft ac, RoutePlan route) {
+    if (ac.status == AircraftStatus.crashed ||
+        ac.status == AircraftStatus.maintenance ||
+        ac.crashRisk <= 0.001) {
+      return false;
+    }
+    final flightsPerDay = route.flightsPerWeek / 7;
+    final probability =
+        (ac.crashRisk * ac.knownFaultRiskMod * flightsPerDay * 0.0008)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    if (probability <= 0) return false;
+    return _stableUnitInterval('$gameDay:${ac.id}:${route.id}:crash') <
+        probability;
+  }
+
+  double _stableUnitInterval(String value) {
+    var hash = 2166136261;
+    for (final unit in value.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 16777619) & 0xffffffff;
+    }
+    return (hash & 0xffffffff) / 0xffffffff;
+  }
+
+  void _triggerAircraftCrash(
+    String aircraftId,
+    String routeId,
+    String airlineId,
+  ) {
+    final ac = aircraft[aircraftId];
+    final route = routes[routeId];
+    final airline = airlines[airlineId];
+    if (ac == null ||
+        route == null ||
+        airline == null ||
+        ac.status == AircraftStatus.crashed) {
+      return;
+    }
+    final type = aircraftTypesById[ac.typeId];
+    final routeLabel = '${route.originIata}-${route.destinationIata}';
+    aircraft[aircraftId] = ac.copyWith(
+      status: AircraftStatus.crashed,
+      isGrounded: true,
+      groundedReason: 'Aircraft lost in accident',
+      condition: 0,
+      crashRisk: 0,
+    );
+    routes[routeId] = route.copyWith(isActive: false);
+
+    if (airline.isPlayer) {
+      airlines[airlineId] = airline.copyWith(
+        cashUSD: airline.cashUSD - 50000000,
+        reputationScore: math.max(0, airline.reputationScore - 45).toDouble(),
+        crashPenaltyDaysLeft: 60,
+      );
+    } else {
+      airlines[airlineId] = airline.copyWith(
+        cashUSD: airline.cashUSD - 25000000,
+        reputationScore: math.max(0, airline.reputationScore - 40).toDouble(),
+        crashPenaltyDaysLeft: 60,
+      );
+    }
+
+    final article = NewsArticle(
+      id: '${airline.isPlayer ? 'crash' : 'ai_crash'}_${gameDay}_$aircraftId',
+      headline: airline.isPlayer
+          ? 'Breaking: ${airline.name} aircraft lost'
+          : 'Crash: ${airline.name} aircraft lost',
+      subheadline:
+          'Investigators launch inquiry after accident on the $routeLabel corridor',
+      paragraphs: [
+        'An aircraft operated by ${airline.name} has been lost while operating on the $routeLabel route. The ${type?.model ?? 'aircraft'}, registered as ${ac.name}, suffered a catastrophic failure under circumstances that remain under investigation by aviation authorities.',
+        '${airline.name} has suspended services on the affected route and convened an emergency board session. Regulators have opened an inquiry and the fleet faces a precautionary safety review.',
+      ],
+      severity: 'crash',
+      gameDay: gameDay,
+    );
+    newsArticles[article.id] = article;
+    latestArticleId = article.id;
+    pushNewsItem(
+      '${airline.isPlayer ? 'BREAKING' : 'CRASH'}: ${airline.name} ${type?.model ?? 'aircraft'} lost on $routeLabel.',
+      severity: 'breaking',
+      articleId: article.id,
+      playerRelated: airline.isPlayer,
+    );
   }
 
   void _clearExpiredAirportClosures() {

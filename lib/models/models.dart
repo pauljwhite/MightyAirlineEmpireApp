@@ -320,6 +320,7 @@ class Aircraft {
     double? autoMaintenanceThreshold,
     MaintenanceTier? autoMaintenanceTier,
     double? knownFaultRiskMod,
+    double? crashRisk,
     double? currentLat,
     double? currentLon,
     double? flightProgress,
@@ -339,7 +340,7 @@ class Aircraft {
         : groundedReason ?? this.groundedReason,
     lastMaintenanceGameDay:
         lastMaintenanceGameDay ?? this.lastMaintenanceGameDay,
-    crashRisk: crashRisk,
+    crashRisk: crashRisk ?? this.crashRisk,
     assignedRouteId: clearAssignedRoute
         ? null
         : assignedRouteId ?? this.assignedRouteId,
