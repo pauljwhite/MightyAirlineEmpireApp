@@ -1732,39 +1732,115 @@ String? _normaliseHexColor(String value) {
   return withHash.toLowerCase();
 }
 
+String _fileSafeName(String name) {
+  final safe = name
+      .trim()
+      .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '')
+      .toLowerCase();
+  return safe.isEmpty ? 'airline' : safe;
+}
+
+const _jsonTypeGroup = XTypeGroup(
+  label: 'JSON',
+  extensions: ['json'],
+  mimeTypes: ['application/json'],
+);
+
+Future<void> _saveProgressFile(
+  BuildContext context,
+  GameController game,
+) async {
+  final fileName =
+      '${_fileSafeName(game.player.name)}-day-${game.gameDay}-progress.json';
+  final location = await getSaveLocation(
+    suggestedName: fileName,
+    acceptedTypeGroups: const [_jsonTypeGroup],
+  );
+  if (location == null) return;
+  final file = XFile.fromData(
+    Uint8List.fromList(utf8.encode(game.exportJson())),
+    mimeType: 'application/json',
+    name: fileName,
+  );
+  await file.saveTo(location.path);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('Progress saved to $fileName')));
+}
+
+Future<String?> _openProgressFile() async {
+  final file = await openFile(acceptedTypeGroups: const [_jsonTypeGroup]);
+  if (file == null) return null;
+  return file.readAsString();
+}
+
+void _applyImportedJson(
+  GameController game,
+  String rawJson,
+  ValueChanged<CurrencyOption> onCurrency,
+) {
+  game.importJson(rawJson);
+  final importedCurrency = currencyOptions.firstWhere(
+    (option) => option.code == game.settings.currency,
+    orElse: () => currencyOptions.first,
+  );
+  onCurrency(importedCurrency);
+}
+
 void _showExportDialog(BuildContext context, GameController game) {
   final json = game.exportJson();
   final controller = TextEditingController(text: json);
+  var saving = false;
   showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Export progress'),
-      content: SizedBox(
-        width: 620,
-        child: TextField(
-          controller: controller,
-          readOnly: true,
-          minLines: 8,
-          maxLines: 14,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: const Text('Export progress'),
+        content: SizedBox(
+          width: 620,
+          child: TextField(
+            controller: controller,
+            readOnly: true,
+            minLines: 8,
+            maxLines: 14,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          OutlinedButton.icon(
+            onPressed: saving
+                ? null
+                : () async {
+                    setState(() => saving = true);
+                    try {
+                      await _saveProgressFile(context, game);
+                    } finally {
+                      if (dialogContext.mounted) {
+                        setState(() => saving = false);
+                      }
+                    }
+                  },
+            icon: const Icon(Icons.save_alt),
+            label: Text(saving ? 'Saving...' : 'Save file'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: json));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Progress JSON copied')),
+              );
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-        FilledButton.icon(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: json));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Progress JSON copied')),
-            );
-          },
-          icon: const Icon(Icons.copy),
-          label: const Text('Copy'),
-        ),
-      ],
     ),
   );
 }
@@ -1776,10 +1852,11 @@ void _showImportDialog(
 ) {
   final controller = TextEditingController();
   String? error;
+  var openingFile = false;
   showDialog<void>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
         title: const Text('Import progress'),
         content: SizedBox(
           width: 620,
@@ -1808,20 +1885,43 @@ void _showImportDialog(
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
+          ),
+          OutlinedButton.icon(
+            onPressed: openingFile
+                ? null
+                : () async {
+                    setState(() {
+                      openingFile = true;
+                      error = null;
+                    });
+                    try {
+                      final rawJson = await _openProgressFile();
+                      if (rawJson == null) return;
+                      _applyImportedJson(game, rawJson, onCurrency);
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    } catch (_) {
+                      if (dialogContext.mounted) {
+                        setState(
+                          () => error = 'Could not import that save file.',
+                        );
+                      }
+                    } finally {
+                      if (dialogContext.mounted) {
+                        setState(() => openingFile = false);
+                      }
+                    }
+                  },
+            icon: const Icon(Icons.folder_open),
+            label: Text(openingFile ? 'Opening...' : 'Open file'),
           ),
           FilledButton(
             onPressed: () {
               try {
-                game.importJson(controller.text);
-                final importedCurrency = currencyOptions.firstWhere(
-                  (option) => option.code == game.settings.currency,
-                  orElse: () => currencyOptions.first,
-                );
-                onCurrency(importedCurrency);
-                Navigator.pop(context);
-              } catch (e) {
+                _applyImportedJson(game, controller.text, onCurrency);
+                Navigator.pop(dialogContext);
+              } catch (_) {
                 setState(() => error = 'Could not import that save JSON.');
               }
             },
