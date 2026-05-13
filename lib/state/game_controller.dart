@@ -23,6 +23,9 @@ const _airportEventSampleSize = 45;
 const _eventScale = 0.6;
 const _maxAiAirlines = 16;
 const _aiSpawnIntervalDays = 15;
+const _aiCashStressThreshold = 15000000.0;
+const _aiCriticalCashThreshold = 5000000.0;
+const _aiLossMakingRouteThreshold = -2500.0;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -1755,6 +1758,7 @@ class GameController extends ChangeNotifier {
 
     _updateMarketShare(passengerTotals);
     _resolveInsolvencies();
+    _pruneDistressedAIRoutes();
     _maybeSpawnNewAI();
     _maybeExpandAI();
     airportDailyPax
@@ -1944,6 +1948,46 @@ class GameController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  void _pruneDistressedAIRoutes() {
+    for (final airline in competitors) {
+      if (airline.isInsolvent || airline.cashUSD >= _aiCashStressThreshold) {
+        continue;
+      }
+      final maxRoutes = airline.cashUSD < _aiCriticalCashThreshold ? 3 : 1;
+      final worstRoutes =
+          airline.routeIds
+              .map((routeId) => routes[routeId])
+              .whereType<RoutePlan>()
+              .where((route) => route.dailyProfit < _aiLossMakingRouteThreshold)
+              .toList()
+            ..sort((a, b) => a.dailyProfit.compareTo(b.dailyProfit));
+
+      for (final route in worstRoutes.take(maxRoutes)) {
+        _removeAIRoute(route);
+        pushNewsItem('${airline.name} has suspended a loss-making route.');
+      }
+    }
+  }
+
+  void _removeAIRoute(RoutePlan route) {
+    if (route.airlineId == 'player') return;
+    final airline = airlines[route.airlineId];
+    if (airline == null) return;
+    if (route.aircraftId != null) {
+      final ac = aircraft[route.aircraftId!];
+      if (ac != null) {
+        aircraft[ac.id] = ac.copyWith(
+          clearAssignedRoute: true,
+          status: AircraftStatus.idle,
+        );
+      }
+    }
+    routes.remove(route.id);
+    airlines[airline.id] = airline.copyWith(
+      routeIds: airline.routeIds.where((id) => id != route.id).toList(),
+    );
   }
 
   void _maybeSpawnNewAI() {

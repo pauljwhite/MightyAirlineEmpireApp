@@ -413,6 +413,25 @@ void main() {
     );
   });
 
+  test('distressed AI airlines suspend loss-making routes', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(aiCount: 1));
+    final airline = game.competitors.single;
+    final routeId = airline.routeIds.first;
+    final route = game.routes[routeId]!;
+    final aircraftId = route.aircraftId!;
+
+    game.airlines[airline.id] = airline.copyWith(cashUSD: 10000000);
+    game.routes[routeId] = route.copyWith(priceEconomy: 1, priceBusiness: 1);
+
+    game.runDailyTick();
+
+    expect(game.routes[routeId], isNull);
+    expect(game.airlines[airline.id]!.routeIds, isNot(contains(routeId)));
+    expect(game.aircraft[aircraftId]!.assignedRouteId, isNull);
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
+  });
+
   test(
     'share purchases fund competitors and majority stake enables takeover',
     () {
