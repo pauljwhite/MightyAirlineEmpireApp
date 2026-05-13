@@ -3816,6 +3816,111 @@ class _FleetViewState extends State<_FleetView> {
                       style: const TextStyle(color: Color(0xff9aa4b5)),
                     ),
                   ),
+                if (ac.excludedFromPolicy) ...[
+                  const SizedBox(height: 8),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _subtleSurface(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _hairline(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Custom auto-maintenance',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: ac.autoMaintenanceEnabled,
+                                    onChanged: (enabled) =>
+                                        game.setAutoMaintenance(
+                                          ac.id,
+                                          enabled,
+                                          ac.autoMaintenanceThreshold,
+                                          ac.autoMaintenanceTier,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              AnimatedOpacity(
+                                duration: const Duration(milliseconds: 180),
+                                opacity: ac.autoMaintenanceEnabled ? 1 : 0.45,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'Trigger below ${ac.autoMaintenanceThreshold.round()}% condition',
+                                      style: const TextStyle(
+                                        color: Color(0xff9aa4b5),
+                                      ),
+                                    ),
+                                    Slider(
+                                      value: ac.autoMaintenanceThreshold
+                                          .clamp(20, 80)
+                                          .toDouble(),
+                                      min: 20,
+                                      max: 80,
+                                      divisions: 12,
+                                      label:
+                                          '${ac.autoMaintenanceThreshold.round()}%',
+                                      onChanged: ac.autoMaintenanceEnabled
+                                          ? (value) => game.setAutoMaintenance(
+                                              ac.id,
+                                              true,
+                                              value.roundToDouble(),
+                                              ac.autoMaintenanceTier,
+                                            )
+                                          : null,
+                                    ),
+                                    SegmentedButton<MaintenanceTier>(
+                                      segments: const [
+                                        ButtonSegment(
+                                          value: MaintenanceTier.light,
+                                          label: Text('Light'),
+                                        ),
+                                        ButtonSegment(
+                                          value: MaintenanceTier.standard,
+                                          label: Text('Standard'),
+                                        ),
+                                        ButtonSegment(
+                                          value: MaintenanceTier.full,
+                                          label: Text('Full'),
+                                        ),
+                                      ],
+                                      selected: {ac.autoMaintenanceTier},
+                                      onSelectionChanged:
+                                          ac.autoMaintenanceEnabled
+                                          ? (value) => game.setAutoMaintenance(
+                                              ac.id,
+                                              true,
+                                              ac.autoMaintenanceThreshold,
+                                              value.first,
+                                            )
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: ac.excludedFromPolicy,

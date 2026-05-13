@@ -778,6 +778,45 @@ void main() {
     expect(game.player.maintenancePolicy.autoMaintainIssues, isTrue);
   });
 
+  test('excluded aircraft can use custom auto-maintenance settings', () {
+    final game = GameController();
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: 'b707-120',
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    game.updateMaintenancePolicy(
+      const MaintenancePolicy(
+        enabled: false,
+        threshold: 35,
+        tier: MaintenanceTier.full,
+      ),
+    );
+    game.setAircraftPolicyExclusion(aircraftId, true);
+    game.setAutoMaintenance(aircraftId, true, 80, MaintenanceTier.light);
+    game.aircraft[aircraftId] = game.aircraft[aircraftId]!.copyWith(
+      condition: 70,
+      lastMaintenanceGameDay: -10,
+    );
+
+    game.runDailyTick();
+
+    final aircraft = game.aircraft[aircraftId]!;
+    expect(game.player.maintenancePolicy.enabled, isFalse);
+    expect(aircraft.excludedFromPolicy, isTrue);
+    expect(aircraft.status, AircraftStatus.maintenance);
+    expect(aircraft.activeMaintTier, MaintenanceTier.light);
+    expect(game.routes[route.id]!.isActive, isFalse);
+    expect(
+      game.newsTicker.any(
+        (item) => item.text.contains('Auto-maintenance triggered'),
+      ),
+      isTrue,
+    );
+  });
+
   test('fleet incidents create persisted herald articles', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;

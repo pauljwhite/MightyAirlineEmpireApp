@@ -1471,18 +1471,32 @@ class GameController extends ChangeNotifier {
   void _applyAutoMaintenancePolicy(String airlineId) {
     final airline = airlines[airlineId];
     if (airline == null || !airline.isPlayer) return;
-    final policy = airline.maintenancePolicy;
-    if (!policy.enabled) return;
     for (final aircraftId in airline.fleetIds.toList()) {
       final ac = aircraft[aircraftId];
       if (ac == null ||
-          ac.excludedFromPolicy ||
           ac.status == AircraftStatus.maintenance ||
           ac.status == AircraftStatus.crashed ||
-          ac.condition > policy.threshold) {
+          !ac.autoMaintenanceEnabled) {
         continue;
       }
-      _startMaintenanceInternal(aircraftId, policy.tier);
+      final tier = ac.autoMaintenanceTier;
+      final duration = maintenanceTiers[tier]?.durationDays ?? 2;
+      final cooldownElapsed =
+          ac.lastMaintenanceGameDay == 0 ||
+          gameDay > ac.lastMaintenanceGameDay + duration;
+      final belowThreshold = ac.condition <= ac.autoMaintenanceThreshold;
+      final groundedNeedsFix =
+          ac.isGrounded && ac.status != AircraftStatus.maintenance;
+      if (!cooldownElapsed || (!belowThreshold && !groundedNeedsFix)) continue;
+      if (_startMaintenanceInternal(aircraftId, tier)) {
+        final reason = groundedNeedsFix
+            ? 'grounded (${ac.groundedReason ?? 'incident'})'
+            : 'condition ${ac.condition.toStringAsFixed(0)}%';
+        pushNewsItem(
+          'Auto-maintenance triggered for ${ac.name} ($reason).',
+          playerRelated: true,
+        );
+      }
     }
   }
 
@@ -1516,6 +1530,22 @@ class GameController extends ChangeNotifier {
           ? ac.autoMaintenanceThreshold
           : policy.threshold,
       autoMaintenanceTier: excluded ? ac.autoMaintenanceTier : policy.tier,
+    );
+    notifyListeners();
+  }
+
+  void setAutoMaintenance(
+    String aircraftId,
+    bool enabled,
+    double threshold,
+    MaintenanceTier tier,
+  ) {
+    final ac = aircraft[aircraftId];
+    if (ac == null || ac.airlineId != 'player') return;
+    aircraft[aircraftId] = ac.copyWith(
+      autoMaintenanceEnabled: enabled,
+      autoMaintenanceThreshold: threshold.clamp(20, 80).toDouble(),
+      autoMaintenanceTier: tier,
     );
     notifyListeners();
   }
