@@ -862,6 +862,36 @@ void main() {
     expect(game.nextAutoOpenArticle, isNull);
   });
 
+  test('auto-maintain issue policy suppresses Herald popups', () {
+    final game = GameController();
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: 'b707-120',
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+    game.updateMaintenancePolicy(
+      const MaintenancePolicy(
+        enabled: true,
+        threshold: 40,
+        tier: MaintenanceTier.standard,
+        autoMaintainIssues: true,
+      ),
+    );
+
+    final article = game.triggerAircraftIncident(aircraftId);
+
+    expect(article.suppressAutoOpen, isTrue);
+    expect(game.newsTicker.any((item) => item.articleId == article.id), isTrue);
+    expect(
+      game.queuedNewspaperArticles.map((article) => article.id),
+      contains(article.id),
+    );
+    expect(game.nextAutoOpenArticle, isNull);
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.maintenance);
+  });
+
   test(
     'grounded incident aircraft can be kept flying with fault risk logged',
     () {

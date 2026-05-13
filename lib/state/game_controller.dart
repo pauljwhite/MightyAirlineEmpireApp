@@ -1351,6 +1351,10 @@ class GameController extends ChangeNotifier {
       status: ground ? AircraftStatus.idle : ac.status,
     );
     final maintenanceCost = maintenanceCostForIncident(aircraftId);
+    final shouldAutoMaintain =
+        airline.isPlayer &&
+        ground &&
+        airline.maintenancePolicy.autoMaintainIssues;
     final article = NewsArticle(
       id: 'article-$gameDay-${newsArticles.length + 1}',
       headline: ground
@@ -1369,6 +1373,7 @@ class GameController extends ChangeNotifier {
       gameDay: gameDay,
       actionAircraftId: aircraftId,
       actionMaintenanceCost: maintenanceCost.round(),
+      suppressAutoOpen: shouldAutoMaintain,
     );
     _publishNewsArticle(article);
     pushNewsItem(
@@ -1377,9 +1382,7 @@ class GameController extends ChangeNotifier {
       articleId: article.id,
       playerRelated: airline.isPlayer,
     );
-    if (airline.isPlayer &&
-        ground &&
-        airline.maintenancePolicy.autoMaintainIssues) {
+    if (shouldAutoMaintain) {
       _startMaintenanceInternal(aircraftId, airline.maintenancePolicy.tier);
     }
     notifyListeners();
