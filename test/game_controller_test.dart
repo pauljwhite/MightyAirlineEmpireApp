@@ -241,6 +241,32 @@ void main() {
     expect(restored.themeMode, ThemeModeSetting.light);
   });
 
+  test('wrapped progress export can be imported', () {
+    final game = GameController();
+    game.startNewGame(
+      const GameSettings(
+        playerAirlineName: 'Wrapped Air',
+        startingCash: 42000000,
+        currency: 'EUR',
+      ),
+    );
+    game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: 'b707-120',
+      buyNewAircraft: true,
+    );
+    game.runDailyTick();
+
+    final restored = GameController()..importJson(game.exportProgressJson());
+
+    expect(restored.player.name, 'Wrapped Air');
+    expect(restored.settings.currency, 'EUR');
+    expect(restored.gameDay, game.gameDay);
+    expect(restored.playerRoutes.length, game.playerRoutes.length);
+    expect(restored.playerFleet.length, game.playerFleet.length);
+  });
+
   test('new game settings are applied to the player and AI setup', () {
     final game = GameController();
     game.startNewGame(

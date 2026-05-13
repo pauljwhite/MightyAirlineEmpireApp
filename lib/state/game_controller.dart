@@ -513,6 +513,8 @@ class GameController extends ChangeNotifier {
   }
 
   static const saveVersion = 1;
+  static const exportKind = 'mighty-airline-empire-save';
+  static const exportVersion = 1;
   GameSettings settings = const GameSettings();
   int gameDay = 0;
   int gameTimeMs = 0;
@@ -2777,6 +2779,14 @@ class GameController extends ChangeNotifier {
 
   String exportJson() => jsonEncode(toJson());
 
+  String exportProgressJson() => jsonEncode({
+    'kind': exportKind,
+    'exportVersion': exportVersion,
+    'exportedAt': DateTime.now().toUtc().toIso8601String(),
+    'game': 'Mighty Airline Empire',
+    'state': toJson(),
+  });
+
   Map<String, Object?> toJson() => {
     'version': saveVersion,
     'settings': settings.toJson(),
@@ -2808,7 +2818,10 @@ class GameController extends ChangeNotifier {
   };
 
   void importJson(String rawJson) {
-    final raw = jsonDecode(rawJson) as Map<String, dynamic>;
+    final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
+    final raw = decoded['state'] is Map
+        ? Map<String, dynamic>.from(decoded['state'] as Map)
+        : decoded;
     settings = GameSettings.fromJson(
       Map<String, Object?>.from(raw['settings'] as Map? ?? const {}),
     );

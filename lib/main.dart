@@ -1759,7 +1759,7 @@ Future<void> _saveProgressFile(
   );
   if (location == null) return;
   final file = XFile.fromData(
-    Uint8List.fromList(utf8.encode(game.exportJson())),
+    Uint8List.fromList(utf8.encode(game.exportProgressJson())),
     mimeType: 'application/json',
     name: fileName,
   );
@@ -1790,7 +1790,7 @@ void _applyImportedJson(
 }
 
 void _showExportDialog(BuildContext context, GameController game) {
-  final json = game.exportJson();
+  final json = game.exportProgressJson();
   final controller = TextEditingController(text: json);
   var saving = false;
   showDialog<void>(
