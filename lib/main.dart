@@ -5127,6 +5127,17 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
       final playerStake = airline.isPlayer
           ? 100.0
           : widget.game.playerStakeIn(airline.id);
+      final aiShareholders = airline.isPlayer
+          ? <({String name, double share})>[]
+          : airline.shareholders.entries
+                .where((entry) => entry.key != 'player' && entry.value > 0)
+                .map(
+                  (entry) => (
+                    name: widget.game.airlines[entry.key]?.name ?? entry.key,
+                    share: entry.value,
+                  ),
+                )
+                .toList(growable: false);
       final marketFloat = airline.isPlayer
           ? 0.0
           : widget.game.marketFloatForAirline(airline.id);
@@ -5156,12 +5167,38 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                     _AirlineLogo(logo: airline.logoEmoji, size: 34),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        airline.name,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 11,
+                                height: 11,
+                                decoration: BoxDecoration(
+                                  color: _MapPainter._colorFromHex(
+                                    airline.color,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  airline.name,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${airline.isPlayer ? 'Your airline' : '${airline.personality.name} airline'} · Hub: ${airline.hubIatas.isEmpty ? '-' : airline.hubIatas.join(', ')}${airline.isInsolvent ? ' · Bankrupt' : ''}',
+                            style: const TextStyle(color: Color(0xff9aa4b5)),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -5274,36 +5311,69 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
               ],
             ),
           ),
-          if (!airline.isPlayer)
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Ownership',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      height: 12,
-                      child: Row(
-                        children: [
-                          if (playerStake > 0)
-                            Expanded(
-                              flex: playerStake.round().clamp(1, 100),
-                              child: Container(color: const Color(0xff2dd4bf)),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Ownership',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: 12,
+                    child: Row(
+                      children: [
+                        if (playerStake > 0)
+                          Expanded(
+                            flex: playerStake.round().clamp(1, 100),
+                            child: Container(color: const Color(0xff2dd4bf)),
+                          ),
+                        ...aiShareholders.map(
+                          (shareholder) => Expanded(
+                            flex: shareholder.share.round().clamp(1, 100),
+                            child: Container(
+                              color: const Color(
+                                0xff94a3b8,
+                              ).withValues(alpha: 0.72),
                             ),
-                          if (marketFloat > 0)
-                            Expanded(
-                              flex: marketFloat.round().clamp(1, 100),
-                              child: Container(color: const Color(0xff334155)),
-                            ),
-                        ],
-                      ),
+                          ),
+                        ),
+                        if (marketFloat > 0)
+                          Expanded(
+                            flex: marketFloat.round().clamp(1, 100),
+                            child: Container(color: const Color(0xff334155)),
+                          ),
+                      ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (playerStake > 0)
+                      _OwnershipChip(
+                        label: 'You ${playerStake.toStringAsFixed(0)}%',
+                        accent: const Color(0xff2dd4bf),
+                      ),
+                    ...aiShareholders.map(
+                      (shareholder) => _OwnershipChip(
+                        label:
+                            '${shareholder.name} ${shareholder.share.toStringAsFixed(0)}%',
+                        accent: const Color(0xff94a3b8),
+                      ),
+                    ),
+                    _OwnershipChip(
+                      label: 'Float ${marketFloat.toStringAsFixed(0)}%',
+                      accent: const Color(0xff64748b),
+                    ),
+                  ],
+                ),
+                if (!airline.isPlayer) ...[
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -5350,8 +5420,9 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                       ),
                     ),
                 ],
-              ),
+              ],
             ),
+          ),
           ExpansionTile(
             title: const Text('Fleet'),
             initiallyExpanded: true,
