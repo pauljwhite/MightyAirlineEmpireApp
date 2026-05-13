@@ -392,6 +392,27 @@ void main() {
     },
   );
 
+  test('new AI airlines can enter during long-running games', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(aiCount: 0));
+
+    for (var i = 0; i < 16; i += 1) {
+      game.runDailyTick();
+    }
+
+    expect(game.competitors, isNotEmpty);
+    final entrant = game.competitors.first;
+    expect(entrant.id, startsWith('ai-spawned-'));
+    expect(entrant.hubIatas, isNotEmpty);
+    expect(game.airportByIata(entrant.hubIatas.first)!.isHub, isTrue);
+
+    final restored = GameController()..importJson(game.exportJson());
+    expect(
+      restored.competitors.any((airline) => airline.id == entrant.id),
+      isTrue,
+    );
+  });
+
   test(
     'share purchases fund competitors and majority stake enables takeover',
     () {

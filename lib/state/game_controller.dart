@@ -21,6 +21,8 @@ const optimiseAllCostPerRouteUSD = 2500000.0;
 const gameDayMs = 86400000;
 const _airportEventSampleSize = 45;
 const _eventScale = 0.6;
+const _maxAiAirlines = 16;
+const _aiSpawnIntervalDays = 15;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -78,6 +80,167 @@ class _AirportEventDef {
   final double probability;
   final Set<AirportSize> sizesAffected;
 }
+
+const _aiNamePrefixes = [
+  'Atlas',
+  'Nordic',
+  'Pacific',
+  'Horizon',
+  'Stellar',
+  'Astra',
+  'Pinnacle',
+  'Summit',
+  'Cardinal',
+  'Zenith',
+  'Liberty',
+  'Frontier',
+  'Pioneer',
+  'Vanguard',
+  'Polar',
+  'Tropic',
+  'Alpine',
+  'Sahara',
+  'Orient',
+  'Andean',
+  'Caspian',
+  'Baltic',
+  'Adriatic',
+  'Iberian',
+  'Boreal',
+  'Austral',
+  'Solar',
+  'Nova',
+  'Apex',
+  'Crown',
+  'Omega',
+  'Aegean',
+  'Amber',
+  'Azure',
+  'Borealis',
+  'Cascade',
+  'Equinox',
+  'Falcon',
+  'Indigo',
+  'Jade',
+  'Kestrel',
+  'Lodestar',
+  'Magellan',
+  'Nimbus',
+  'Orion',
+  'Pegasus',
+  'Quest',
+  'Solaris',
+  'Tasman',
+  'Venture',
+  'Windward',
+  'Zephyr',
+];
+
+const _aiNameSuffixes = [
+  'Air',
+  'Airlines',
+  'Airways',
+  'Aviation',
+  'Express',
+  'Connect',
+  'Jet',
+  'Wings',
+  'Lines',
+  'Global',
+  'Link',
+  'Sky',
+  'Aero',
+  'Fly',
+];
+
+const _aiSpawnHubs = [
+  'JFK',
+  'LAX',
+  'LHR',
+  'CDG',
+  'FRA',
+  'AMS',
+  'NRT',
+  'HKG',
+  'SIN',
+  'DXB',
+  'SYD',
+  'GRU',
+  'MEX',
+  'JNB',
+  'BOM',
+  'PEK',
+  'ICN',
+  'BKK',
+  'KUL',
+  'IST',
+  'ATL',
+  'ORD',
+  'DFW',
+  'MIA',
+  'SFO',
+  'YYZ',
+  'MAD',
+  'BCN',
+  'FCO',
+  'MUC',
+  'ZRH',
+  'VIE',
+  'CPH',
+  'OSL',
+  'ARN',
+  'WAW',
+  'LIS',
+  'ATH',
+  'CAI',
+  'NBO',
+  'CPT',
+  'DEL',
+  'BLR',
+  'MNL',
+  'CGK',
+  'AKL',
+  'SCL',
+  'BOG',
+  'LIM',
+  'YVR',
+];
+
+const _aiSpawnLogos = [
+  '✈️',
+  '🛫',
+  '🌍',
+  '🌎',
+  '🌏',
+  '🌐',
+  '⭐',
+  '🌟',
+  '🚀',
+  '🌙',
+  '🌊',
+  '🏔️',
+];
+
+const _aiSpawnColors = [
+  '#ef4444',
+  '#0ea5e9',
+  '#22c55e',
+  '#818cf8',
+  '#f59e0b',
+  '#e879f9',
+  '#a3e635',
+  '#22d3ee',
+  '#a855f7',
+  '#facc15',
+  '#c084fc',
+  '#f43f5e',
+  '#14b8a6',
+  '#fb7185',
+  '#38bdf8',
+  '#84cc16',
+  '#f97316',
+  '#6366f1',
+];
 
 const _airportEvents = <_AirportEventDef>[
   _AirportEventDef(
@@ -364,6 +527,7 @@ class GameController extends ChangeNotifier {
   int _nextRoute = 1;
   int _nextLoan = 1;
   int _nextTicker = 1;
+  int _nextAirline = 1;
 
   void pushNewsItem(
     String text, {
@@ -661,6 +825,7 @@ class GameController extends ChangeNotifier {
     _nextRoute = 1;
     _nextLoan = 1;
     _nextTicker = 1;
+    _nextAirline = 1;
     final startingHub = airportsByIata.containsKey(settings.startingHubIata)
         ? settings.startingHubIata
         : 'LHR';
@@ -1590,6 +1755,7 @@ class GameController extends ChangeNotifier {
 
     _updateMarketShare(passengerTotals);
     _resolveInsolvencies();
+    _maybeSpawnNewAI();
     _maybeExpandAI();
     airportDailyPax
       ..clear()
@@ -1778,6 +1944,119 @@ class GameController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  void _maybeSpawnNewAI() {
+    if (gameDay == 0 || gameDay % _aiSpawnIntervalDays != 0) return;
+    final activeCompetitors = competitors
+        .where((airline) => !airline.isInsolvent)
+        .toList(growable: false);
+    if (activeCompetitors.length >= _maxAiAirlines) return;
+
+    final rng = math.Random(gameDay * 92821 + activeCompetitors.length * 97);
+    final shouldSpawn = activeCompetitors.length < 4 || rng.nextDouble() < 0.5;
+    if (!shouldSpawn) return;
+
+    final existingNames = airlines.values
+        .map((airline) => airline.name)
+        .toSet();
+    final usedHubs = activeCompetitors
+        .expand((airline) => airline.hubIatas)
+        .toSet();
+    usedHubs.addAll(player.hubIatas);
+    final availableHubs = _aiSpawnHubs
+        .where(
+          (iata) => !usedHubs.contains(iata) && airportsByIata[iata] != null,
+        )
+        .toList(growable: false);
+    if (availableHubs.isEmpty) return;
+
+    final hub = airportByIata(availableHubs[rng.nextInt(availableHubs.length)]);
+    if (hub == null) return;
+    final name = _generateSpawnedAirlineName(existingNames, rng);
+    final prefix = name
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0])
+        .join()
+        .toUpperCase()
+        .padRight(2, 'X')
+        .substring(0, 2);
+    final usedColors = airlines.values
+        .map((airline) => airline.color.toLowerCase())
+        .toSet();
+    final color = _aiSpawnColors.firstWhere(
+      (candidate) => !usedColors.contains(candidate.toLowerCase()),
+      orElse: () => _aiSpawnColors[rng.nextInt(_aiSpawnColors.length)],
+    );
+    final personalities = AirlinePersonality.values;
+    final personality = personalities[rng.nextInt(personalities.length)];
+    final airlineId = 'ai-spawned-${_nextAirline++}';
+    final startingCash = 30000000 + rng.nextInt(30000001);
+
+    airlines[airlineId] = Airline(
+      id: airlineId,
+      name: name,
+      iataPrefix: prefix,
+      isPlayer: false,
+      color: color,
+      logoEmoji: _aiSpawnLogos[rng.nextInt(_aiSpawnLogos.length)],
+      cashUSD: startingCash.toDouble(),
+      hubIatas: [hub.iata],
+      personality: personality,
+      foundedGameDay: gameDay,
+      reputationScore: 50,
+    );
+    _markAirportHub(hub.iata);
+    pushNewsItem('NEW ENTRANT: $name has launched a new hub at ${hub.iata}.');
+
+    final airline = airlines[airlineId]!;
+    final existingDestinations = <String>{};
+    final candidates =
+        airportList
+            .where((airport) => airport.iata != hub.iata)
+            .map(
+              (airport) => (
+                airport: airport,
+                demand: baselineDailyPassengers(hub, airport),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.demand.compareTo(a.demand));
+    for (final candidate in candidates.take(24)) {
+      if (existingDestinations.contains(candidate.airport.iata)) continue;
+      final type = _pickAircraftForAI(airline, hub, candidate.airport);
+      if (type == null ||
+          airlines[airlineId]!.cashUSD < type.purchasePrice + 10000000) {
+        continue;
+      }
+      try {
+        final route = _createRouteForAirline(
+          airlineId: airlineId,
+          originIata: hub.iata,
+          destinationIata: candidate.airport.iata,
+          aircraftTypeId: type.id,
+          flightsPerWeek: _defaultAiFrequency(personality),
+          buyNewAircraft: true,
+        );
+        _optimiseRouteForAirline(route.id, airlineId);
+        break;
+      } catch (_) {
+        continue;
+      }
+    }
+  }
+
+  String _generateSpawnedAirlineName(
+    Set<String> existingNames,
+    math.Random rng,
+  ) {
+    for (var i = 0; i < 30; i++) {
+      final candidate =
+          '${_aiNamePrefixes[rng.nextInt(_aiNamePrefixes.length)]} ${_aiNameSuffixes[rng.nextInt(_aiNameSuffixes.length)]}';
+      if (!existingNames.contains(candidate)) return candidate;
+    }
+    return 'New entrant ${_nextAirline + 1}';
   }
 
   AircraftType? _pickAircraftForAI(
@@ -2108,6 +2387,7 @@ class GameController extends ChangeNotifier {
     'nextAircraft': _nextAircraft,
     'nextRoute': _nextRoute,
     'nextLoan': _nextLoan,
+    'nextAirline': _nextAirline,
   };
 
   void importJson(String rawJson) {
@@ -2193,6 +2473,9 @@ class GameController extends ChangeNotifier {
         (raw['nextAircraft'] as num?)?.round() ?? aircraft.length + 1;
     _nextRoute = (raw['nextRoute'] as num?)?.round() ?? routes.length + 1;
     _nextLoan = (raw['nextLoan'] as num?)?.round() ?? 1;
+    _nextAirline =
+        (raw['nextAirline'] as num?)?.round() ??
+        airlines.keys.where((id) => id.startsWith('ai-spawned-')).length + 1;
     for (final airline in airlines.values) {
       for (final hubIata in airline.hubIatas) {
         _markAirportHub(hubIata);
