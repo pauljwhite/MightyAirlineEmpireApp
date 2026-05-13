@@ -7092,9 +7092,7 @@ class _TickerState extends State<_Ticker> {
   Widget build(BuildContext context) {
     final items = _items;
     final item = items[index.clamp(0, items.length - 1)];
-    final speed = widget.game.speed == 0
-        ? 1
-        : (widget.game.speed / 300).round();
+    final speed = widget.game.speed;
     final article = item.articleId == null
         ? null
         : widget.game.newsArticles[item.articleId!];
@@ -7120,15 +7118,7 @@ class _TickerState extends State<_Ticker> {
         child: TweenAnimationBuilder<double>(
           key: ValueKey('${item.id}-$animationCycle-$speed'),
           tween: Tween(begin: 1, end: -1),
-          duration: Duration(
-            seconds: speed >= 6
-                ? 10
-                : speed >= 3
-                ? 14
-                : speed >= 1
-                ? 18
-                : 24,
-          ),
+          duration: Duration(seconds: _tickerDurationSeconds(speed)),
           onEnd: _advanceTicker,
           builder: (context, value, child) => FractionalTranslation(
             translation: Offset(value, 0),
@@ -7152,6 +7142,14 @@ class _TickerState extends State<_Ticker> {
         ),
       ),
     );
+  }
+
+  int _tickerDurationSeconds(int speed) {
+    if (speed >= 14400) return 5;
+    if (speed >= 3600) return 7;
+    if (speed >= 1200) return 10;
+    if (speed >= 300) return 15;
+    return 22;
   }
 }
 
