@@ -2259,29 +2259,107 @@ class _MapPainter extends CustomPainter {
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
     final sizePx = switch (type?.category) {
-      AircraftCategory.regional => 8.0,
+      AircraftCategory.regional => 8.5,
       AircraftCategory.narrowbody => 10.0,
-      AircraftCategory.widebody => 13.0,
+      AircraftCategory.widebody => 12.5,
       AircraftCategory.sst => 12.0,
       null => 10.0,
     };
     canvas.save();
     canvas.translate(point.dx, point.dy);
     canvas.rotate(angle);
-    final paint = Paint()..color = color;
+    canvas.scale(sizePx);
+    canvas.drawCircle(
+      Offset.zero,
+      0.9,
+      Paint()..color = color.withValues(alpha: 0.16),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final outline = Paint()
       ..color = const Color(0xff050915)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final plane = Path()
-      ..moveTo(sizePx, 0)
-      ..lineTo(-sizePx * 0.75, -sizePx * 0.45)
-      ..lineTo(-sizePx * 0.35, 0)
-      ..lineTo(-sizePx * 0.75, sizePx * 0.45)
-      ..close();
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.16;
+    final plane = _planePathForCategory(type?.category);
     canvas.drawPath(plane, outline);
     canvas.drawPath(plane, paint);
+    canvas.drawPath(
+      plane,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 0.05,
+    );
     canvas.restore();
+  }
+
+  Path _planePathForCategory(AircraftCategory? category) {
+    switch (category) {
+      case AircraftCategory.regional:
+        return Path()
+          ..moveTo(1.0, 0)
+          ..cubicTo(0.76, -0.12, 0.42, -0.17, -0.15, -0.16)
+          ..lineTo(-0.8, -0.55)
+          ..lineTo(-0.55, -0.12)
+          ..lineTo(-0.96, -0.08)
+          ..lineTo(-0.96, 0.08)
+          ..lineTo(-0.55, 0.12)
+          ..lineTo(-0.8, 0.55)
+          ..lineTo(-0.15, 0.16)
+          ..cubicTo(0.42, 0.17, 0.76, 0.12, 1.0, 0)
+          ..close();
+      case AircraftCategory.widebody:
+        return Path()
+          ..moveTo(1.08, 0)
+          ..cubicTo(0.75, -0.2, 0.05, -0.24, -0.42, -0.2)
+          ..lineTo(-0.18, -0.86)
+          ..lineTo(-0.48, -0.92)
+          ..lineTo(-0.78, -0.18)
+          ..lineTo(-1.0, -0.14)
+          ..lineTo(-0.88, 0)
+          ..lineTo(-1.0, 0.14)
+          ..lineTo(-0.78, 0.18)
+          ..lineTo(-0.48, 0.92)
+          ..lineTo(-0.18, 0.86)
+          ..lineTo(-0.42, 0.2)
+          ..cubicTo(0.05, 0.24, 0.75, 0.2, 1.08, 0)
+          ..close();
+      case AircraftCategory.sst:
+        return Path()
+          ..moveTo(1.2, 0)
+          ..lineTo(0.25, -0.16)
+          ..lineTo(-0.2, -0.75)
+          ..lineTo(-0.42, -0.68)
+          ..lineTo(-0.34, -0.15)
+          ..lineTo(-1.05, -0.34)
+          ..lineTo(-0.78, 0)
+          ..lineTo(-1.05, 0.34)
+          ..lineTo(-0.34, 0.15)
+          ..lineTo(-0.42, 0.68)
+          ..lineTo(-0.2, 0.75)
+          ..lineTo(0.25, 0.16)
+          ..close();
+      case AircraftCategory.narrowbody:
+      case null:
+        return Path()
+          ..moveTo(1.05, 0)
+          ..cubicTo(0.72, -0.15, 0.12, -0.18, -0.34, -0.14)
+          ..lineTo(-0.54, -0.7)
+          ..lineTo(-0.78, -0.65)
+          ..lineTo(-0.65, -0.12)
+          ..lineTo(-1.0, -0.09)
+          ..lineTo(-1.0, 0.09)
+          ..lineTo(-0.65, 0.12)
+          ..lineTo(-0.78, 0.65)
+          ..lineTo(-0.54, 0.7)
+          ..lineTo(-0.34, 0.14)
+          ..cubicTo(0.12, 0.18, 0.72, 0.15, 1.05, 0)
+          ..close();
+    }
   }
 
   Offset _quadraticPoint(Offset a, Offset b, Offset c, double t) {
