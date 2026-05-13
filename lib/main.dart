@@ -6018,6 +6018,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
   late final ecoController = TextEditingController();
   late final bizController = TextEditingController();
+  String? selectedAircraftId;
+  String buyManufacturer = 'All';
+  bool showAircraftShop = false;
   int flights = 7;
   bool optimise = true;
   String? error;
@@ -6039,7 +6042,18 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     );
     final gameYear =
         widget.game.settings.startingYear + widget.game.gameDay ~/ 365;
-    final viableAircraft = aircraftTypes
+    final selectedAircraft = selectedAircraftId == null
+        ? null
+        : widget.game.aircraft[selectedAircraftId!];
+    final selectedAircraftType = selectedAircraft == null
+        ? null
+        : aircraftTypesById[selectedAircraft.typeId];
+    final selectedAircraftUsable =
+        selectedAircraftType != null &&
+        selectedAircraftType.rangeKm >= distance &&
+        canAirportHandleAircraft(origin, selectedAircraftType) &&
+        canAirportHandleAircraft(destination, selectedAircraftType);
+    final buyableAircraft = aircraftTypes
         .where(
           (t) =>
               t.yearIntroduced <= gameYear &&
@@ -6047,25 +6061,51 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               canAirportHandleAircraft(origin, t) &&
               canAirportHandleAircraft(destination, t),
         )
-        .take(90)
         .toList();
-    if (!viableAircraft.contains(type) && viableAircraft.isNotEmpty)
-      type = viableAircraft.first;
+    buyableAircraft.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
+    if (!buyableAircraft.contains(type) && buyableAircraft.isNotEmpty) {
+      type = buyableAircraft.first;
+    }
+    final effectiveType = selectedAircraftType ?? type;
+    type = effectiveType;
+    final availableAircraft = widget.game.player.fleetIds
+        .map((id) => widget.game.aircraft[id])
+        .whereType<Aircraft>()
+        .where(
+          (ac) =>
+              ac.assignedRouteId == null &&
+              ac.status == AircraftStatus.idle &&
+              ac.airlineId == 'player',
+        )
+        .toList();
+    final manufacturers =
+        <String>{'All', ...buyableAircraft.map((t) => t.manufacturer)}.toList()
+          ..sort((a, b) {
+            if (a == 'All') return -1;
+            if (b == 'All') return 1;
+            return a.toLowerCase().compareTo(b.toLowerCase());
+          });
+    final shopAircraft = buyManufacturer == 'All'
+        ? buyableAircraft
+        : buyableAircraft
+              .where((t) => t.manufacturer == buyManufacturer)
+              .toList(growable: false);
     final fareGuide = _currentFareGuide(distance);
     final previewRoute = _previewRoute(distance, fareGuide);
     final previewAircraft = Aircraft(
       id: 'preview',
-      typeId: type.id,
-      name: type.displayName,
+      typeId: effectiveType.id,
+      name: effectiveType.displayName,
       airlineId: 'player',
       purchasedGameDay: widget.game.gameDay,
+      condition: selectedAircraft?.condition ?? 100,
     );
-    final previewEconomics = viableAircraft.isEmpty
+    final previewEconomics = buyableAircraft.isEmpty && selectedAircraft == null
         ? null
         : calculateRouteEconomics(
             route: previewRoute,
             aircraft: previewAircraft,
-            type: type,
+            type: effectiveType,
             origin: origin,
             destination: destination,
             airline: widget.game.player,
@@ -6078,111 +6118,152 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       title: const Text('Create route'),
       content: SizedBox(
         width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _AirportDropdown(
-              label: 'Origin',
-              value: origin,
-              onChanged: (a) => setState(() => origin = a),
-            ),
-            const SizedBox(height: 10),
-            _AirportDropdown(
-              label: 'Destination',
-              value: destination,
-              onChanged: (a) => setState(() => destination = a),
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<AircraftType>(
-              initialValue: type,
-              decoration: const InputDecoration(labelText: 'Aircraft'),
-              items: viableAircraft
-                  .map(
-                    (t) => DropdownMenuItem(
-                      value: t,
-                      child: Text(
-                        '${t.displayName} · ${money(t.purchasePrice, widget.currency)}',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _AirportDropdown(
+                label: 'Origin',
+                value: origin,
+                onChanged: (a) => setState(() => origin = a),
+              ),
+              const SizedBox(height: 10),
+              _AirportDropdown(
+                label: 'Destination',
+                value: destination,
+                onChanged: (a) => setState(() => destination = a),
+              ),
+              const SizedBox(height: 10),
+              _RouteAircraftPicker(
+                availableAircraft: availableAircraft,
+                selectedAircraftId: selectedAircraftId,
+                pendingType: selectedAircraft == null ? type : null,
+                distanceKm: distance,
+                origin: origin,
+                destination: destination,
+                currency: widget.currency,
+                onSelectAircraft: (id) => setState(() {
+                  selectedAircraftId = id;
+                  final acType =
+                      aircraftTypesById[widget.game.aircraft[id]!.typeId];
+                  if (acType != null) type = acType;
+                }),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      setState(() => showAircraftShop = !showAircraftShop),
+                  icon: Icon(
+                    showAircraftShop ? Icons.expand_less : Icons.add_circle,
+                  ),
+                  label: Text(
+                    showAircraftShop
+                        ? 'Hide aircraft shop'
+                        : 'Buy new aircraft',
+                  ),
+                ),
+              ),
+              if (showAircraftShop)
+                _InlineAircraftShop(
+                  types: shopAircraft,
+                  manufacturers: manufacturers,
+                  selectedManufacturer: buyManufacturer,
+                  selectedTypeId: selectedAircraft == null ? type.id : null,
+                  distanceKm: distance,
+                  cash: widget.game.player.cashUSD,
+                  origin: origin,
+                  destination: destination,
+                  currency: widget.currency,
+                  onManufacturerChanged: (value) =>
+                      setState(() => buyManufacturer = value),
+                  onSelected: (selectedType) => setState(() {
+                    type = selectedType;
+                    selectedAircraftId = null;
+                    showAircraftShop = false;
+                  }),
+                ),
+              const SizedBox(height: 10),
+              Text('Flights per week: $flights'),
+              Slider(
+                value: flights.toDouble(),
+                min: 1,
+                max: 21,
+                divisions: 20,
+                label: '$flights/week',
+                onChanged: (v) => setState(() => flights = v.round()),
+              ),
+              _FareSliderField(
+                controller: ecoController,
+                label: 'Economy fare (${widget.currency.code})',
+                suggested: fareGuide.suggestedEconomy,
+                maxFare: fareGuide.maxEconomy,
+                currency: widget.currency,
+                enabled: true,
+                onChanged: () => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              _FareSliderField(
+                controller: bizController,
+                label: type.seatsBusiness > 0
+                    ? 'Business fare (${widget.currency.code})'
+                    : 'No business cabin',
+                suggested: fareGuide.suggestedBusiness,
+                maxFare: fareGuide.maxBusiness,
+                currency: widget.currency,
+                enabled: type.seatsBusiness > 0,
+                onChanged: () => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              _RoutePreviewCard(
+                current: previewRoute,
+                preview: previewEconomics?.route,
+                currency: widget.currency,
+              ),
+              const SizedBox(height: 12),
+              _Card(
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Route optimiser',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Finds the best frequency and fares before creation.',
+                            style: TextStyle(color: Color(0xff9aa4b5)),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => type = v);
-              },
-            ),
-            const SizedBox(height: 10),
-            Text('Flights per week: $flights'),
-            Slider(
-              value: flights.toDouble(),
-              min: 1,
-              max: 21,
-              divisions: 20,
-              label: '$flights/week',
-              onChanged: (v) => setState(() => flights = v.round()),
-            ),
-            _FareSliderField(
-              controller: ecoController,
-              label: 'Economy fare (${widget.currency.code})',
-              suggested: fareGuide.suggestedEconomy,
-              maxFare: fareGuide.maxEconomy,
-              currency: widget.currency,
-              enabled: true,
-              onChanged: () => setState(() {}),
-            ),
-            const SizedBox(height: 10),
-            _FareSliderField(
-              controller: bizController,
-              label: type.seatsBusiness > 0
-                  ? 'Business fare (${widget.currency.code})'
-                  : 'No business cabin',
-              suggested: fareGuide.suggestedBusiness,
-              maxFare: fareGuide.maxBusiness,
-              currency: widget.currency,
-              enabled: type.seatsBusiness > 0,
-              onChanged: () => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            _RoutePreviewCard(
-              current: previewRoute,
-              preview: previewEconomics?.route,
-              currency: widget.currency,
-            ),
-            const SizedBox(height: 12),
-            _Card(
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Route optimiser',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Finds the best frequency and fares before creation.',
-                          style: TextStyle(color: Color(0xff9aa4b5)),
-                        ),
-                      ],
+                    FilledButton.icon(
+                      onPressed:
+                          (buyableAircraft.isEmpty &&
+                                  selectedAircraft == null) ||
+                              (selectedAircraft != null &&
+                                  !selectedAircraftUsable)
+                          ? null
+                          : _optimiseSetup,
+                      icon: const Icon(Icons.auto_fix_high),
+                      label: const Text('Optimise'),
                     ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: viableAircraft.isEmpty ? null : _optimiseSetup,
-                    icon: const Icon(Icons.auto_fix_high),
-                    label: const Text('Optimise'),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            CheckboxListTile(
-              value: optimise,
-              onChanged: (v) => setState(() => optimise = v ?? true),
-              title: const Text('Optimise after creation'),
-            ),
-            if (error != null)
-              Text(error!, style: const TextStyle(color: Color(0xffff6b6b))),
-          ],
+              CheckboxListTile(
+                value: optimise,
+                onChanged: (v) => setState(() => optimise = v ?? true),
+                title: const Text('Optimise after creation'),
+              ),
+              if (error != null)
+                Text(error!, style: const TextStyle(color: Color(0xffff6b6b))),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -6191,8 +6272,16 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: viableAircraft.isEmpty ? null : _create,
-          child: Text('Create + buy ${type.model}'),
+          onPressed:
+              (buyableAircraft.isEmpty && selectedAircraft == null) ||
+                  (selectedAircraft != null && !selectedAircraftUsable)
+              ? null
+              : _create,
+          child: Text(
+            selectedAircraft == null
+                ? 'Create + buy ${type.model}'
+                : 'Create + assign ${type.model}',
+          ),
         ),
       ],
     );
@@ -6295,6 +6384,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         originIata: origin.iata,
         destinationIata: destination.iata,
         aircraftTypeId: type.id,
+        aircraftId: selectedAircraftId,
         flightsPerWeek: flights,
         priceEconomy: ecoController.text.trim().isEmpty
             ? null
@@ -6303,13 +6393,313 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
             ? null
             : _clampedFare(bizController.text, fareGuide.maxBusiness),
-        buyNewAircraft: true,
+        buyNewAircraft: selectedAircraftId == null,
       );
       if (optimise) widget.game.optimiseRoute(route.id);
       Navigator.pop(context);
     } catch (e) {
       setState(() => error = e.toString().replaceFirst('Bad state: ', ''));
     }
+  }
+}
+
+class _RouteAircraftPicker extends StatelessWidget {
+  const _RouteAircraftPicker({
+    required this.availableAircraft,
+    required this.selectedAircraftId,
+    required this.pendingType,
+    required this.distanceKm,
+    required this.origin,
+    required this.destination,
+    required this.currency,
+    required this.onSelectAircraft,
+  });
+
+  final List<Aircraft> availableAircraft;
+  final String? selectedAircraftId;
+  final AircraftType? pendingType;
+  final double distanceKm;
+  final Airport origin;
+  final Airport destination;
+  final CurrencyOption currency;
+  final ValueChanged<String> onSelectAircraft;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Aircraft', style: TextStyle(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          Text(
+            pendingType == null
+                ? 'Use an idle aircraft from your fleet.'
+                : '${pendingType!.displayName} will be purchased when this route is created.',
+            style: const TextStyle(color: Color(0xff9aa4b5)),
+          ),
+          if (pendingType != null) ...[
+            const SizedBox(height: 10),
+            _SelectableInfoRow(
+              selected: selectedAircraftId == null,
+              enabled: true,
+              title: 'New ${pendingType!.displayName}',
+              subtitle:
+                  '${pendingType!.seatsEconomy}Y'
+                  '${pendingType!.seatsBusiness > 0 ? '/${pendingType!.seatsBusiness}J' : ''}'
+                  ' · ${pendingType!.rangeKm.toStringAsFixed(0)} km · '
+                  '${money(pendingType!.purchasePrice, currency)}',
+              trailing: 'buy on create',
+              onTap: () {},
+            ),
+          ],
+          if (availableAircraft.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: availableAircraft.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final ac = availableAircraft[index];
+                  final acType = aircraftTypesById[ac.typeId];
+                  final tooFar = acType != null && distanceKm > acType.rangeKm;
+                  final runwayLimited =
+                      acType != null &&
+                      (!canAirportHandleAircraft(origin, acType) ||
+                          !canAirportHandleAircraft(destination, acType));
+                  final enabled = acType != null && !tooFar && !runwayLimited;
+                  final subtitle = acType == null
+                      ? ac.typeId
+                      : '${acType.displayName} · '
+                            '${acType.seatsEconomy}Y'
+                            '${acType.seatsBusiness > 0 ? '/${acType.seatsBusiness}J' : ''}'
+                            ' · condition ${ac.condition.toStringAsFixed(0)}%';
+                  final reason = tooFar
+                      ? 'out of range'
+                      : runwayLimited
+                      ? 'runway too short'
+                      : null;
+                  return _SelectableInfoRow(
+                    selected: selectedAircraftId == ac.id,
+                    enabled: enabled,
+                    title: ac.name,
+                    subtitle: subtitle,
+                    trailing: reason,
+                    onTap: () => onSelectAircraft(ac.id),
+                  );
+                },
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            const Text(
+              'No idle aircraft are available. Buy one below.',
+              style: TextStyle(color: Color(0xff6f7a8d), fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineAircraftShop extends StatelessWidget {
+  const _InlineAircraftShop({
+    required this.types,
+    required this.manufacturers,
+    required this.selectedManufacturer,
+    required this.selectedTypeId,
+    required this.distanceKm,
+    required this.cash,
+    required this.origin,
+    required this.destination,
+    required this.currency,
+    required this.onManufacturerChanged,
+    required this.onSelected,
+  });
+
+  final List<AircraftType> types;
+  final List<String> manufacturers;
+  final String selectedManufacturer;
+  final String? selectedTypeId;
+  final double distanceKm;
+  final double cash;
+  final Airport origin;
+  final Airport destination;
+  final CurrencyOption currency;
+  final ValueChanged<String> onManufacturerChanged;
+  final ValueChanged<AircraftType> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Aircraft shop · cash ${money(cash, currency)}',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                '${distanceKm.toStringAsFixed(0)} km',
+                style: const TextStyle(color: Color(0xff9aa4b5)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: manufacturers.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final manufacturer = manufacturers[index];
+                final selected = selectedManufacturer == manufacturer;
+                return ChoiceChip(
+                  label: Text(manufacturer),
+                  selected: selected,
+                  onSelected: (_) => onManufacturerChanged(manufacturer),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: types.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+                final type = types[index];
+                final canAfford = cash >= type.purchasePrice;
+                final runwayLimited =
+                    !canAirportHandleAircraft(origin, type) ||
+                    !canAirportHandleAircraft(destination, type);
+                final enabled = canAfford && !runwayLimited;
+                final trailing = !canAfford
+                    ? 'too expensive'
+                    : runwayLimited
+                    ? 'runway too short'
+                    : selectedTypeId == type.id
+                    ? 'selected'
+                    : null;
+                return _SelectableInfoRow(
+                  selected: selectedTypeId == type.id,
+                  enabled: enabled,
+                  title: type.displayName,
+                  subtitle:
+                      '${type.seatsEconomy}Y'
+                      '${type.seatsBusiness > 0 ? '/${type.seatsBusiness}J' : ''}'
+                      ' · ${type.rangeKm.toStringAsFixed(0)} km · '
+                      '${money(type.purchasePrice, currency)}',
+                  trailing: trailing,
+                  onTap: () => onSelected(type),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectableInfoRow extends StatelessWidget {
+  const _SelectableInfoRow({
+    required this.selected,
+    required this.enabled,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final bool selected;
+  final bool enabled;
+  final String title;
+  final String subtitle;
+  final String? trailing;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = selected ? const Color(0xff5db4ff) : const Color(0xff273145);
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xff1c4268)
+              : enabled
+              ? const Color(0xff141b2b)
+              : const Color(0xff101524),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.airplanemode_active,
+              color: enabled
+                  ? selected
+                        ? const Color(0xff74c0fc)
+                        : const Color(0xff9aa4b5)
+                  : const Color(0xff4a5263),
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: enabled ? Colors.white : const Color(0xff5d6678),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: enabled
+                          ? const Color(0xff9aa4b5)
+                          : const Color(0xff4f586a),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                trailing!,
+                style: TextStyle(
+                  color: enabled
+                      ? const Color(0xff7dd3fc)
+                      : const Color(0xffff7a7a),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
