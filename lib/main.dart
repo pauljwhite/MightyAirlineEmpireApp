@@ -2283,12 +2283,38 @@ class _WorldMap extends StatefulWidget {
 }
 
 class _WorldMapState extends State<_WorldMap> {
+  final MapController _mapController = MapController();
   final LayerHitNotifier<RoutePlan> _routeHitNotifier = ValueNotifier(null);
+  String? _lastFocusedAirportIata;
+
+  @override
+  void didUpdateWidget(covariant _WorldMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedAirport?.iata != widget.selectedAirport?.iata) {
+      _focusSelectedAirport();
+    }
+  }
 
   @override
   void dispose() {
     _routeHitNotifier.dispose();
+    _mapController.dispose();
     super.dispose();
+  }
+
+  void _focusSelectedAirport() {
+    final airport = widget.selectedAirport;
+    if (airport == null || airport.iata == _lastFocusedAirportIata) return;
+    _lastFocusedAirportIata = airport.iata;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.selectedAirport?.iata != airport.iata) return;
+      final currentZoom = _mapController.camera.zoom;
+      _mapController.move(
+        LatLng(airport.lat, airport.lon),
+        math.max(currentZoom, 4.1),
+        id: 'selected-airport-${airport.iata}',
+      );
+    });
   }
 
   @override
@@ -2296,12 +2322,16 @@ class _WorldMapState extends State<_WorldMap> {
     final drawableRoutes = _drawableRoutes().toList(growable: false);
 
     return FlutterMap(
+      mapController: _mapController,
       options: MapOptions(
         crs: const _SingleWorldEpsg3857(),
-        initialCenter: const LatLng(26, 12),
+        initialCenter: widget.selectedAirport == null
+            ? const LatLng(26, 12)
+            : LatLng(widget.selectedAirport!.lat, widget.selectedAirport!.lon),
         initialZoom: 2.05,
         minZoom: 1.8,
         maxZoom: 8,
+        onMapReady: _focusSelectedAirport,
         cameraConstraint: CameraConstraint.containCenter(
           bounds: LatLngBounds(const LatLng(-85, -180), const LatLng(85, 180)),
         ),
