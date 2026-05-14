@@ -4362,6 +4362,31 @@ class _RoutePreviewCard extends StatelessWidget {
               '${route.dailyPassengers} pax/day · ${(route.flightDurationHours).toStringAsFixed(1)}h flight',
               style: const TextStyle(color: Color(0xff9aa4b5)),
             ),
+            if (route.dailyCost > 0) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                children: [
+                  _MiniFinanceStat(
+                    'Fuel',
+                    money(route.dailyFuelCost, currency),
+                  ),
+                  _MiniFinanceStat(
+                    'Maintenance',
+                    money(route.dailyMaintenanceCost, currency),
+                  ),
+                  _MiniFinanceStat(
+                    'Crew',
+                    money(route.dailyCrewCost, currency),
+                  ),
+                  _MiniFinanceStat(
+                    'Airport fees',
+                    money(route.dailyAirportFees, currency),
+                  ),
+                ],
+              ),
+            ],
           ],
         ],
       ),
@@ -5304,6 +5329,32 @@ class _FinanceView extends StatelessWidget {
       0,
       (sum, route) => sum + route.dailyCost,
     );
+    final exactFuelCost = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyFuelCost,
+    );
+    final exactMaintenanceCost = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyMaintenanceCost,
+    );
+    final exactCrewCost = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyCrewCost,
+    );
+    final exactAirportFees = routes.fold<double>(
+      0,
+      (sum, route) => sum + route.dailyAirportFees,
+    );
+    final exactCostTotal =
+        exactFuelCost + exactMaintenanceCost + exactCrewCost + exactAirportFees;
+    final fuelCost = exactCostTotal > 0 ? exactFuelCost : totalDailyCost * 0.35;
+    final maintenanceCost = exactCostTotal > 0
+        ? exactMaintenanceCost
+        : totalDailyCost * 0.25;
+    final crewCost = exactCostTotal > 0 ? exactCrewCost : totalDailyCost * 0.25;
+    final airportFees = exactCostTotal > 0
+        ? exactAirportFees
+        : totalDailyCost * 0.15;
     final topRoutes = [...routes]
       ..sort((a, b) => b.dailyProfit.compareTo(a.dailyProfit));
     final shareholdingsValue = game.competitors.fold<double>(
@@ -5540,25 +5591,25 @@ class _FinanceView extends StatelessWidget {
               ),
               _FinanceBreakdownRow(
                 label: 'Fuel',
-                value: -totalDailyCost * 0.35,
+                value: -fuelCost,
                 color: const Color(0xffff6b6b),
                 currency: currency,
               ),
               _FinanceBreakdownRow(
                 label: 'Maintenance',
-                value: -totalDailyCost * 0.25,
+                value: -maintenanceCost,
                 color: const Color(0xffffa94d),
                 currency: currency,
               ),
               _FinanceBreakdownRow(
                 label: 'Crew',
-                value: -totalDailyCost * 0.25,
+                value: -crewCost,
                 color: const Color(0xffffd166),
                 currency: currency,
               ),
               _FinanceBreakdownRow(
                 label: 'Airport fees',
-                value: -totalDailyCost * 0.15,
+                value: -airportFees,
                 color: const Color(0xff77c9ff),
                 currency: currency,
               ),

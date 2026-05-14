@@ -60,7 +60,18 @@ void main() {
       );
 
       final snapshot = game.runDailyTick();
+      final updatedRoute = game.routes[route.id]!;
+      final componentCost =
+          updatedRoute.dailyFuelCost +
+          updatedRoute.dailyMaintenanceCost +
+          updatedRoute.dailyCrewCost +
+          updatedRoute.dailyAirportFees;
       expect(snapshot.revenue, greaterThanOrEqualTo(0));
+      expect(componentCost, closeTo(updatedRoute.dailyCost, 0.01));
+      expect(updatedRoute.dailyFuelCost, greaterThan(0));
+      expect(updatedRoute.dailyMaintenanceCost, greaterThan(0));
+      expect(updatedRoute.dailyCrewCost, greaterThan(0));
+      expect(updatedRoute.dailyAirportFees, greaterThan(0));
       expect(game.gameDay, 1);
       expect(game.player.dailyStats, hasLength(1));
     },

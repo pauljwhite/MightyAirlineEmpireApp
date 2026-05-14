@@ -454,6 +454,10 @@ class RoutePlan {
     this.dailyPassengers = 0,
     this.dailyRevenue = 0,
     this.dailyCost = 0,
+    this.dailyFuelCost = 0,
+    this.dailyMaintenanceCost = 0,
+    this.dailyCrewCost = 0,
+    this.dailyAirportFees = 0,
     this.dailyProfit = 0,
     this.loadFactorEconomy = 0,
     this.loadFactorBusiness = 0,
@@ -473,6 +477,10 @@ class RoutePlan {
   final int dailyPassengers;
   final double dailyRevenue;
   final double dailyCost;
+  final double dailyFuelCost;
+  final double dailyMaintenanceCost;
+  final double dailyCrewCost;
+  final double dailyAirportFees;
   final double dailyProfit;
   final double loadFactorEconomy;
   final double loadFactorBusiness;
@@ -488,6 +496,10 @@ class RoutePlan {
     int? dailyPassengers,
     double? dailyRevenue,
     double? dailyCost,
+    double? dailyFuelCost,
+    double? dailyMaintenanceCost,
+    double? dailyCrewCost,
+    double? dailyAirportFees,
     double? dailyProfit,
     double? loadFactorEconomy,
     double? loadFactorBusiness,
@@ -507,6 +519,10 @@ class RoutePlan {
     dailyPassengers: dailyPassengers ?? this.dailyPassengers,
     dailyRevenue: dailyRevenue ?? this.dailyRevenue,
     dailyCost: dailyCost ?? this.dailyCost,
+    dailyFuelCost: dailyFuelCost ?? this.dailyFuelCost,
+    dailyMaintenanceCost: dailyMaintenanceCost ?? this.dailyMaintenanceCost,
+    dailyCrewCost: dailyCrewCost ?? this.dailyCrewCost,
+    dailyAirportFees: dailyAirportFees ?? this.dailyAirportFees,
     dailyProfit: dailyProfit ?? this.dailyProfit,
     loadFactorEconomy: loadFactorEconomy ?? this.loadFactorEconomy,
     loadFactorBusiness: loadFactorBusiness ?? this.loadFactorBusiness,
@@ -527,6 +543,10 @@ class RoutePlan {
     'dailyPassengers': dailyPassengers,
     'dailyRevenue': dailyRevenue,
     'dailyCost': dailyCost,
+    'dailyFuelCost': dailyFuelCost,
+    'dailyMaintenanceCost': dailyMaintenanceCost,
+    'dailyCrewCost': dailyCrewCost,
+    'dailyAirportFees': dailyAirportFees,
     'dailyProfit': dailyProfit,
     'loadFactorEconomy': loadFactorEconomy,
     'loadFactorBusiness': loadFactorBusiness,
@@ -547,6 +567,11 @@ class RoutePlan {
     dailyPassengers: (json['dailyPassengers'] as num?)?.round() ?? 0,
     dailyRevenue: (json['dailyRevenue'] as num?)?.toDouble() ?? 0,
     dailyCost: (json['dailyCost'] as num?)?.toDouble() ?? 0,
+    dailyFuelCost: (json['dailyFuelCost'] as num?)?.toDouble() ?? 0,
+    dailyMaintenanceCost:
+        (json['dailyMaintenanceCost'] as num?)?.toDouble() ?? 0,
+    dailyCrewCost: (json['dailyCrewCost'] as num?)?.toDouble() ?? 0,
+    dailyAirportFees: (json['dailyAirportFees'] as num?)?.toDouble() ?? 0,
     dailyProfit: (json['dailyProfit'] as num?)?.toDouble() ?? 0,
     loadFactorEconomy: (json['loadFactorEconomy'] as num?)?.toDouble() ?? 0,
     loadFactorBusiness: (json['loadFactorBusiness'] as num?)?.toDouble() ?? 0,
