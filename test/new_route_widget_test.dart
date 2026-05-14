@@ -12,6 +12,8 @@ void main() {
     await tester.pumpWidget(const MightyAirlineEmpireApp());
     await tester.pump(const Duration(milliseconds: 300));
 
+    expect(find.text('1x'), findsOneWidget);
+
     await tester.tap(find.widgetWithText(FilledButton, 'New Route').first);
     await tester.pump(const Duration(milliseconds: 300));
 

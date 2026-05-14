@@ -26,6 +26,39 @@ void main() {
     expect(haversineKm(lhr.lat, lhr.lon, jfk.lat, jfk.lon), closeTo(5540, 140));
   });
 
+  test('round-trip route position covers outbound and return legs', () {
+    final lhr = airportsByIata['LHR']!;
+    final jfk = airportsByIata['JFK']!;
+    final outboundStart = roundTripRoutePosition(
+      originLat: lhr.lat,
+      originLon: lhr.lon,
+      destinationLat: jfk.lat,
+      destinationLon: jfk.lon,
+      flightProgress: 0,
+    );
+    final destination = roundTripRoutePosition(
+      originLat: lhr.lat,
+      originLon: lhr.lon,
+      destinationLat: jfk.lat,
+      destinationLon: jfk.lon,
+      flightProgress: 0.5,
+    );
+    final returnLeg = roundTripRoutePosition(
+      originLat: lhr.lat,
+      originLon: lhr.lon,
+      destinationLat: jfk.lat,
+      destinationLon: jfk.lon,
+      flightProgress: 0.75,
+    );
+
+    expect(outboundStart.lat, closeTo(lhr.lat, 0.01));
+    expect(outboundStart.lon, closeTo(lhr.lon, 0.01));
+    expect(destination.lat, closeTo(jfk.lat, 0.01));
+    expect(destination.lon, closeTo(jfk.lon, 0.01));
+    expect(returnLeg.lon, greaterThan(jfk.lon));
+    expect(returnLeg.lon, lessThan(lhr.lon));
+  });
+
   test(
     'demand model favours domestic major routes over isolated small demand',
     () {
@@ -44,6 +77,18 @@ void main() {
   test('currency formatter honours selected currency', () {
     final gbp = currencyOptions.firstWhere((c) => c.code == 'GBP');
     expect(money(1000000, gbp), startsWith('£'));
+  });
+
+  test('legacy aircraft saves default maintenance resume flag to false', () {
+    final aircraft = Aircraft.fromJson({
+      'id': 'ac-legacy',
+      'typeId': 'b707-120',
+      'name': 'Legacy 707',
+      'airlineId': 'player',
+      'purchasedGameDay': 0,
+    });
+    expect(aircraft.resumeRouteAfterMaintenance, isFalse);
+    expect(aircraft.toJson()['resumeRouteAfterMaintenance'], isFalse);
   });
 
   test('AI manufacturer preference follows home-market bias', () {

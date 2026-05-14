@@ -770,10 +770,10 @@ class _SpeedControl extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 5),
+          const EdgeInsets.symmetric(horizontal: 3),
         ),
         textStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
         ),
       ),
       segments: [
@@ -781,7 +781,7 @@ class _SpeedControl extends StatelessWidget {
         ..._speedOptions.map(
           (option) => ButtonSegment(
             value: option.value,
-            label: Text(option.label.replaceFirst('x', '')),
+            label: Text(option.label),
             tooltip: option.label,
           ),
         ),
@@ -2232,6 +2232,7 @@ class _DateBadge extends StatelessWidget {
         ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
         : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
     return Container(
+      width: compact ? 132 : 178,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xff111827),
@@ -2240,6 +2241,7 @@ class _DateBadge extends StatelessWidget {
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
       ),
     );
@@ -2482,6 +2484,14 @@ class _WorldMapState extends State<_WorldMap> {
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'mighty_airline_empire_app',
+            panBuffer: 2,
+            keepBuffer: 4,
+            tileProvider: NetworkTileProvider(
+              abortObsoleteRequests: false,
+              cachingProvider: BuiltInMapCachingProvider.getOrCreateInstance(
+                maxCacheSize: 500000000,
+              ),
+            ),
             tileBuilder: (context, tileWidget, tile) {
               if (lightMap) {
                 return Opacity(opacity: 0.96, child: tileWidget);
@@ -2587,6 +2597,10 @@ class _WorldMapState extends State<_WorldMap> {
         final isClosed =
             closedUntil != null && closedUntil >= widget.game.gameDay;
         final selected = widget.selectedAirport?.iata == a.iata;
+        final playerHub = widget.game.player.hubIatas.contains(a.iata);
+        final aiHub = widget.game.competitors.any(
+          (airline) => airline.hubIatas.contains(a.iata),
+        );
         final radius = switch (a.size) {
           AirportSize.small => 2.2,
           AirportSize.medium => 3.0,
@@ -2597,6 +2611,10 @@ class _WorldMapState extends State<_WorldMap> {
             ? const Color(0xffffd166)
             : isClosed
             ? const Color(0xffff6b6b)
+            : playerHub
+            ? const Color(0xffffc857)
+            : aiHub
+            ? const Color(0xff2dd4bf)
             : const Color(0xff58a6ff);
 
         return Marker(
@@ -2616,6 +2634,8 @@ class _WorldMapState extends State<_WorldMap> {
                   color: color,
                   border: isClosed
                       ? Border.all(color: const Color(0xffffb3b3), width: 2)
+                      : playerHub || aiHub
+                      ? Border.all(color: Colors.white70, width: 1.2)
                       : null,
                   boxShadow: [
                     BoxShadow(
@@ -2653,24 +2673,13 @@ class _WorldMapState extends State<_WorldMap> {
     final dest = airportsByIata[route.destinationIata];
     if (origin == null || dest == null) return null;
 
-    final cycle = (ac.flightProgress * 2).clamp(0, 2).toDouble();
-    final t = cycle <= 1 ? cycle : 2 - cycle;
-    final from = cycle <= 1 ? origin : dest;
-    final to = cycle <= 1 ? dest : origin;
-    final visualPoint = _visualArcPoint(from.lat, from.lon, to.lat, to.lon, t);
-    final ahead = _visualArcPoint(
-      from.lat,
-      from.lon,
-      to.lat,
-      to.lon,
-      math.min(1, t + 0.01),
+    final visualPoint = roundTripRoutePosition(
+      originLat: origin.lat,
+      originLon: origin.lon,
+      destinationLat: dest.lat,
+      destinationLon: dest.lon,
+      flightProgress: ac.flightProgress,
     );
-    final angle =
-        math.atan2(
-          -(ahead.lat - visualPoint.lat),
-          _shortestLonDelta(visualPoint.lon, ahead.lon),
-        ) +
-        math.pi / 2;
     final airline = widget.game.airlines[route.airlineId];
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
@@ -2688,7 +2697,7 @@ class _WorldMapState extends State<_WorldMap> {
       height: sizePx + 12,
       child: IgnorePointer(
         child: Transform.rotate(
-          angle: angle,
+          angle: visualPoint.bearingRadians,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -2783,28 +2792,15 @@ List<List<LatLng>> _routeArcLatLngSegments(
   double progress, {
   double? lonDelta,
   bool normalize = true,
-}) {
-  final t = progress.clamp(0.0, 1.0);
-  final delta = lonDelta ?? _shortestLonDelta(originLon, destinationLon);
-  final averageLatRad = ((originLat + destinationLat) / 2) * math.pi / 180;
-  final weightedLonDelta = delta * math.max(0.25, math.cos(averageLatRad));
-  final planarDistance = math.sqrt(
-    weightedLonDelta * weightedLonDelta +
-        (destinationLat - originLat) * (destinationLat - originLat),
-  );
-  final hemisphere = ((originLat + destinationLat) / 2) >= 0 ? 1 : -1;
-  final latBow =
-      hemisphere * math.min(10.0, planarDistance * 0.065 + delta.abs() / 180);
-  final point = (
-    lat:
-        (originLat +
-                (destinationLat - originLat) * t +
-                math.sin(math.pi * t) * latBow)
-            .clamp(-85.0, 85.0),
-    lon: originLon + delta * t,
-  );
-  return normalize ? (lat: point.lat, lon: _normalizeLon(point.lon)) : point;
-}
+}) => visualRouteArcPoint(
+  originLat,
+  originLon,
+  destinationLat,
+  destinationLon,
+  progress,
+  lonDelta: lonDelta,
+  normalize: normalize,
+);
 
 Offset _airportPoint(Airport a, Size size) => Offset(
   ((a.lon + 180) / 360) * size.width,
@@ -2881,9 +2877,9 @@ List<List<({double lat, double lon})>> _splitArcAtAntimeridian(
 }
 
 double _shortestLonDelta(double fromLon, double toLon) =>
-    ((toLon - fromLon) % 360 + 540) % 360 - 180;
+    shortestLongitudeDelta(fromLon, toLon);
 
-double _normalizeLon(double lon) => ((lon + 180) % 360 + 360) % 360 - 180;
+double _normalizeLon(double lon) => normalizeLongitude(lon);
 
 double? _antimeridianBetween(double fromLon, double toLon) {
   final low = math.min(fromLon, toLon);

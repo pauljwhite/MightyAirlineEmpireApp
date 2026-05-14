@@ -538,6 +538,18 @@ void main() {
     },
   );
 
+  test('healthy AI airlines can expand beyond early route cap', () {
+    final game = GameController();
+    final airline = game.competitors.first;
+    game.airlines[airline.id] = airline.copyWith(cashUSD: 400000000);
+
+    for (var i = 0; i < 150; i += 1) {
+      game.runDailyTick();
+    }
+
+    expect(game.airlines[airline.id]!.routeIds.length, greaterThan(8));
+  });
+
   test('AI airlines seed and sell cross-shareholdings when cash is tight', () {
     final game = GameController();
     game.startNewGame(const GameSettings(aiCount: 8));
@@ -892,6 +904,30 @@ void main() {
     game.runDailyTick();
     expect(game.aircraft[aircraftId]!.status, AircraftStatus.idle);
     expect(game.aircraft[aircraftId]!.maintenanceHoursOwed, 0);
+    expect(game.routes[route.id]!.isActive, isFalse);
+  });
+
+  test('maintenance restores previously active route assignment', () {
+    final game = GameController();
+    final route = game.createRoute(
+      originIata: 'LHR',
+      destinationIata: 'JFK',
+      aircraftTypeId: 'b707-120',
+      buyNewAircraft: true,
+    );
+    final aircraftId = game.routes[route.id]!.aircraftId!;
+
+    game.startMaintenance(aircraftId, MaintenanceTier.light);
+    expect(game.routes[route.id]!.isActive, isFalse);
+    expect(game.aircraft[aircraftId]!.resumeRouteAfterMaintenance, isTrue);
+
+    game.runDailyTick();
+    game.runDailyTick();
+
+    expect(game.routes[route.id]!.aircraftId, aircraftId);
+    expect(game.routes[route.id]!.isActive, isTrue);
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.flying);
+    expect(game.aircraft[aircraftId]!.resumeRouteAfterMaintenance, isFalse);
   });
 
   test('fleet maintenance policy auto-sends eligible aircraft', () {
@@ -922,6 +958,12 @@ void main() {
     expect(game.aircraft[aircraftId]!.status, AircraftStatus.maintenance);
     expect(game.routes[route.id]!.isActive, isFalse);
     expect(game.player.maintenancePolicy.autoMaintainIssues, isTrue);
+
+    game.runDailyTick();
+    game.runDailyTick();
+
+    expect(game.aircraft[aircraftId]!.status, AircraftStatus.flying);
+    expect(game.routes[route.id]!.isActive, isTrue);
   });
 
   test('excluded aircraft can use custom auto-maintenance settings', () {

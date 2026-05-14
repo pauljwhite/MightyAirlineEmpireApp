@@ -542,6 +542,9 @@ class GameController extends ChangeNotifier {
   int _nextAirline = 1;
   int _lastClockNotifyGameMs = 0;
 
+  static const _aiExpansionRouteCap = 20;
+  static const _aiExpansionReserveUSD = 5000000.0;
+
   @override
   void dispose() {
     mapAnimationTick.dispose();
@@ -1182,6 +1185,7 @@ class GameController extends ChangeNotifier {
       assignedRouteId: routeId,
       clearAssignedRoute: routeId == null,
       status: routeId == null ? AircraftStatus.idle : AircraftStatus.flying,
+      resumeRouteAfterMaintenance: false,
     );
     notifyListeners();
   }
@@ -1497,9 +1501,11 @@ class GameController extends ChangeNotifier {
     if (ac.status == AircraftStatus.maintenance) return true;
     final cost = maintenanceCost(aircraftId, tier);
     if (player.cashUSD < cost) return false;
+    var resumeRouteAfterMaintenance = false;
     if (ac.assignedRouteId != null) {
       final route = routes[ac.assignedRouteId!];
       if (route != null) {
+        resumeRouteAfterMaintenance = route.isActive;
         routes[route.id] = route.copyWith(isActive: false);
       }
     }
@@ -1509,6 +1515,7 @@ class GameController extends ChangeNotifier {
       lastMaintenanceGameDay: gameDay,
       activeMaintTier: tier,
       knownFaultRiskMod: 1,
+      resumeRouteAfterMaintenance: resumeRouteAfterMaintenance,
     );
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
     pushNewsItem(
@@ -1526,8 +1533,18 @@ class GameController extends ChangeNotifier {
     final condition = tier == MaintenanceTier.full
         ? 100.0
         : math.min(100.0, ac.condition + cfg.conditionGain);
+    final assignedRoute = ac.assignedRouteId == null
+        ? null
+        : routes[ac.assignedRouteId!];
+    final shouldResumeRoute =
+        ac.resumeRouteAfterMaintenance &&
+        assignedRoute != null &&
+        condition >= 20;
+    if (shouldResumeRoute) {
+      routes[assignedRoute.id] = assignedRoute.copyWith(isActive: true);
+    }
     aircraft[aircraftId] = ac.copyWith(
-      status: AircraftStatus.idle,
+      status: shouldResumeRoute ? AircraftStatus.flying : AircraftStatus.idle,
       isGrounded: condition < 20,
       groundedReason: condition < 20
           ? 'Critical condition - requires maintenance'
@@ -1537,6 +1554,7 @@ class GameController extends ChangeNotifier {
       crashRisk: aircraftCrashRisk(ac.copyWith(condition: condition), gameDay),
       knownFaultRiskMod: 1,
       lastMaintenanceGameDay: gameDay,
+      resumeRouteAfterMaintenance: false,
     );
     pushNewsItem('${ac.name} returned from maintenance.', playerRelated: true);
     notifyListeners();
@@ -2154,7 +2172,10 @@ class GameController extends ChangeNotifier {
   void _maybeExpandAI() {
     if (gameDay == 0 || gameDay % 10 != 0) return;
     for (final airline in competitors) {
-      if (airline.cashUSD < 18000000 || airline.routeIds.length >= 8) continue;
+      if (airline.cashUSD < 12000000 ||
+          airline.routeIds.length >= _aiExpansionRouteCap) {
+        continue;
+      }
       final hub = airportByIata(airline.hubIatas.firstOrNull ?? '');
       if (hub == null) continue;
       final existingDestinations = airline.routeIds
@@ -2179,8 +2200,10 @@ class GameController extends ChangeNotifier {
             ..sort((a, b) => b.demand.compareTo(a.demand));
       for (final candidate in candidates.take(20)) {
         final type = _pickAircraftForAI(airline, hub, candidate.airport);
-        if (type == null || airline.cashUSD < type.purchasePrice + 10000000)
+        if (type == null ||
+            airline.cashUSD < type.purchasePrice + _aiExpansionReserveUSD) {
           continue;
+        }
         try {
           final route = _createRouteForAirline(
             airlineId: airline.id,

@@ -282,6 +282,7 @@ class Aircraft {
     this.autoMaintenanceTier = MaintenanceTier.standard,
     this.knownFaultRiskMod = 1,
     this.excludedFromPolicy = false,
+    this.resumeRouteAfterMaintenance = false,
   });
   final String id;
   final String typeId;
@@ -306,6 +307,7 @@ class Aircraft {
   final MaintenanceTier autoMaintenanceTier;
   final double knownFaultRiskMod;
   final bool excludedFromPolicy;
+  final bool resumeRouteAfterMaintenance;
   Aircraft copyWith({
     String? name,
     String? airlineId,
@@ -329,6 +331,7 @@ class Aircraft {
     double? currentLon,
     double? flightProgress,
     bool? excludedFromPolicy,
+    bool? resumeRouteAfterMaintenance,
   }) => Aircraft(
     id: id,
     typeId: typeId,
@@ -360,6 +363,8 @@ class Aircraft {
     autoMaintenanceTier: autoMaintenanceTier ?? this.autoMaintenanceTier,
     knownFaultRiskMod: knownFaultRiskMod ?? this.knownFaultRiskMod,
     excludedFromPolicy: excludedFromPolicy ?? this.excludedFromPolicy,
+    resumeRouteAfterMaintenance:
+        resumeRouteAfterMaintenance ?? this.resumeRouteAfterMaintenance,
   );
   Map<String, Object?> toJson() => {
     'id': id,
@@ -385,6 +390,7 @@ class Aircraft {
     'autoMaintenanceTier': autoMaintenanceTier.name,
     'knownFaultRiskMod': knownFaultRiskMod,
     'excludedFromPolicy': excludedFromPolicy,
+    'resumeRouteAfterMaintenance': resumeRouteAfterMaintenance,
   };
   factory Aircraft.fromJson(Map<String, Object?> json) => Aircraft(
     id: json['id'] as String,
@@ -427,6 +433,7 @@ class Aircraft {
     ),
     knownFaultRiskMod: (json['knownFaultRiskMod'] as num?)?.toDouble() ?? 1,
     excludedFromPolicy: json['excludedFromPolicy'] == true,
+    resumeRouteAfterMaintenance: json['resumeRouteAfterMaintenance'] == true,
   );
 }
 
