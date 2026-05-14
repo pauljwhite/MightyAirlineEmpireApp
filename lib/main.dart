@@ -6350,7 +6350,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                     runSpacing: 8,
                     children: [
                       FilledButton.icon(
-                        onPressed: marketFloat < 1
+                        onPressed: marketFloat < 1 && aiShareholders.isEmpty
                             ? null
                             : () => _showShareTradeDialog(
                                 context,
@@ -6501,6 +6501,7 @@ void _showShareTradeDialog(
 ) {
   var percent = 5.0;
   var selling = false;
+  var source = 'market';
   String? error;
   showDialog<void>(
     context: context,
@@ -6510,12 +6511,37 @@ void _showShareTradeDialog(
         if (airline == null) return const SizedBox.shrink();
         final owned = game.playerStakeIn(airlineId);
         final float = game.marketFloatForAirline(airlineId);
-        final max = selling ? owned : math.min(50, float);
+        final sellerOptions = airline.shareholders.entries
+            .where((entry) => entry.key != 'player' && entry.value >= 1)
+            .map(
+              (entry) => (
+                id: entry.key,
+                name: game.airlines[entry.key]?.name ?? entry.key,
+                stake: entry.value,
+              ),
+            )
+            .toList(growable: false);
+        if (source != 'market' &&
+            !sellerOptions.any((seller) => seller.id == source)) {
+          source = 'market';
+        }
+        final sourceAvailable = source == 'market'
+            ? float
+            : sellerOptions
+                      .where((seller) => seller.id == source)
+                      .firstOrNull
+                      ?.stake ??
+                  0;
+        final max = selling ? owned : math.min(50, sourceAvailable);
         final clampedPercent = max < 1 ? 0.0 : percent.clamp(1, max).toDouble();
         final value = game.companyValue(airlineId);
         final buyPrice = clampedPercent <= 0
             ? 0.0
-            : game.sharePurchasePrice(airlineId, clampedPercent);
+            : game.sharePurchasePrice(
+                airlineId,
+                clampedPercent,
+                source: source,
+              );
         final sellPrice = clampedPercent <= 0
             ? 0.0
             : (value / 100 * clampedPercent / 100000).round() * 100000.0;
@@ -6546,6 +6572,55 @@ void _showShareTradeDialog(
                 _InfoRow('Company value', money(value, currency)),
                 _InfoRow('You own', '${owned.toStringAsFixed(0)}%'),
                 _InfoRow('Market float', '${float.toStringAsFixed(0)}%'),
+                if (!selling && sellerOptions.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Buy from',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text('Market · ${float.toStringAsFixed(0)}%'),
+                        selected: source == 'market',
+                        onSelected: float < 1
+                            ? null
+                            : (_) => setState(() {
+                                source = 'market';
+                                percent = 5;
+                                error = null;
+                              }),
+                      ),
+                      ...sellerOptions.map(
+                        (seller) => ChoiceChip(
+                          label: Text(
+                            '${seller.name} · ${seller.stake.toStringAsFixed(0)}%',
+                          ),
+                          selected: source == seller.id,
+                          onSelected: (_) => setState(() {
+                            source = seller.id;
+                            percent = 5;
+                            error = null;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (source != 'market')
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Secondary share blocks include a 15% seller premium.',
+                        style: TextStyle(
+                          color: Color(0xff9aa4b5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 14),
                 Text('Amount: ${clampedPercent.toStringAsFixed(0)}%'),
                 Slider(
@@ -6590,7 +6665,11 @@ void _showShareTradeDialog(
                         if (selling) {
                           game.sellShares(airlineId, clampedPercent);
                         } else {
-                          game.buyShares(airlineId, clampedPercent);
+                          game.buyShares(
+                            airlineId,
+                            clampedPercent,
+                            source: source,
+                          );
                         }
                         Navigator.pop(context);
                       } catch (e) {

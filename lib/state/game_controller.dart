@@ -685,7 +685,11 @@ class GameController extends ChangeNotifier {
     );
   }
 
-  double sharePurchasePrice(String airlineId, double percent) {
+  double sharePurchasePrice(
+    String airlineId,
+    double percent, {
+    String source = 'market',
+  }) {
     final target = airlines[airlineId];
     if (target == null || target.isPlayer) return 0;
     return calculateSharePrice(
@@ -695,6 +699,7 @@ class GameController extends ChangeNotifier {
       aircraft: aircraft,
       routes: routes,
       currentGameDay: gameDay,
+      fromSecondaryMarket: source != 'market',
     );
   }
 
@@ -2710,21 +2715,45 @@ class GameController extends ChangeNotifier {
     return cost;
   }
 
-  double buyShares(String targetAirlineId, double percent) {
+  double buyShares(
+    String targetAirlineId,
+    double percent, {
+    String source = 'market',
+  }) {
     final target = airlines[targetAirlineId];
     if (target == null || target.isPlayer) {
       throw StateError('Target airline not found');
     }
     final amount = percent.clamp(1, 50).toDouble();
-    final available = marketFloatForAirline(targetAirlineId);
-    if (available < amount) throw StateError('Not enough market float');
-    final cost = sharePurchasePrice(targetAirlineId, amount);
+    final isSecondary = source != 'market';
+    if (isSecondary) {
+      final sellerStake = stakeInAirline(targetAirlineId, source);
+      if (sellerStake < amount) throw StateError('Not enough seller shares');
+    } else {
+      final available = marketFloatForAirline(targetAirlineId);
+      if (available < amount) throw StateError('Not enough market float');
+    }
+    final cost = sharePurchasePrice(targetAirlineId, amount, source: source);
     if (player.cashUSD < cost) throw StateError('Not enough cash');
     final nextShareholders = Map<String, double>.from(target.shareholders);
     nextShareholders['player'] = (nextShareholders['player'] ?? 0) + amount;
+    if (isSecondary) {
+      final remaining = (nextShareholders[source] ?? 0) - amount;
+      if (remaining <= 0) {
+        nextShareholders.remove(source);
+      } else {
+        nextShareholders[source] = remaining;
+      }
+    }
     airlines['player'] = player.copyWith(cashUSD: player.cashUSD - cost);
+    if (isSecondary) {
+      final seller = airlines[source];
+      if (seller != null) {
+        airlines[source] = seller.copyWith(cashUSD: seller.cashUSD + cost);
+      }
+    }
     airlines[targetAirlineId] = target.copyWith(
-      cashUSD: target.cashUSD + cost,
+      cashUSD: isSecondary ? target.cashUSD : target.cashUSD + cost,
       shareholders: nextShareholders,
     );
     pushNewsItem(

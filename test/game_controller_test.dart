@@ -763,6 +763,23 @@ void main() {
     },
   );
 
+  test('share purchases can come from AI shareholder blocks', () {
+    final game = GameController();
+    game.startNewGame(const GameSettings(startingCash: 500000000, aiCount: 2));
+    final target = game.competitors.first;
+    final seller = game.competitors.last;
+    game.airlines[target.id] = target.copyWith(shareholders: {seller.id: 20});
+    final sellerCashBefore = seller.cashUSD;
+    final targetCashBefore = target.cashUSD;
+
+    final cost = game.buyShares(target.id, 10, source: seller.id);
+
+    expect(game.playerStakeIn(target.id), 10);
+    expect(game.stakeInAirline(target.id, seller.id), 10);
+    expect(game.airlines[seller.id]!.cashUSD, sellerCashBefore + cost);
+    expect(game.airlines[target.id]!.cashUSD, targetCashBefore);
+  });
+
   test('route settings can be edited after creation', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;
