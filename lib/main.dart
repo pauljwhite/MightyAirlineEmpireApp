@@ -2241,6 +2241,180 @@ double _distanceToSegment(Offset p, Offset a, Offset b) {
   return (p - projection).distance;
 }
 
+class _GeoPoint {
+  const _GeoPoint(this.lat, this.lon);
+  final double lat;
+  final double lon;
+}
+
+const _worldLandmasses = <List<_GeoPoint>>[
+  [
+    _GeoPoint(71, -168),
+    _GeoPoint(70, -138),
+    _GeoPoint(57, -127),
+    _GeoPoint(50, -125),
+    _GeoPoint(32, -117),
+    _GeoPoint(16, -97),
+    _GeoPoint(8, -82),
+    _GeoPoint(19, -75),
+    _GeoPoint(26, -81),
+    _GeoPoint(31, -88),
+    _GeoPoint(30, -96),
+    _GeoPoint(25, -104),
+    _GeoPoint(38, -123),
+    _GeoPoint(49, -124),
+    _GeoPoint(58, -135),
+    _GeoPoint(70, -168),
+  ],
+  [
+    _GeoPoint(72, -94),
+    _GeoPoint(74, -62),
+    _GeoPoint(61, -52),
+    _GeoPoint(51, -58),
+    _GeoPoint(45, -70),
+    _GeoPoint(50, -82),
+    _GeoPoint(58, -92),
+    _GeoPoint(72, -94),
+  ],
+  [
+    _GeoPoint(83, -52),
+    _GeoPoint(78, -21),
+    _GeoPoint(63, -20),
+    _GeoPoint(59, -43),
+    _GeoPoint(69, -57),
+    _GeoPoint(83, -52),
+  ],
+  [
+    _GeoPoint(12, -82),
+    _GeoPoint(10, -69),
+    _GeoPoint(5, -52),
+    _GeoPoint(-8, -35),
+    _GeoPoint(-22, -40),
+    _GeoPoint(-55, -67),
+    _GeoPoint(-52, -75),
+    _GeoPoint(-35, -73),
+    _GeoPoint(-16, -77),
+    _GeoPoint(2, -79),
+    _GeoPoint(12, -82),
+  ],
+  [
+    _GeoPoint(37, -10),
+    _GeoPoint(51, -10),
+    _GeoPoint(58, 10),
+    _GeoPoint(70, 30),
+    _GeoPoint(70, 58),
+    _GeoPoint(62, 92),
+    _GeoPoint(51, 122),
+    _GeoPoint(60, 160),
+    _GeoPoint(47, 170),
+    _GeoPoint(34, 137),
+    _GeoPoint(22, 121),
+    _GeoPoint(9, 105),
+    _GeoPoint(7, 80),
+    _GeoPoint(24, 68),
+    _GeoPoint(31, 45),
+    _GeoPoint(39, 30),
+    _GeoPoint(38, 12),
+    _GeoPoint(43, 0),
+    _GeoPoint(37, -10),
+  ],
+  [
+    _GeoPoint(37, -17),
+    _GeoPoint(31, 32),
+    _GeoPoint(12, 50),
+    _GeoPoint(-35, 31),
+    _GeoPoint(-35, 17),
+    _GeoPoint(-18, 12),
+    _GeoPoint(0, 9),
+    _GeoPoint(5, -8),
+    _GeoPoint(20, -17),
+    _GeoPoint(37, -17),
+  ],
+  [
+    _GeoPoint(23, 49),
+    _GeoPoint(30, 58),
+    _GeoPoint(25, 68),
+    _GeoPoint(12, 76),
+    _GeoPoint(7, 56),
+    _GeoPoint(16, 43),
+    _GeoPoint(23, 49),
+  ],
+  [
+    _GeoPoint(7, 95),
+    _GeoPoint(18, 105),
+    _GeoPoint(16, 122),
+    _GeoPoint(0, 126),
+    _GeoPoint(-11, 118),
+    _GeoPoint(-6, 102),
+    _GeoPoint(7, 95),
+  ],
+  [
+    _GeoPoint(-10, 112),
+    _GeoPoint(-12, 154),
+    _GeoPoint(-27, 154),
+    _GeoPoint(-39, 144),
+    _GeoPoint(-35, 116),
+    _GeoPoint(-21, 113),
+    _GeoPoint(-10, 112),
+  ],
+  [
+    _GeoPoint(-35, 166),
+    _GeoPoint(-34, 179),
+    _GeoPoint(-47, 178),
+    _GeoPoint(-47, 168),
+    _GeoPoint(-35, 166),
+  ],
+  [
+    _GeoPoint(-62, -180),
+    _GeoPoint(-62, -120),
+    _GeoPoint(-66, -60),
+    _GeoPoint(-64, 0),
+    _GeoPoint(-67, 70),
+    _GeoPoint(-63, 140),
+    _GeoPoint(-62, 180),
+    _GeoPoint(-85, 180),
+    _GeoPoint(-85, -180),
+    _GeoPoint(-62, -180),
+  ],
+];
+
+const _worldTerrainHighlights = <List<_GeoPoint>>[
+  [
+    _GeoPoint(55, -130),
+    _GeoPoint(47, -114),
+    _GeoPoint(35, -110),
+    _GeoPoint(21, -102),
+    _GeoPoint(18, -112),
+    _GeoPoint(33, -124),
+    _GeoPoint(55, -130),
+  ],
+  [
+    _GeoPoint(-8, -79),
+    _GeoPoint(-14, -72),
+    _GeoPoint(-28, -69),
+    _GeoPoint(-48, -72),
+    _GeoPoint(-42, -66),
+    _GeoPoint(-20, -64),
+    _GeoPoint(-8, -79),
+  ],
+  [
+    _GeoPoint(28, 69),
+    _GeoPoint(36, 79),
+    _GeoPoint(34, 95),
+    _GeoPoint(25, 102),
+    _GeoPoint(20, 86),
+    _GeoPoint(28, 69),
+  ],
+  [
+    _GeoPoint(12, 34),
+    _GeoPoint(9, 45),
+    _GeoPoint(-22, 35),
+    _GeoPoint(-25, 22),
+    _GeoPoint(3, 27),
+    _GeoPoint(12, 34),
+  ],
+];
+
 class _MapPainter extends CustomPainter {
   const _MapPainter({
     required this.game,
@@ -2256,6 +2430,7 @@ class _MapPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..color = const Color(0xff08111f),
     );
+    _drawWorldBasemap(canvas, size);
     final grid = Paint()
       ..color = const Color(0xff1f2b3d)
       ..strokeWidth = 1;
@@ -2342,6 +2517,55 @@ class _MapPainter extends CustomPainter {
               ? const Color(0xffff6b6b)
               : const Color(0xff58a6ff),
       );
+    }
+  }
+
+  void _drawWorldBasemap(Canvas canvas, Size size) {
+    final landPaint = Paint()
+      ..color = const Color(0xff172233)
+      ..style = PaintingStyle.fill;
+    final landHighlightPaint = Paint()
+      ..color = const Color(0xff223148).withValues(alpha: 0.42)
+      ..style = PaintingStyle.fill;
+    final coastPaint = Paint()
+      ..color = const Color(0xff3b4b62).withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeJoin = StrokeJoin.round;
+    final softCoastPaint = Paint()
+      ..color = const Color(0xff5f7892).withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.8
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final landmass in _worldLandmasses) {
+      final path = Path();
+      for (var i = 0; i < landmass.length; i += 1) {
+        final point = _latLonPoint(landmass[i].lat, landmass[i].lon, size);
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, softCoastPaint);
+      canvas.drawPath(path, landPaint);
+      canvas.drawPath(path, coastPaint);
+    }
+
+    for (final shade in _worldTerrainHighlights) {
+      final path = Path();
+      for (var i = 0; i < shade.length; i += 1) {
+        final point = _latLonPoint(shade[i].lat, shade[i].lon, size);
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, landHighlightPaint);
     }
   }
 
