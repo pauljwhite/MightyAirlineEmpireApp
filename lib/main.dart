@@ -2182,6 +2182,14 @@ String _monthLabel(int month) => const [
   'Dec',
 ][(month - 1).clamp(0, 11)];
 
+@immutable
+class _SingleWorldEpsg3857 extends Epsg3857 {
+  const _SingleWorldEpsg3857();
+
+  @override
+  bool get replicatesWorldLongitude => false;
+}
+
 class _SearchBox extends StatelessWidget {
   const _SearchBox({required this.onAirport});
   final ValueChanged<Airport> onAirport;
@@ -2289,16 +2297,25 @@ class _WorldMapState extends State<_WorldMap> {
 
     return FlutterMap(
       options: MapOptions(
+        crs: const _SingleWorldEpsg3857(),
         initialCenter: const LatLng(26, 12),
         initialZoom: 2.05,
-        minZoom: 2,
+        minZoom: 1.8,
         maxZoom: 8,
+        cameraConstraint: CameraConstraint.containCenter(
+          bounds: LatLngBounds(const LatLng(-85, -180), const LatLng(85, 180)),
+        ),
         interactionOptions: const InteractionOptions(
           flags:
               InteractiveFlag.drag |
               InteractiveFlag.pinchZoom |
+              InteractiveFlag.pinchMove |
               InteractiveFlag.scrollWheelZoom |
-              InteractiveFlag.doubleTapZoom,
+              InteractiveFlag.doubleTapZoom |
+              InteractiveFlag.doubleTapDragZoom,
+          enableMultiFingerGestureRace: true,
+          pinchZoomThreshold: 0.08,
+          pinchMoveThreshold: 8,
         ),
         backgroundColor: const Color(0xff08111f),
       ),
@@ -2344,6 +2361,7 @@ class _WorldMapState extends State<_WorldMap> {
             child: PolylineLayer<RoutePlan>(
               hitNotifier: _routeHitNotifier,
               minimumHitbox: 28,
+              drawInSingleWorld: true,
               simplificationTolerance: 0,
               polylines: _routePolylines(drawableRoutes),
             ),
