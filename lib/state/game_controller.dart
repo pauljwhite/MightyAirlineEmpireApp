@@ -1249,7 +1249,11 @@ class GameController extends ChangeNotifier {
   }) {
     final origin = airportByIata(originIata);
     final destination = airportByIata(destinationIata);
-    final type = aircraftTypesById[aircraftTypeId];
+    final requestedType = aircraftTypesById[aircraftTypeId];
+    final assignedAircraft = aircraftId == null ? null : aircraft[aircraftId];
+    final type = assignedAircraft == null
+        ? requestedType
+        : aircraftTypesById[assignedAircraft.typeId];
     if (origin == null || destination == null || type == null)
       throw ArgumentError('Invalid route inputs');
     if (origin.iata == destination.iata)
@@ -1260,11 +1264,17 @@ class GameController extends ChangeNotifier {
       destination.lat,
       destination.lon,
     );
-    if (distance > type.rangeKm)
-      throw StateError('Aircraft range too short for route');
-    if (!canAirportHandleAircraft(origin, type) ||
-        !canAirportHandleAircraft(destination, type))
-      throw StateError('Airport runway too short for aircraft');
+    final willHaveAircraft = aircraftId != null || buyNewAircraft;
+    if (willHaveAircraft) {
+      if (distance > type.rangeKm)
+        throw StateError('Aircraft range too short for route');
+      if (!canAirportHandleAircraft(origin, type) ||
+          !canAirportHandleAircraft(destination, type))
+        throw StateError('Airport runway too short for aircraft');
+      if (aircraftId == null && player.cashUSD < type.purchasePrice) {
+        throw StateError('Insufficient funds to purchase aircraft');
+      }
+    }
     final routeId = 'rt-' + (_nextRoute++).toString();
     var assignedAircraftId = aircraftId;
     final shellRoute = RoutePlan(
@@ -1276,6 +1286,7 @@ class GameController extends ChangeNotifier {
       flightsPerWeek: flightsPerWeek.clamp(1, 21),
       priceEconomy: priceEconomy ?? 0,
       priceBusiness: priceBusiness ?? 0,
+      isActive: willHaveAircraft,
       createdGameDay: gameDay,
       distanceKm: distance,
     );

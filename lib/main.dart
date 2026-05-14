@@ -7463,7 +7463,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   String? selectedAircraftId;
   String buyManufacturer = 'All';
   bool showAircraftShop = false;
-  bool buyNewAircraft = true;
+  bool buyNewAircraft = false;
   int flights = 7;
   bool optimise = true;
   String? error;
@@ -7496,6 +7496,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         selectedAircraftType.rangeKm >= distance &&
         canAirportHandleAircraft(origin, selectedAircraftType) &&
         canAirportHandleAircraft(destination, selectedAircraftType);
+    final sameAirport = origin.iata == destination.iata;
     final buyableAircraft = aircraftTypes
         .where(
           (t) =>
@@ -7525,6 +7526,14 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         !buyNewAircraft ||
         selectedAircraft != null ||
         widget.game.player.cashUSD >= type.purchasePrice;
+    final pendingPurchaseValid =
+        !buyNewAircraft ||
+        selectedAircraft != null ||
+        (buyableAircraft.contains(type) && canAffordPendingAircraft);
+    final canCreate =
+        !sameAirport &&
+        (selectedAircraft == null || selectedAircraftUsable) &&
+        pendingPurchaseValid;
     final availableAircraft = widget.game.player.fleetIds
         .map((id) => widget.game.aircraft[id])
         .whereType<Aircraft>()
@@ -7582,14 +7591,26 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               _AirportDropdown(
                 label: 'Origin',
                 value: origin,
-                onChanged: (a) => setState(() => origin = a),
+                onChanged: (a) => setState(() {
+                  origin = a;
+                  error = null;
+                }),
               ),
               const SizedBox(height: 10),
               _AirportDropdown(
                 label: 'Destination',
                 value: destination,
-                onChanged: (a) => setState(() => destination = a),
+                onChanged: (a) => setState(() {
+                  destination = a;
+                  error = null;
+                }),
               ),
+              if (sameAirport) ...[
+                const SizedBox(height: 8),
+                const _InlineWarning(
+                  'Origin and destination must be different airports.',
+                ),
+              ],
               const SizedBox(height: 10),
               _RouteAircraftPicker(
                 availableAircraft: availableAircraft,
@@ -7710,11 +7731,13 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                     FilledButton.icon(
                       onPressed:
                           !hasAircraftForRoute ||
-                              !canAffordPendingAircraft ||
+                              !pendingPurchaseValid ||
                               (buyableAircraft.isEmpty &&
-                                  selectedAircraft == null) ||
+                                  selectedAircraft == null &&
+                                  buyNewAircraft) ||
                               (selectedAircraft != null &&
-                                  !selectedAircraftUsable)
+                                  !selectedAircraftUsable) ||
+                              sameAirport
                           ? null
                           : _optimiseSetup,
                       icon: const Icon(Icons.auto_fix_high),
@@ -7740,12 +7763,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed:
-              (buyableAircraft.isEmpty && selectedAircraft == null) ||
-                  (selectedAircraft != null && !selectedAircraftUsable) ||
-                  !canAffordPendingAircraft
-              ? null
-              : _create,
+          onPressed: canCreate ? _create : null,
           child: Text(
             !hasAircraftForRoute
                 ? 'Create inactive route'
@@ -8191,6 +8209,38 @@ class _SelectableInfoRow extends StatelessWidget {
   }
 }
 
+class _InlineWarning extends StatelessWidget {
+  const _InlineWarning(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: const Color(0xffff6b6b).withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xffff6b6b).withValues(alpha: 0.4)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.warning_amber, color: Color(0xffff9d9d), size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xffffb3b3),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _AirportDropdown extends StatelessWidget {
   const _AirportDropdown({
     required this.label,
@@ -8209,6 +8259,16 @@ class _AirportDropdown extends StatelessWidget {
     fieldViewBuilder: (context, controller, focus, submit) => TextField(
       controller: controller,
       focusNode: focus,
+      onChanged: (text) {
+        final match = _airportFromTypedRouteQuery(text);
+        if (match != null && match.iata != value.iata) onChanged(match);
+      },
+      onSubmitted: (text) {
+        final match =
+            _airportFromTypedRouteQuery(text) ??
+            searchAirports(text, airports, limit: 1).firstOrNull;
+        if (match != null) onChanged(match);
+      },
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: const Icon(Icons.flight_takeoff),
@@ -8216,6 +8276,17 @@ class _AirportDropdown extends StatelessWidget {
       ),
     ),
   );
+}
+
+Airport? _airportFromTypedRouteQuery(String query) {
+  final normalized = query.trim().toUpperCase();
+  if (normalized.isEmpty) return null;
+  final direct = airportsByIata[normalized];
+  if (direct != null) return direct;
+  for (final airport in airports) {
+    if (airport.icao?.toUpperCase() == normalized) return airport;
+  }
+  return null;
 }
 
 class _MetricCard extends StatelessWidget {

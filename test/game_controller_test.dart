@@ -109,6 +109,27 @@ void main() {
     expect(game.player.cashUSD, cashBefore - type.purchasePrice);
   });
 
+  test(
+    'routes can be created inactive without buying or assigning aircraft',
+    () {
+      final game = GameController();
+      game.startNewGame(const GameSettings(startingCash: 0));
+
+      final route = game.createRoute(
+        originIata: 'LHR',
+        destinationIata: 'SYD',
+        aircraftTypeId: 'b707-120',
+        buyNewAircraft: false,
+      );
+
+      expect(route.aircraftId, isNull);
+      expect(route.isActive, isFalse);
+      expect(game.playerRoutes, hasLength(1));
+      expect(game.playerFleet, isEmpty);
+      expect(game.player.cashUSD, 0);
+    },
+  );
+
   test('game clock advances time and runs daily ticks at speed', () {
     final game = GameController();
     game.setSpeed(300);
