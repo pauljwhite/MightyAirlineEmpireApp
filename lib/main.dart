@@ -4631,6 +4631,7 @@ class _FleetView extends StatefulWidget {
 
 class _FleetViewState extends State<_FleetView> {
   var manufacturer = 'All';
+  var showBuyAircraft = false;
   String? confirmingSaleId;
 
   String _maintenanceTierLabel(MaintenanceTier tier) =>
@@ -4670,207 +4671,286 @@ class _FleetViewState extends State<_FleetView> {
             return a.model.compareTo(b.model);
           });
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       children: [
-        _MetricCard('Fleet size', '${fleet.length}', const Color(0xff77c9ff)),
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: Row(
             children: [
-              Row(
+              Expanded(
+                child: Text(
+                  'Fleet (${fleet.length})',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () =>
+                    setState(() => showBuyAircraft = !showBuyAircraft),
+                icon: Icon(showBuyAircraft ? Icons.expand_less : Icons.add),
+                label: const Text('Buy Aircraft'),
+              ),
+            ],
+          ),
+        ),
+        if (showBuyAircraft)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Buy aircraft · Year $gameYear',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  Text(
-                    money(game.player.cashUSD, currency),
-                    style: const TextStyle(
-                      color: Color(0xff3af083),
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: manufacturer,
-                decoration: const InputDecoration(labelText: 'Manufacturer'),
-                items: manufacturers
-                    .map(
-                      (item) =>
-                          DropdownMenuItem(value: item, child: Text(item)),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => manufacturer = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Showing ${visibleTypes.length} aircraft${manufacturer == 'All' ? '' : ' from $manufacturer'}',
-                style: const TextStyle(color: Color(0xff9aa4b5)),
-              ),
-              const SizedBox(height: 12),
-              ...visibleTypes.map((type) {
-                final unavailable = type.yearIntroduced > gameYear;
-                final canAfford = game.player.cashUSD >= type.purchasePrice;
-                final canBuy = !unavailable && canAfford;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.035),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              type.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            Text(
-                              '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
-                              style: const TextStyle(color: Color(0xff9aa4b5)),
-                            ),
-                            Text(
-                              'Runway ${type.minRunwayM} m · ${type.cruiseSpeedKmh} km/h · ${money(type.maintenanceCostPerHourUSD, currency)}/hr maint.',
-                              style: const TextStyle(color: Color(0xff9aa4b5)),
-                            ),
-                            if (unavailable)
-                              Text(
-                                'Available ${type.yearIntroduced}',
-                                style: const TextStyle(
-                                  color: Color(0xffffd166),
-                                ),
-                              ),
-                          ],
+                        child: Text(
+                          'Buy aircraft · Year $gameYear',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            money(type.purchasePrice, currency),
-                            style: TextStyle(
-                              color: !unavailable && !canAfford
-                                  ? const Color(0xffff6b6b)
-                                  : null,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          FilledButton.tonal(
-                            onPressed: canBuy
-                                ? () => game.buyAircraft(type.id)
-                                : null,
-                            child: Text(canAfford ? 'Buy' : 'No funds'),
-                          ),
-                        ],
+                      Text(
+                        money(game.player.cashUSD, currency),
+                        style: const TextStyle(
+                          color: Color(0xff3af083),
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ],
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Maintenance policy',
-                      style: TextStyle(fontWeight: FontWeight.w900),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: manufacturer,
+                    decoration: const InputDecoration(
+                      labelText: 'Manufacturer',
                     ),
+                    items: manufacturers
+                        .map(
+                          (item) =>
+                              DropdownMenuItem(value: item, child: Text(item)),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => manufacturer = value);
+                    },
                   ),
-                  Switch(
-                    value: policy.enabled,
-                    onChanged: (enabled) => game.updateMaintenancePolicy(
-                      policy.copyWith(enabled: enabled),
-                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Showing ${visibleTypes.length} aircraft${manufacturer == 'All' ? '' : ' from $manufacturer'}',
+                    style: const TextStyle(color: Color(0xff9aa4b5)),
                   ),
+                  const SizedBox(height: 12),
+                  ...visibleTypes.map((type) {
+                    final unavailable = type.yearIntroduced > gameYear;
+                    final canAfford = game.player.cashUSD >= type.purchasePrice;
+                    final canBuy = !unavailable && canAfford;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.035),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  type.displayName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
+                                  style: const TextStyle(
+                                    color: Color(0xff9aa4b5),
+                                  ),
+                                ),
+                                Text(
+                                  'Runway ${type.minRunwayM} m · ${type.cruiseSpeedKmh} km/h · ${money(type.maintenanceCostPerHourUSD, currency)}/hr maint.',
+                                  style: const TextStyle(
+                                    color: Color(0xff9aa4b5),
+                                  ),
+                                ),
+                                if (unavailable)
+                                  Text(
+                                    'Available ${type.yearIntroduced}',
+                                    style: const TextStyle(
+                                      color: Color(0xffffd166),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                money(type.purchasePrice, currency),
+                                style: TextStyle(
+                                  color: !unavailable && !canAfford
+                                      ? const Color(0xffff6b6b)
+                                      : null,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              FilledButton.tonal(
+                                onPressed: canBuy
+                                    ? () => game.buyAircraft(type.id)
+                                    : null,
+                                child: Text(canAfford ? 'Buy' : 'No funds'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: policy.enabled ? 1 : 0.45,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            ),
+          ),
+        ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: Row(
+            children: [
+              const Text(
+                'Fleet Maintenance Policy',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(width: 8),
+              _FleetStatusChip(
+                label: policy.enabled
+                    ? 'ON · ${_maintenanceTierLabel(policy.tier)} @ ${policy.threshold.round()}%'
+                    : 'OFF',
+                color: policy.enabled
+                    ? const Color(0xff2dd4bf)
+                    : const Color(0xff8b95a8),
+              ),
+            ],
+          ),
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Trigger below ${policy.threshold.round()}% condition',
-                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                    const Expanded(
+                      child: Text('Auto-maintenance for all aircraft'),
                     ),
-                    Slider(
-                      value: policy.threshold.clamp(20, 80).toDouble(),
-                      min: 20,
-                      max: 80,
-                      divisions: 12,
-                      label: '${policy.threshold.round()}%',
-                      onChanged: policy.enabled
-                          ? (value) => game.updateMaintenancePolicy(
-                              policy.copyWith(
-                                enabled: true,
-                                threshold: value.roundToDouble(),
-                              ),
-                            )
-                          : null,
-                    ),
-                    SegmentedButton<MaintenanceTier>(
-                      segments: const [
-                        ButtonSegment(
-                          value: MaintenanceTier.light,
-                          label: Text('Light'),
-                        ),
-                        ButtonSegment(
-                          value: MaintenanceTier.standard,
-                          label: Text('Standard'),
-                        ),
-                        ButtonSegment(
-                          value: MaintenanceTier.full,
-                          label: Text('Full'),
-                        ),
-                      ],
-                      selected: {policy.tier},
-                      onSelectionChanged: policy.enabled
-                          ? (value) => game.updateMaintenancePolicy(
-                              policy.copyWith(tier: value.first),
-                            )
-                          : null,
+                    Switch(
+                      value: policy.enabled,
+                      onChanged: (enabled) => game.updateMaintenancePolicy(
+                        policy.copyWith(enabled: enabled),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: policy.autoMaintainIssues,
-                onChanged: (value) => game.updateMaintenancePolicy(
-                  policy.copyWith(autoMaintainIssues: value ?? false),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: policy.enabled ? 1 : 0.45,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Trigger below ${policy.threshold.round()}% condition',
+                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                      Slider(
+                        value: policy.threshold.clamp(20, 80).toDouble(),
+                        min: 20,
+                        max: 80,
+                        divisions: 12,
+                        label: '${policy.threshold.round()}%',
+                        onChanged: policy.enabled
+                            ? (value) => game.updateMaintenancePolicy(
+                                policy.copyWith(
+                                  enabled: true,
+                                  threshold: value.roundToDouble(),
+                                ),
+                              )
+                            : null,
+                      ),
+                      SegmentedButton<MaintenanceTier>(
+                        segments: const [
+                          ButtonSegment(
+                            value: MaintenanceTier.light,
+                            label: Text('Light'),
+                          ),
+                          ButtonSegment(
+                            value: MaintenanceTier.standard,
+                            label: Text('Standard'),
+                          ),
+                          ButtonSegment(
+                            value: MaintenanceTier.full,
+                            label: Text('Full'),
+                          ),
+                        ],
+                        selected: {policy.tier},
+                        onSelectionChanged: policy.enabled
+                            ? (value) => game.updateMaintenancePolicy(
+                                policy.copyWith(tier: value.first),
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
-                title: const Text(
-                  'Automatically maintain aircraft with issues',
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: policy.autoMaintainIssues,
+                  onChanged: (value) => game.updateMaintenancePolicy(
+                    policy.copyWith(autoMaintainIssues: value ?? false),
+                  ),
+                  title: const Text(
+                    'Automatically maintain aircraft with issues',
+                  ),
+                  subtitle: const Text(
+                    'Grounding articles stay in the ticker, but no longer pop up.',
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
+        if (fleet.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.02),
+              border: Border(
+                top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 10),
+                SizedBox(width: 10),
+                SizedBox(width: 58, child: Text('Aircraft')),
+                Expanded(child: Text('Route')),
+                SizedBox(
+                  width: 46,
+                  child: Text('Hrs', textAlign: TextAlign.end),
+                ),
+                SizedBox(
+                  width: 58,
+                  child: Text('Cond.', textAlign: TextAlign.end),
+                ),
+              ],
+            ),
+          ),
         if (fleet.isEmpty)
           const _EmptyState(
             'No aircraft owned yet. Buying a route with a new aircraft will add one.',
@@ -4895,341 +4975,426 @@ class _FleetViewState extends State<_FleetView> {
                     ? 'Grounded'
                     : 'Unassigned'
               : 'Route ${route.originIata} -> ${route.destinationIata}';
-          return _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          return ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            title: Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: conditionColor,
-                        shape: BoxShape.circle,
-                      ),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: conditionColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 58,
+                  child: Text(
+                    type?.model ?? ac.typeId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        ac.name,
-                        style: const TextStyle(
-                          fontSize: 18,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    routeLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xff9aa4b5),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 46,
+                  child: Text(
+                    '${_formatCount(ac.totalFlightHours)}h',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: Color(0xff8b95a8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 50,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: (ac.condition / 100).clamp(0, 1),
+                            minHeight: 6,
+                            color: conditionColor,
+                            backgroundColor: const Color(0xff293244),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        ac.condition.toStringAsFixed(0),
+                        style: TextStyle(
+                          color: conditionColor,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ),
-                    _FleetStatusChip(
-                      label: isCrashed
-                          ? 'LOST'
-                          : inMaintenance
-                          ? 'MAINT'
-                          : ac.isGrounded
-                          ? 'GROUNDED'
-                          : ac.autoMaintenanceEnabled
-                          ? 'AUTO'
-                          : ac.status.name.toUpperCase(),
-                      color: isCrashed || ac.isGrounded
-                          ? const Color(0xffff6b6b)
-                          : inMaintenance
-                          ? const Color(0xffffd166)
-                          : ac.autoMaintenanceEnabled
-                          ? const Color(0xff77c9ff)
-                          : const Color(0xff8b95a8),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        type?.displayName ?? ac.typeId,
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
-                      ),
-                    ),
-                    Text(
-                      money(value, currency),
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ],
-                ),
-                if (type != null)
-                  Text(
-                    '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${_formatCount(type.rangeKm)} km range · ${type.cruiseSpeedKmh} km/h',
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                    ],
                   ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: ac.condition / 100,
-                  color: conditionColor,
-                  backgroundColor: const Color(0xff293244),
                 ),
-                const SizedBox(height: 8),
-                _InfoRow('Condition', '${ac.condition.toStringAsFixed(0)}%'),
-                _InfoRow('Assignment', routeLabel),
-                _InfoRow(
-                  'Flight hours',
-                  '${_formatCount(ac.totalFlightHours)}h',
-                ),
-                _InfoRow(
-                  'Crash risk',
-                  '${(ac.crashRisk * 100).toStringAsFixed(2)}%',
-                ),
-                Text(
-                  inMaintenance
-                      ? 'In ${ac.activeMaintTier?.name ?? 'standard'} maintenance since day ${ac.lastMaintenanceGameDay}'
-                      : 'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
-                  style: const TextStyle(color: Color(0xff9aa4b5)),
-                ),
-                if (ac.isGrounded || isCrashed) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffff6b6b).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xffff6b6b).withValues(alpha: 0.35),
+              ],
+            ),
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: conditionColor,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      ac.groundedReason ??
-                          (isCrashed
-                              ? 'Aircraft lost and unavailable.'
-                              : 'Aircraft grounded until maintenance is completed.'),
-                      style: const TextStyle(color: Color(0xffffb4b4)),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    if (route != null)
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => showDialog<void>(
-                            context: context,
-                            builder: (context) => _RouteEditDialog(
-                              game: game,
-                              route: route,
-                              currency: currency,
-                            ),
+                        child: Text(
+                          ac.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
                           ),
-                          icon: const Icon(Icons.alt_route),
-                          label: const Text('View Route'),
                         ),
                       ),
-                    if (route != null) const SizedBox(width: 8),
-                    Expanded(
-                      child: isConfirmingSale
-                          ? Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton.tonalIcon(
-                                    onPressed: canSell
-                                        ? () {
-                                            game.sellAircraft(ac.id);
-                                            setState(
-                                              () => confirmingSaleId = null,
-                                            );
-                                          }
-                                        : null,
-                                    icon: const Icon(Icons.check),
-                                    label: Text(
-                                      isCrashed ? 'Write off' : 'Confirm',
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  tooltip: 'Cancel',
-                                  onPressed: () =>
-                                      setState(() => confirmingSaleId = null),
-                                  icon: const Icon(Icons.close),
-                                ),
-                              ],
-                            )
-                          : OutlinedButton.icon(
-                              onPressed: canSell
-                                  ? () =>
-                                        setState(() => confirmingSaleId = ac.id)
-                                  : null,
-                              icon: Icon(
-                                isCrashed ? Icons.delete_forever : Icons.sell,
-                              ),
-                              label: Text(
-                                isCrashed ? 'Write Off' : 'Sell Aircraft',
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (type != null)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: MaintenanceTier.values.map((tier) {
-                      final cost = game.maintenanceCost(ac.id, tier);
-                      final cfg = maintenanceTiers[tier]!;
-                      final conditionGain = cfg.conditionGain >= 999
-                          ? math.max(0.0, 100 - ac.condition)
-                          : math.min(cfg.conditionGain, 100 - ac.condition);
-                      final costPerPoint = conditionGain <= 0
-                          ? cost
-                          : (cost / conditionGain).round();
-                      return OutlinedButton(
-                        onPressed: ac.status == AircraftStatus.maintenance
-                            ? null
-                            : () => game.startMaintenance(ac.id, tier),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${_maintenanceTierLabel(tier)} · ${money(cost, currency)}',
-                            ),
-                            Text(
-                              '${cfg.durationDays}d · ${cfg.conditionGain >= 999 ? 'to 100%' : '+${cfg.conditionGain.round()}%'} · ${money(costPerPoint, currency)}/pt',
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                      _FleetStatusChip(
+                        label: isCrashed
+                            ? 'LOST'
+                            : inMaintenance
+                            ? 'MAINT'
+                            : ac.isGrounded
+                            ? 'GROUNDED'
+                            : ac.autoMaintenanceEnabled
+                            ? 'AUTO'
+                            : ac.status.name.toUpperCase(),
+                        color: isCrashed || ac.isGrounded
+                            ? const Color(0xffff6b6b)
+                            : inMaintenance
+                            ? const Color(0xffffd166)
+                            : ac.autoMaintenanceEnabled
+                            ? const Color(0xff77c9ff)
+                            : const Color(0xff8b95a8),
+                      ),
+                    ],
                   ),
-                if (!ac.excludedFromPolicy)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Fleet policy ${policy.enabled ? 'ON' : 'OFF'}',
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          type?.displayName ?? ac.typeId,
+                          style: const TextStyle(color: Color(0xff9aa4b5)),
+                        ),
+                      ),
+                      Text(
+                        money(value, currency),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  if (type != null)
+                    Text(
+                      '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${_formatCount(type.rangeKm)} km range · ${type.cruiseSpeedKmh} km/h',
                       style: const TextStyle(color: Color(0xff9aa4b5)),
                     ),
-                  ),
-                if (ac.excludedFromPolicy) ...[
                   const SizedBox(height: 8),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: _subtleSurface(context),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _hairline(context)),
+                  LinearProgressIndicator(
+                    value: ac.condition / 100,
+                    color: conditionColor,
+                    backgroundColor: const Color(0xff293244),
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoRow('Condition', '${ac.condition.toStringAsFixed(0)}%'),
+                  _InfoRow('Assignment', routeLabel),
+                  _InfoRow(
+                    'Flight hours',
+                    '${_formatCount(ac.totalFlightHours)}h',
+                  ),
+                  _InfoRow(
+                    'Crash risk',
+                    '${(ac.crashRisk * 100).toStringAsFixed(2)}%',
+                  ),
+                  Text(
+                    inMaintenance
+                        ? 'In ${ac.activeMaintTier?.name ?? 'standard'} maintenance since day ${ac.lastMaintenanceGameDay}'
+                        : 'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
+                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                  ),
+                  if (ac.isGrounded || isCrashed) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffff6b6b).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(
+                            0xffff6b6b,
+                          ).withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        ac.groundedReason ??
+                            (isCrashed
+                                ? 'Aircraft lost and unavailable.'
+                                : 'Aircraft grounded until maintenance is completed.'),
+                        style: const TextStyle(color: Color(0xffffb4b4)),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      if (route != null)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (context) => _RouteEditDialog(
+                                game: game,
+                                route: route,
+                                currency: currency,
+                              ),
+                            ),
+                            icon: const Icon(Icons.alt_route),
+                            label: const Text('View Route'),
+                          ),
+                        ),
+                      if (route != null) const SizedBox(width: 8),
+                      Expanded(
+                        child: isConfirmingSale
+                            ? Row(
                                 children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Custom auto-maintenance',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w900,
+                                  Expanded(
+                                    child: FilledButton.tonalIcon(
+                                      onPressed: canSell
+                                          ? () {
+                                              game.sellAircraft(ac.id);
+                                              setState(
+                                                () => confirmingSaleId = null,
+                                              );
+                                            }
+                                          : null,
+                                      icon: const Icon(Icons.check),
+                                      label: Text(
+                                        isCrashed ? 'Write off' : 'Confirm',
                                       ),
                                     ),
                                   ),
-                                  Switch(
-                                    value: ac.autoMaintenanceEnabled,
-                                    onChanged: (enabled) =>
-                                        game.setAutoMaintenance(
-                                          ac.id,
-                                          enabled,
-                                          ac.autoMaintenanceThreshold,
-                                          ac.autoMaintenanceTier,
-                                        ),
+                                  const SizedBox(width: 6),
+                                  IconButton(
+                                    tooltip: 'Cancel',
+                                    onPressed: () =>
+                                        setState(() => confirmingSaleId = null),
+                                    icon: const Icon(Icons.close),
                                   ),
                                 ],
-                              ),
-                              AnimatedOpacity(
-                                duration: const Duration(milliseconds: 180),
-                                opacity: ac.autoMaintenanceEnabled ? 1 : 0.45,
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      'Trigger below ${ac.autoMaintenanceThreshold.round()}% condition',
-                                      style: const TextStyle(
-                                        color: Color(0xff9aa4b5),
-                                      ),
-                                    ),
-                                    Slider(
-                                      value: ac.autoMaintenanceThreshold
-                                          .clamp(20, 80)
-                                          .toDouble(),
-                                      min: 20,
-                                      max: 80,
-                                      divisions: 12,
-                                      label:
-                                          '${ac.autoMaintenanceThreshold.round()}%',
-                                      onChanged: ac.autoMaintenanceEnabled
-                                          ? (value) => game.setAutoMaintenance(
-                                              ac.id,
-                                              true,
-                                              value.roundToDouble(),
-                                              ac.autoMaintenanceTier,
-                                            )
-                                          : null,
-                                    ),
-                                    SegmentedButton<MaintenanceTier>(
-                                      segments: const [
-                                        ButtonSegment(
-                                          value: MaintenanceTier.light,
-                                          label: Text('Light'),
-                                        ),
-                                        ButtonSegment(
-                                          value: MaintenanceTier.standard,
-                                          label: Text('Standard'),
-                                        ),
-                                        ButtonSegment(
-                                          value: MaintenanceTier.full,
-                                          label: Text('Full'),
-                                        ),
-                                      ],
-                                      selected: {ac.autoMaintenanceTier},
-                                      onSelectionChanged:
-                                          ac.autoMaintenanceEnabled
-                                          ? (value) => game.setAutoMaintenance(
-                                              ac.id,
-                                              true,
-                                              ac.autoMaintenanceThreshold,
-                                              value.first,
-                                            )
-                                          : null,
-                                    ),
-                                  ],
+                              )
+                            : OutlinedButton.icon(
+                                onPressed: canSell
+                                    ? () => setState(
+                                        () => confirmingSaleId = ac.id,
+                                      )
+                                    : null,
+                                icon: Icon(
+                                  isCrashed ? Icons.delete_forever : Icons.sell,
                                 ),
+                                label: Text(
+                                  isCrashed ? 'Write Off' : 'Sell Aircraft',
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (type != null)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: MaintenanceTier.values.map((tier) {
+                        final cost = game.maintenanceCost(ac.id, tier);
+                        final cfg = maintenanceTiers[tier]!;
+                        final conditionGain = cfg.conditionGain >= 999
+                            ? math.max(0.0, 100 - ac.condition)
+                            : math.min(cfg.conditionGain, 100 - ac.condition);
+                        final costPerPoint = conditionGain <= 0
+                            ? cost
+                            : (cost / conditionGain).round();
+                        return OutlinedButton(
+                          onPressed: ac.status == AircraftStatus.maintenance
+                              ? null
+                              : () => game.startMaintenance(ac.id, tier),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_maintenanceTierLabel(tier)} · ${money(cost, currency)}',
+                              ),
+                              Text(
+                                '${cfg.durationDays}d · ${cfg.conditionGain >= 999 ? 'to 100%' : '+${cfg.conditionGain.round()}%'} · ${money(costPerPoint, currency)}/pt',
+                                style: const TextStyle(fontSize: 11),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        );
+                      }).toList(),
                     ),
+                  if (!ac.excludedFromPolicy)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Fleet policy ${policy.enabled ? 'ON' : 'OFF'}',
+                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                    ),
+                  if (ac.excludedFromPolicy) ...[
+                    const SizedBox(height: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _subtleSurface(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _hairline(context)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text(
+                                        'Custom auto-maintenance',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    Switch(
+                                      value: ac.autoMaintenanceEnabled,
+                                      onChanged: (enabled) =>
+                                          game.setAutoMaintenance(
+                                            ac.id,
+                                            enabled,
+                                            ac.autoMaintenanceThreshold,
+                                            ac.autoMaintenanceTier,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 180),
+                                  opacity: ac.autoMaintenanceEnabled ? 1 : 0.45,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Trigger below ${ac.autoMaintenanceThreshold.round()}% condition',
+                                        style: const TextStyle(
+                                          color: Color(0xff9aa4b5),
+                                        ),
+                                      ),
+                                      Slider(
+                                        value: ac.autoMaintenanceThreshold
+                                            .clamp(20, 80)
+                                            .toDouble(),
+                                        min: 20,
+                                        max: 80,
+                                        divisions: 12,
+                                        label:
+                                            '${ac.autoMaintenanceThreshold.round()}%',
+                                        onChanged: ac.autoMaintenanceEnabled
+                                            ? (value) =>
+                                                  game.setAutoMaintenance(
+                                                    ac.id,
+                                                    true,
+                                                    value.roundToDouble(),
+                                                    ac.autoMaintenanceTier,
+                                                  )
+                                            : null,
+                                      ),
+                                      SegmentedButton<MaintenanceTier>(
+                                        segments: const [
+                                          ButtonSegment(
+                                            value: MaintenanceTier.light,
+                                            label: Text('Light'),
+                                          ),
+                                          ButtonSegment(
+                                            value: MaintenanceTier.standard,
+                                            label: Text('Standard'),
+                                          ),
+                                          ButtonSegment(
+                                            value: MaintenanceTier.full,
+                                            label: Text('Full'),
+                                          ),
+                                        ],
+                                        selected: {ac.autoMaintenanceTier},
+                                        onSelectionChanged:
+                                            ac.autoMaintenanceEnabled
+                                            ? (value) =>
+                                                  game.setAutoMaintenance(
+                                                    ac.id,
+                                                    true,
+                                                    ac.autoMaintenanceThreshold,
+                                                    value.first,
+                                                  )
+                                            : null,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: ac.excludedFromPolicy,
+                    onChanged: (value) =>
+                        game.setAircraftPolicyExclusion(ac.id, value),
+                    title: const Text('Exclude from fleet policy'),
                   ),
+                  if (ac.status == AircraftStatus.maintenance)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: OutlinedButton.icon(
+                        onPressed: () => game.completeMaintenance(ac.id),
+                        icon: const Icon(Icons.build_circle),
+                        label: const Text('Complete now'),
+                      ),
+                    ),
                 ],
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: ac.excludedFromPolicy,
-                  onChanged: (value) =>
-                      game.setAircraftPolicyExclusion(ac.id, value),
-                  title: const Text('Exclude from fleet policy'),
-                ),
-                if (ac.status == AircraftStatus.maintenance)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: () => game.completeMaintenance(ac.id),
-                      icon: const Icon(Icons.build_circle),
-                      label: const Text('Complete now'),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           );
         }),
       ],
