@@ -756,18 +756,25 @@ class _SpeedControl extends StatelessWidget {
     }
 
     return SegmentedButton<int>(
+      showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 8),
+          const EdgeInsets.symmetric(horizontal: 5),
+        ),
+        textStyle: WidgetStateProperty.all(
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       ),
       segments: [
-        const ButtonSegment(value: 0, icon: Icon(Icons.pause)),
+        const ButtonSegment(value: 0, icon: Icon(Icons.pause, size: 15)),
         ..._speedOptions.map(
-          (option) =>
-              ButtonSegment(value: option.value, label: Text(option.label)),
+          (option) => ButtonSegment(
+            value: option.value,
+            label: Text(option.label.replaceFirst('x', '')),
+            tooltip: option.label,
+          ),
         ),
       ],
       selected: {speedValue},
