@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -2286,6 +2287,8 @@ class _WorldMapState extends State<_WorldMap> {
   final MapController _mapController = MapController();
   final LayerHitNotifier<RoutePlan> _routeHitNotifier = ValueNotifier(null);
   String? _lastFocusedAirportIata;
+  double? _trackpadZoomStart;
+  var _mapReady = false;
 
   @override
   void didUpdateWidget(covariant _WorldMap oldWidget) {
@@ -2304,7 +2307,11 @@ class _WorldMapState extends State<_WorldMap> {
 
   void _focusSelectedAirport() {
     final airport = widget.selectedAirport;
-    if (airport == null || airport.iata == _lastFocusedAirportIata) return;
+    if (!_mapReady ||
+        airport == null ||
+        airport.iata == _lastFocusedAirportIata) {
+      return;
+    }
     _lastFocusedAirportIata = airport.iata;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || widget.selectedAirport?.iata != airport.iata) return;
@@ -2317,95 +2324,137 @@ class _WorldMapState extends State<_WorldMap> {
     });
   }
 
+  void _handleMapReady() {
+    _mapReady = true;
+    _focusSelectedAirport();
+  }
+
+  void _handleTrackpadPinchStart(PointerPanZoomStartEvent event) {
+    if (!_mapReady) return;
+    _trackpadZoomStart = _mapController.camera.zoom;
+  }
+
+  void _handleTrackpadPinchUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_mapReady || event.scale <= 0) return;
+    final startZoom = _trackpadZoomStart ?? _mapController.camera.zoom;
+    final minZoom = 1.8;
+    final maxZoom = 8.0;
+    final newZoom = (startZoom + math.log(event.scale) / math.ln2).clamp(
+      minZoom,
+      maxZoom,
+    );
+    if ((newZoom - _mapController.camera.zoom).abs() < 0.005) return;
+    _mapController.move(
+      _mapController.camera.focusedZoomCenter(event.localPosition, newZoom),
+      newZoom,
+      id: 'trackpad-pinch',
+    );
+  }
+
+  void _handleTrackpadPinchEnd(PointerPanZoomEndEvent event) {
+    _trackpadZoomStart = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final drawableRoutes = _drawableRoutes().toList(growable: false);
 
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        crs: const _SingleWorldEpsg3857(),
-        initialCenter: widget.selectedAirport == null
-            ? const LatLng(26, 12)
-            : LatLng(widget.selectedAirport!.lat, widget.selectedAirport!.lon),
-        initialZoom: 2.05,
-        minZoom: 1.8,
-        maxZoom: 8,
-        onMapReady: _focusSelectedAirport,
-        cameraConstraint: CameraConstraint.containCenter(
-          bounds: LatLngBounds(const LatLng(-85, -180), const LatLng(85, 180)),
-        ),
-        interactionOptions: const InteractionOptions(
-          flags:
-              InteractiveFlag.drag |
-              InteractiveFlag.pinchZoom |
-              InteractiveFlag.pinchMove |
-              InteractiveFlag.scrollWheelZoom |
-              InteractiveFlag.doubleTapZoom |
-              InteractiveFlag.doubleTapDragZoom,
-          enableMultiFingerGestureRace: true,
-          pinchZoomThreshold: 0.08,
-          pinchMoveThreshold: 8,
-        ),
-        backgroundColor: const Color(0xff08111f),
-      ),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'mighty_airline_empire_app',
-          tileBuilder: (context, tileWidget, tile) => ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              0.42,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0.46,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0.56,
-              0,
-              0,
-              0,
-              0,
-              0,
-              1,
-              0,
-            ]),
-            child: Opacity(opacity: 0.7, child: tileWidget),
-          ),
-        ),
-        MouseRegion(
-          hitTestBehavior: HitTestBehavior.deferToChild,
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.deferToChild,
-            onTap: () {
-              final route = _routeHitNotifier.value?.hitValues.lastOrNull;
-              if (route != null) widget.onRouteSelected(route);
-            },
-            child: PolylineLayer<RoutePlan>(
-              hitNotifier: _routeHitNotifier,
-              minimumHitbox: 28,
-              drawInSingleWorld: true,
-              simplificationTolerance: 0,
-              polylines: _routePolylines(drawableRoutes),
+    return Listener(
+      onPointerPanZoomStart: _handleTrackpadPinchStart,
+      onPointerPanZoomUpdate: _handleTrackpadPinchUpdate,
+      onPointerPanZoomEnd: _handleTrackpadPinchEnd,
+      child: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          crs: const _SingleWorldEpsg3857(),
+          initialCenter: widget.selectedAirport == null
+              ? const LatLng(26, 12)
+              : LatLng(
+                  widget.selectedAirport!.lat,
+                  widget.selectedAirport!.lon,
+                ),
+          initialZoom: 2.05,
+          minZoom: 1.8,
+          maxZoom: 8,
+          onMapReady: _handleMapReady,
+          cameraConstraint: CameraConstraint.containCenter(
+            bounds: LatLngBounds(
+              const LatLng(-85, -180),
+              const LatLng(85, 180),
             ),
           ),
+          interactionOptions: const InteractionOptions(
+            flags:
+                InteractiveFlag.drag |
+                InteractiveFlag.pinchZoom |
+                InteractiveFlag.pinchMove |
+                InteractiveFlag.scrollWheelZoom |
+                InteractiveFlag.doubleTapZoom |
+                InteractiveFlag.doubleTapDragZoom,
+            enableMultiFingerGestureRace: true,
+            pinchZoomThreshold: 0.08,
+            pinchMoveThreshold: 8,
+          ),
+          backgroundColor: const Color(0xff08111f),
         ),
-        MarkerLayer(markers: _planeMarkers(drawableRoutes)),
-        MarkerLayer(markers: _airportMarkers()),
-        RichAttributionWidget(
-          showFlutterMapAttribution: false,
-          attributions: [
-            TextSourceAttribution('OpenStreetMap contributors', onTap: () {}),
-          ],
-        ),
-      ],
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'mighty_airline_empire_app',
+            tileBuilder: (context, tileWidget, tile) => ColorFiltered(
+              colorFilter: const ColorFilter.matrix(<double>[
+                0.42,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.46,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.56,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+              ]),
+              child: Opacity(opacity: 0.7, child: tileWidget),
+            ),
+          ),
+          MouseRegion(
+            hitTestBehavior: HitTestBehavior.deferToChild,
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.deferToChild,
+              onTap: () {
+                final route = _routeHitNotifier.value?.hitValues.lastOrNull;
+                if (route != null) widget.onRouteSelected(route);
+              },
+              child: PolylineLayer<RoutePlan>(
+                hitNotifier: _routeHitNotifier,
+                minimumHitbox: 28,
+                drawInSingleWorld: true,
+                simplificationTolerance: 0,
+                polylines: _routePolylines(drawableRoutes),
+              ),
+            ),
+          ),
+          MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+          MarkerLayer(markers: _airportMarkers()),
+          RichAttributionWidget(
+            showFlutterMapAttribution: false,
+            attributions: [
+              TextSourceAttribution('OpenStreetMap contributors', onTap: () {}),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
