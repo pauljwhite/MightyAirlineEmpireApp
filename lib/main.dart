@@ -143,7 +143,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 980;
                   final topOffset = compact
-                      ? (mobileSearchOpen ? 132.0 : 88.0)
+                      ? (mobileSearchOpen ? 132.0 : 92.0)
                       : 72.0;
                   _scheduleHeraldAutoOpen(context);
                   return Stack(
@@ -511,7 +511,11 @@ class _TopBar extends StatelessWidget {
     final speedValue = game.speed == 0
         ? 0
         : (game.speed / 300).round().clamp(1, 6);
-    final nav = _PanelNav(selectedPanel: selectedPanel, onPanel: onPanel);
+    final nav = _PanelNav(
+      selectedPanel: selectedPanel,
+      onPanel: onPanel,
+      compact: compact,
+    );
     return Container(
       decoration: BoxDecoration(
         color: _chromeSurface(context),
@@ -520,65 +524,58 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: Column(
         children: [
-          Row(
-            children: [
-              _AirlineBadge(
-                game: game,
-                currency: currency,
-                onCurrency: onCurrency,
-              ),
-              const SizedBox(width: 6),
-              _GameMenu(game: game, currency: currency, onCurrency: onCurrency),
-              const SizedBox(width: 8),
-              _DateBadge(game: game),
-              if (!compact) ...[
-                const SizedBox(width: 10),
-                Flexible(child: nav),
-              ],
-              const Spacer(),
-              if (!compact) SizedBox(width: 260, child: search),
-              if (compact)
-                IconButton(
-                  tooltip: 'Search airports',
-                  onPressed: onToggleSearch,
-                  icon: Icon(searchOpen ? Icons.close : Icons.search),
-                ),
-              const SizedBox(width: 4),
-              DropdownButton<CurrencyOption>(
-                value: currency,
-                isDense: true,
-                underline: const SizedBox.shrink(),
-                items: currencyOptions
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.code)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) onCurrency(v);
-                },
-              ),
-              const SizedBox(width: 4),
-              SegmentedButton<int>(
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 8),
+          SizedBox(
+            height: 54,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _DateBadge(game: game, compact: compact),
+                      const SizedBox(width: 6),
+                      _SpeedControl(
+                        compact: compact,
+                        speedValue: speedValue,
+                        onSpeed: onSpeed,
+                      ),
+                      IconButton(
+                        tooltip: 'Advance day',
+                        onPressed: game.runDailyTick,
+                        icon: const Icon(Icons.skip_next),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
                   ),
                 ),
-                segments: const [
-                  ButtonSegment(value: 0, icon: Icon(Icons.pause)),
-                  ButtonSegment(value: 1, label: Text('1x')),
-                  ButtonSegment(value: 3, label: Text('3x')),
-                  ButtonSegment(value: 6, label: Text('6x')),
-                ],
-                selected: {speedValue},
-                onSelectionChanged: (v) => onSpeed(v.first),
-              ),
-              IconButton(
-                tooltip: 'Advance day',
-                onPressed: game.runDailyTick,
-                icon: const Icon(Icons.skip_next),
-              ),
-            ],
+                if (!compact) SizedBox(width: 340, child: search),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (compact)
+                        IconButton(
+                          tooltip: 'Search airports',
+                          onPressed: onToggleSearch,
+                          icon: Icon(searchOpen ? Icons.close : Icons.search),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      nav,
+                      const SizedBox(width: 6),
+                      _AirlineBadge(
+                        game: game,
+                        currency: currency,
+                        onCurrency: onCurrency,
+                        compact: compact,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 220),
@@ -587,8 +584,6 @@ class _TopBar extends StatelessWidget {
                 ? Padding(padding: const EdgeInsets.only(top: 8), child: search)
                 : const SizedBox.shrink(),
           ),
-          if (compact)
-            Padding(padding: const EdgeInsets.only(top: 5), child: nav),
         ],
       ),
     );
@@ -596,30 +591,64 @@ class _TopBar extends StatelessWidget {
 }
 
 class _PanelNav extends StatelessWidget {
-  const _PanelNav({required this.selectedPanel, required this.onPanel});
+  const _PanelNav({
+    required this.selectedPanel,
+    required this.onPanel,
+    required this.compact,
+  });
 
   final _Panel? selectedPanel;
   final ValueChanged<_Panel> onPanel;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: _Panel.values
-          .map(
-            (panel) => Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _PanelNavButton(
-                panel: panel,
-                selected: selectedPanel == panel,
-                onTap: () => onPanel(panel),
+  Widget build(BuildContext context) {
+    if (compact) {
+      return PopupMenuButton<_Panel>(
+        tooltip: 'Panels',
+        initialValue: selectedPanel,
+        onSelected: onPanel,
+        icon: Icon(
+          selectedPanel == null
+              ? Icons.dashboard_customize
+              : _panelIcon(selectedPanel!),
+        ),
+        itemBuilder: (context) => _Panel.values
+            .map(
+              (panel) => PopupMenuItem(
+                value: panel,
+                child: Row(
+                  children: [
+                    Icon(_panelIcon(panel), size: 18),
+                    const SizedBox(width: 10),
+                    Text(_panelLabel(panel)),
+                  ],
+                ),
               ),
-            ),
-          )
-          .toList(),
-    ),
-  );
+            )
+            .toList(),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: _Panel.values
+            .map(
+              (panel) => Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _PanelNavButton(
+                  panel: panel,
+                  selected: selectedPanel == panel,
+                  onTap: () => onPanel(panel),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
 }
 
 class _PanelNavButton extends StatelessWidget {
@@ -634,24 +663,102 @@ class _PanelNavButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-    onPressed: onTap,
-    icon: Icon(_panelIcon(panel), size: 16),
-    label: Text(_panelLabel(panel)),
-    style: OutlinedButton.styleFrom(
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      minimumSize: const Size(0, 34),
-      foregroundColor: selected ? const Color(0xff77c9ff) : null,
-      backgroundColor: selected
-          ? const Color(0xff2f8cff).withValues(alpha: 0.16)
-          : _subtleSurface(context),
-      side: BorderSide(
-        color: selected ? const Color(0xff77c9ff) : _hairline(context),
+  Widget build(BuildContext context) => Tooltip(
+    message: _panelLabel(panel),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xff2f8cff).withValues(alpha: 0.2)
+              : _subtleSurface(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? const Color(0xff77c9ff) : _hairline(context),
+          ),
+        ),
+        child: Icon(
+          _panelIcon(panel),
+          size: 18,
+          color: selected ? const Color(0xff77c9ff) : null,
+        ),
       ),
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
     ),
   );
+}
+
+class _SpeedControl extends StatelessWidget {
+  const _SpeedControl({
+    required this.compact,
+    required this.speedValue,
+    required this.onSpeed,
+  });
+
+  final bool compact;
+  final int speedValue;
+  final ValueChanged<int> onSpeed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return PopupMenuButton<int>(
+        tooltip: 'Game speed',
+        initialValue: speedValue,
+        onSelected: onSpeed,
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: 0,
+            child: ListTile(leading: Icon(Icons.pause), title: Text('Paused')),
+          ),
+          PopupMenuItem(value: 1, child: Text('1x')),
+          PopupMenuItem(value: 3, child: Text('3x')),
+          PopupMenuItem(value: 6, child: Text('6x')),
+        ],
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: _subtleSurface(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _hairline(context)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(speedValue == 0 ? Icons.pause : Icons.speed, size: 17),
+              const SizedBox(width: 5),
+              Text(
+                speedValue == 0 ? 'Pause' : '${speedValue}x',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SegmentedButton<int>(
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      ),
+      segments: const [
+        ButtonSegment(value: 0, icon: Icon(Icons.pause)),
+        ButtonSegment(value: 1, label: Text('1x')),
+        ButtonSegment(value: 3, label: Text('3x')),
+        ButtonSegment(value: 6, label: Text('6x')),
+      ],
+      selected: {speedValue},
+      onSelectionChanged: (v) => onSpeed(v.first),
+    );
+  }
 }
 
 IconData _panelIcon(_Panel panel) => switch (panel) {
@@ -675,10 +782,13 @@ class _AirlineBadge extends StatelessWidget {
     required this.game,
     required this.currency,
     required this.onCurrency,
+    required this.compact,
   });
   final GameController game;
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final muted = _mutedText(context);
@@ -697,30 +807,32 @@ class _AirlineBadge extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _AirlineLogo(logo: game.player.logoEmoji, size: 28),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  game.player.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+            if (!compact) ...[
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    game.player.name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                Text(
-                  money(game.player.cashUSD, currency),
-                  style: TextStyle(
-                    color: game.player.cashUSD >= 0
-                        ? const Color(0xff25c96b)
-                        : const Color(0xffff6b6b),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
+                  Text(
+                    money(game.player.cashUSD, currency),
+                    style: TextStyle(
+                      color: game.player.cashUSD >= 0
+                          ? const Color(0xff25c96b)
+                          : const Color(0xffff6b6b),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 6),
+                ],
+              ),
+              const SizedBox(width: 6),
+            ],
             Icon(Icons.expand_more, size: 18, color: muted),
           ],
         ),
@@ -842,6 +954,28 @@ void _showAirlineProfileDialog(
                     ],
                   ),
                 ),
+              _Card(
+                child: DropdownButtonFormField<CurrencyOption>(
+                  initialValue: currency,
+                  decoration: const InputDecoration(
+                    labelText: 'Display currency',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: currencyOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option,
+                          child: Text('${option.code} · ${option.symbol}'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    onCurrency(value);
+                  },
+                ),
+              ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1101,47 +1235,6 @@ class _LogoPicker extends StatelessWidget {
             : 'Pick an emoji, type a short mark, or paste a data:image logo.',
         style: const TextStyle(color: Color(0xff9aa4b5), fontSize: 12),
       ),
-    ],
-  );
-}
-
-class _GameMenu extends StatelessWidget {
-  const _GameMenu({
-    required this.game,
-    required this.currency,
-    required this.onCurrency,
-  });
-  final GameController game;
-  final CurrencyOption currency;
-  final ValueChanged<CurrencyOption> onCurrency;
-
-  @override
-  Widget build(BuildContext context) => PopupMenuButton<String>(
-    tooltip: 'Game menu',
-    icon: const Icon(Icons.more_horiz),
-    onSelected: (value) {
-      switch (value) {
-        case 'export':
-          _showExportDialog(context, game);
-        case 'import':
-          _showImportDialog(context, game, onCurrency);
-        case 'rebrand':
-          _showRebrandDialog(context, game, currency);
-        case 'theme':
-          _showSettingsDialog(context, game);
-        case 'new':
-          _showNewGameDialog(context, game, currency, onCurrency);
-      }
-    },
-    itemBuilder: (context) => const [
-      PopupMenuItem(value: 'rebrand', child: Text('Rebrand airline')),
-      PopupMenuDivider(),
-      PopupMenuItem(value: 'export', child: Text('Export progress')),
-      PopupMenuItem(value: 'import', child: Text('Import progress')),
-      PopupMenuDivider(),
-      PopupMenuItem(value: 'theme', child: Text('Theme')),
-      PopupMenuDivider(),
-      PopupMenuItem(value: 'new', child: Text('Start again')),
     ],
   );
 }
@@ -2042,15 +2135,23 @@ void _showImportDialog(
 }
 
 class _DateBadge extends StatelessWidget {
-  const _DateBadge({required this.game});
+  const _DateBadge({required this.game, required this.compact});
   final GameController game;
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
-    final year = game.settings.startingYear + game.gameDay ~/ 365;
-    final day = game.gameDay % 365 + 1;
+    final date = DateTime(
+      game.settings.startingYear,
+      1,
+      1,
+    ).add(Duration(days: game.gameDay));
     final dayMs = game.gameTimeMs % gameDayMs;
     final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
     final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
+    final label = compact
+        ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
+        : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
@@ -2059,12 +2160,27 @@ class _DateBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
       ),
       child: Text(
-        'Day $day, $year · $hour:$minute',
+        label,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
       ),
     );
   }
 }
+
+String _monthLabel(int month) => const [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+][(month - 1).clamp(0, 11)];
 
 class _SearchBox extends StatelessWidget {
   const _SearchBox({required this.onAirport});
