@@ -7472,7 +7472,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   String? selectedAircraftId;
   String buyManufacturer = 'All';
   bool showAircraftShop = false;
-  bool buyNewAircraft = false;
+  bool buyNewAircraft = true;
   int flights = 7;
   bool optimise = true;
   String? error;

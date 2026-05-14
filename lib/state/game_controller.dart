@@ -1092,6 +1092,7 @@ class GameController extends ChangeNotifier {
       airlineId: ownerId,
       purchasedGameDay: gameDay,
       assignedRouteId: routeId,
+      status: routeId == null ? AircraftStatus.idle : AircraftStatus.flying,
       currentLat: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lat ?? 0,
       currentLon: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lon ?? 0,
     );
@@ -1331,6 +1332,7 @@ class GameController extends ChangeNotifier {
         aircraft[assignedAircraftId] != null) {
       aircraft[assignedAircraftId] = aircraft[assignedAircraftId]!.copyWith(
         assignedRouteId: routeId,
+        status: AircraftStatus.flying,
       );
     }
     notifyListeners();

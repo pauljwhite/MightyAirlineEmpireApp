@@ -30,6 +30,11 @@ void main() {
       expect(game.playerRoutes, hasLength(1));
       expect(game.player.cashUSD, lessThan(initialCash));
       expect(route.aircraftId, isNotNull);
+      expect(game.routes[route.id]!.isActive, isTrue);
+      expect(
+        game.aircraft[game.routes[route.id]!.aircraftId!]!.status,
+        AircraftStatus.flying,
+      );
 
       final optimised = game.optimiseRoute(route.id);
       final optimisedRoute = game.routes[route.id]!;
