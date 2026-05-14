@@ -2656,10 +2656,12 @@ class _WorldMapState extends State<_WorldMap> {
       to.lon,
       math.min(1, t + 0.01),
     );
-    final angle = math.atan2(
-      -(ahead.lat - visualPoint.lat),
-      _shortestLonDelta(visualPoint.lon, ahead.lon),
-    );
+    final angle =
+        math.atan2(
+          -(ahead.lat - visualPoint.lat),
+          _shortestLonDelta(visualPoint.lon, ahead.lon),
+        ) +
+        math.pi / 2;
     final airline = widget.game.airlines[route.airlineId];
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
