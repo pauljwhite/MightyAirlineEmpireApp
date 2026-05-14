@@ -4682,8 +4682,6 @@ class _FleetView extends StatefulWidget {
 }
 
 class _FleetViewState extends State<_FleetView> {
-  var manufacturer = 'All';
-  var showBuyAircraft = false;
   String? confirmingSaleId;
 
   String _maintenanceTierLabel(MaintenanceTier tier) =>
@@ -4701,27 +4699,6 @@ class _FleetViewState extends State<_FleetView> {
     final currency = widget.currency;
     final fleet = game.playerFleet;
     final policy = game.player.maintenancePolicy;
-    final gameYear = game.settings.startingYear + game.gameDay ~/ 365;
-    final manufacturers = [
-      'All',
-      ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
-        ..sort(),
-    ];
-    final visibleTypes =
-        aircraftTypes
-            .where(
-              (type) =>
-                  manufacturer == 'All' || type.manufacturer == manufacturer,
-            )
-            .toList()
-          ..sort((a, b) {
-            final aAvailable = a.yearIntroduced <= gameYear;
-            final bAvailable = b.yearIntroduced <= gameYear;
-            if (aAvailable != bAvailable) return aAvailable ? -1 : 1;
-            final maker = a.manufacturer.compareTo(b.manufacturer);
-            if (maker != 0) return maker;
-            return a.model.compareTo(b.model);
-          });
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -4739,139 +4716,17 @@ class _FleetViewState extends State<_FleetView> {
                 ),
               ),
               FilledButton.icon(
-                onPressed: () =>
-                    setState(() => showBuyAircraft = !showBuyAircraft),
-                icon: Icon(showBuyAircraft ? Icons.expand_less : Icons.add),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (context) =>
+                      _BuyAircraftDialog(game: game, currency: currency),
+                ),
+                icon: const Icon(Icons.add),
                 label: const Text('Buy Aircraft'),
               ),
             ],
           ),
         ),
-        if (showBuyAircraft)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Buy aircraft · Year $gameYear',
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                      Text(
-                        money(game.player.cashUSD, currency),
-                        style: const TextStyle(
-                          color: Color(0xff3af083),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: manufacturer,
-                    decoration: const InputDecoration(
-                      labelText: 'Manufacturer',
-                    ),
-                    items: manufacturers
-                        .map(
-                          (item) =>
-                              DropdownMenuItem(value: item, child: Text(item)),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => manufacturer = value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Showing ${visibleTypes.length} aircraft${manufacturer == 'All' ? '' : ' from $manufacturer'}',
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
-                  ),
-                  const SizedBox(height: 12),
-                  ...visibleTypes.map((type) {
-                    final unavailable = type.yearIntroduced > gameYear;
-                    final canAfford = game.player.cashUSD >= type.purchasePrice;
-                    final canBuy = !unavailable && canAfford;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.035),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  type.displayName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                Text(
-                                  '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
-                                  style: const TextStyle(
-                                    color: Color(0xff9aa4b5),
-                                  ),
-                                ),
-                                Text(
-                                  'Runway ${type.minRunwayM} m · ${type.cruiseSpeedKmh} km/h · ${money(type.maintenanceCostPerHourUSD, currency)}/hr maint.',
-                                  style: const TextStyle(
-                                    color: Color(0xff9aa4b5),
-                                  ),
-                                ),
-                                if (unavailable)
-                                  Text(
-                                    'Available ${type.yearIntroduced}',
-                                    style: const TextStyle(
-                                      color: Color(0xffffd166),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                money(type.purchasePrice, currency),
-                                style: TextStyle(
-                                  color: !unavailable && !canAfford
-                                      ? const Color(0xffff6b6b)
-                                      : null,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              FilledButton.tonal(
-                                onPressed: canBuy
-                                    ? () => game.buyAircraft(type.id)
-                                    : null,
-                                child: Text(canAfford ? 'Buy' : 'No funds'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
         ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 12),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -5452,6 +5307,481 @@ class _FleetViewState extends State<_FleetView> {
       ],
     );
   }
+}
+
+class _BuyAircraftDialog extends StatefulWidget {
+  const _BuyAircraftDialog({required this.game, required this.currency});
+
+  final GameController game;
+  final CurrencyOption currency;
+
+  @override
+  State<_BuyAircraftDialog> createState() => _BuyAircraftDialogState();
+}
+
+class _BuyAircraftDialogState extends State<_BuyAircraftDialog> {
+  static const allManufacturers = 'All';
+
+  var selectedManufacturer = allManufacturers;
+  String? purchaseError;
+
+  @override
+  Widget build(BuildContext context) {
+    final gameYear =
+        widget.game.settings.startingYear + widget.game.gameDay ~/ 365;
+    final manufacturers = <String>[
+      allManufacturers,
+      ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())),
+    ];
+    final visibleTypes =
+        aircraftTypes
+            .where(
+              (type) =>
+                  selectedManufacturer == allManufacturers ||
+                  type.manufacturer == selectedManufacturer,
+            )
+            .toList()
+          ..sort((a, b) {
+            final aAvailable = a.yearIntroduced <= gameYear;
+            final bAvailable = b.yearIntroduced <= gameYear;
+            if (aAvailable != bAvailable) return aAvailable ? -1 : 1;
+            final maker = a.manufacturer.compareTo(b.manufacturer);
+            if (maker != 0) return maker;
+            return a.model.compareTo(b.model);
+          });
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final dialogHeight =
+        MediaQuery.sizeOf(context).height * (compact ? 0.94 : 0.86);
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 36,
+        vertical: compact ? 10 : 28,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 920, maxHeight: dialogHeight),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Buy Aircraft',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              'Cash available: ${money(widget.game.player.cashUSD, widget.currency)}',
+                              style: const TextStyle(
+                                color: Color(0xff3af083),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Year $gameYear',
+                              style: const TextStyle(color: Color(0xff8b95a8)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: compact
+                  ? Column(
+                      children: [
+                        _ManufacturerRail(
+                          manufacturers: manufacturers,
+                          selected: selectedManufacturer,
+                          horizontal: true,
+                          onSelected: _selectManufacturer,
+                        ),
+                        Expanded(
+                          child: _AircraftPurchaseList(
+                            game: widget.game,
+                            currency: widget.currency,
+                            gameYear: gameYear,
+                            types: visibleTypes,
+                            purchaseError: purchaseError,
+                            onBuy: _buyAircraft,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        SizedBox(
+                          width: 178,
+                          child: _ManufacturerRail(
+                            manufacturers: manufacturers,
+                            selected: selectedManufacturer,
+                            horizontal: false,
+                            onSelected: _selectManufacturer,
+                          ),
+                        ),
+                        const VerticalDivider(width: 1),
+                        Expanded(
+                          child: _AircraftPurchaseList(
+                            game: widget.game,
+                            currency: widget.currency,
+                            gameYear: gameYear,
+                            types: visibleTypes,
+                            purchaseError: purchaseError,
+                            onBuy: _buyAircraft,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _selectManufacturer(String manufacturer) {
+    setState(() {
+      selectedManufacturer = manufacturer;
+      purchaseError = null;
+    });
+  }
+
+  void _buyAircraft(AircraftType type) {
+    if (type.yearIntroduced >
+        widget.game.settings.startingYear + widget.game.gameDay ~/ 365) {
+      return;
+    }
+    if (widget.game.player.cashUSD < type.purchasePrice) return;
+    try {
+      widget.game.buyAircraft(type.id);
+      Navigator.pop(context);
+    } catch (e) {
+      setState(
+        () => purchaseError = e.toString().replaceFirst('Bad state: ', ''),
+      );
+    }
+  }
+}
+
+class _ManufacturerRail extends StatelessWidget {
+  const _ManufacturerRail({
+    required this.manufacturers,
+    required this.selected,
+    required this.horizontal,
+    required this.onSelected,
+  });
+
+  final List<String> manufacturers;
+  final String selected;
+  final bool horizontal;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = manufacturers.map((manufacturer) {
+      final isSelected = selected == manufacturer;
+      return Padding(
+        padding: EdgeInsets.only(
+          right: horizontal ? 4 : 0,
+          bottom: horizontal ? 0 : 2,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(horizontal ? 999 : 0),
+          onTap: () => onSelected(manufacturer),
+          child: Container(
+            width: horizontal ? null : double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontal ? 12 : 14,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(horizontal ? 999 : 0),
+            ),
+            child: Text(
+              manufacturer,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSelected
+                    ? const Color(0xfff8fafc)
+                    : const Color(0xff9aa4b5),
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+
+    if (horizontal) {
+      return Container(
+        height: 52,
+        color: Colors.white.withValues(alpha: 0.025),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          children: children,
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.white.withValues(alpha: 0.025),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: children,
+      ),
+    );
+  }
+}
+
+class _AircraftPurchaseList extends StatelessWidget {
+  const _AircraftPurchaseList({
+    required this.game,
+    required this.currency,
+    required this.gameYear,
+    required this.types,
+    required this.purchaseError,
+    required this.onBuy,
+  });
+
+  final GameController game;
+  final CurrencyOption currency;
+  final int gameYear;
+  final List<AircraftType> types;
+  final String? purchaseError;
+  final ValueChanged<AircraftType> onBuy;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(14),
+      children: [
+        if (purchaseError != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xffff6b6b).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xffff6b6b).withValues(alpha: 0.35),
+              ),
+            ),
+            child: Text(
+              purchaseError!,
+              style: const TextStyle(color: Color(0xffffb4b4)),
+            ),
+          ),
+        ...types.map((type) {
+          final unavailable = type.yearIntroduced > gameYear;
+          final canAfford = game.player.cashUSD >= type.purchasePrice;
+          return _AircraftPurchaseCard(
+            type: type,
+            currency: currency,
+            unavailable: unavailable,
+            canAfford: canAfford,
+            onBuy: () => onBuy(type),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _AircraftPurchaseCard extends StatelessWidget {
+  const _AircraftPurchaseCard({
+    required this.type,
+    required this.currency,
+    required this.unavailable,
+    required this.canAfford,
+    required this.onBuy,
+  });
+
+  final AircraftType type;
+  final CurrencyOption currency;
+  final bool unavailable;
+  final bool canAfford;
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: unavailable ? 0.5 : 1,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.055),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 112,
+              height: 58,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: _subtleSurface(context),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _hairline(context)),
+              ),
+              child: Icon(
+                _aircraftCategoryIcon(type.category),
+                color: unavailable
+                    ? const Color(0xff6b7280)
+                    : const Color(0xff77c9ff),
+                size: 34,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              type.model,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Text(
+                              _aircraftCategoryLabel(type.category),
+                              style: const TextStyle(
+                                color: Color(0xff8b95a8),
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (unavailable)
+                              _FleetStatusChip(
+                                label: 'AVAIL. ${type.yearIntroduced}',
+                                color: const Color(0xffffd166),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            money(type.purchasePrice, currency),
+                            style: TextStyle(
+                              color: !unavailable && !canAfford
+                                  ? const Color(0xffff6b6b)
+                                  : const Color(0xfff8fafc),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (!unavailable)
+                            FilledButton(
+                              onPressed: canAfford ? onBuy : null,
+                              child: Text(canAfford ? 'Buy' : 'No funds'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      _SpecText(
+                        'Seats',
+                        type.seatsBusiness > 0
+                            ? '${type.seatsEconomy}Y/${type.seatsBusiness}J'
+                            : '${type.seatsEconomy}Y',
+                      ),
+                      _SpecText('Range', '${_formatCount(type.rangeKm)} km'),
+                      _SpecText('Runway', '${type.minRunwayM} m'),
+                      _SpecText('Speed', '${type.cruiseSpeedKmh} km/h'),
+                      _SpecText(
+                        'Fuel',
+                        '${_formatCount(type.fuelBurnLPer100Km)} L/100km',
+                      ),
+                      _SpecText(
+                        'Maint',
+                        '${money(type.maintenanceCostPerHourUSD, currency)}/hr',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+IconData _aircraftCategoryIcon(AircraftCategory category) => switch (category) {
+  AircraftCategory.regional => Icons.connecting_airports,
+  AircraftCategory.narrowbody => Icons.flight,
+  AircraftCategory.widebody => Icons.airplanemode_active,
+  AircraftCategory.sst => Icons.rocket_launch,
+};
+
+class _SpecText extends StatelessWidget {
+  const _SpecText(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Text.rich(
+    TextSpan(
+      text: '$label: ',
+      style: const TextStyle(color: Color(0xff8b95a8), fontSize: 12),
+      children: [
+        TextSpan(
+          text: value,
+          style: const TextStyle(
+            color: Color(0xffcfd6e6),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _FleetStatusChip extends StatelessWidget {
