@@ -44,6 +44,7 @@ class MightyAirlineEmpireApp extends StatefulWidget {
 
 class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   late final GameController game;
+  final _navigatorKey = GlobalKey<NavigatorState>();
   Timer? _gameLoop;
   DateTime? _lastTickAt;
   var currency = currencyOptions.first;
@@ -82,8 +83,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     Airport? destination,
     bool useSelectedAirport = false,
   }) {
+    final dialogContext = _navigatorKey.currentContext ?? context;
     showDialog<void>(
-      context: context,
+      context: dialogContext,
       builder: (context) => _CreateRouteDialog(
         game: game,
         currency: currency,
@@ -94,16 +96,17 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   }
 
   void _openRouteDetail(RoutePlan route) {
+    final dialogContext = _navigatorKey.currentContext ?? context;
     if (game.airlines[route.airlineId]?.isPlayer == true) {
       showDialog<void>(
-        context: context,
+        context: dialogContext,
         builder: (context) =>
             _RouteEditDialog(game: game, route: route, currency: currency),
       );
       return;
     }
     showDialog<void>(
-      context: context,
+      context: dialogContext,
       builder: (context) =>
           _RouteSummaryDialog(game: game, route: route, currency: currency),
     );
@@ -121,7 +124,8 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     _autoOpenedArticleIds.add(article.id);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !game.newsArticles.containsKey(article.id)) return;
-      _showHeraldArticle(context, game, article);
+      final dialogContext = _navigatorKey.currentContext ?? context;
+      _showHeraldArticle(dialogContext, game, article);
     });
   }
 
@@ -132,6 +136,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
       builder: (context, _) {
         final lightMode = game.themeMode == ThemeModeSetting.light;
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'Mighty Airline Empire',
           theme:
