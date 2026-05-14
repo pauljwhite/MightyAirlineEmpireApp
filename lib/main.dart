@@ -7465,7 +7465,10 @@ class _CreateRouteDialog extends StatefulWidget {
 
 class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   late Airport origin = widget.origin ?? airportsByIata['LHR']!;
-  late Airport destination = widget.destination ?? airportsByIata['JFK']!;
+  late Airport destination = _initialRouteDestination(
+    origin,
+    widget.destination,
+  );
   late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
   late final ecoController = TextEditingController();
   late final bizController = TextEditingController();
@@ -7602,6 +7605,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                 value: origin,
                 onChanged: (a) => setState(() {
                   origin = a;
+                  if (destination.iata == a.iata) {
+                    destination = _fallbackRouteDestination(a);
+                  }
                   error = null;
                 }),
               ),
@@ -7900,6 +7906,23 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       setState(() => error = e.toString().replaceFirst('Bad state: ', ''));
     }
   }
+}
+
+Airport _initialRouteDestination(Airport origin, Airport? requested) {
+  if (requested != null && requested.iata != origin.iata) return requested;
+  return _fallbackRouteDestination(origin);
+}
+
+Airport _fallbackRouteDestination(Airport origin) {
+  const preferred = ['JFK', 'LHR', 'LAX', 'CDG', 'HND', 'DXB', 'SYD'];
+  for (final iata in preferred) {
+    final airport = airportsByIata[iata];
+    if (airport != null && airport.iata != origin.iata) return airport;
+  }
+  return airports.firstWhere(
+    (airport) => airport.iata != origin.iata,
+    orElse: () => origin,
+  );
 }
 
 class _RouteAircraftPicker extends StatelessWidget {
