@@ -37,7 +37,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   DateTime? _lastTickAt;
   var currency = currencyOptions.first;
   Airport? selectedAirport = airportsByIata['LHR'];
-  var panel = _Panel.routes;
+  _Panel? panel;
   var mobileSearchOpen = false;
   final _autoOpenedArticleIds = <String>{};
 
@@ -140,6 +140,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 980;
+                  final topOffset = compact
+                      ? (mobileSearchOpen ? 132.0 : 88.0)
+                      : 72.0;
                   _scheduleHeraldAutoOpen(context);
                   return Stack(
                     children: [
@@ -162,9 +165,12 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                           compact: compact,
                           currency: currency,
                           searchOpen: mobileSearchOpen,
+                          selectedPanel: panel,
                           onToggleSearch: () => setState(
                             () => mobileSearchOpen = !mobileSearchOpen,
                           ),
+                          onPanel: (p) =>
+                              setState(() => panel = panel == p ? null : p),
                           onCurrency: (v) => setState(() => currency = v),
                           onSpeed: (v) => game.setSpeed(v == 0 ? 0 : v * 300),
                           onAirport: (a) => setState(() {
@@ -174,7 +180,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                         ),
                       ),
                       Positioned(
-                        top: compact ? 112 : 92,
+                        top: topOffset,
                         left: 12,
                         child: _MapToggle(
                           showAi: game.showAiOnMap,
@@ -184,23 +190,27 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 260),
                         curve: Curves.easeInOut,
-                        top: compact ? 112 : 92,
+                        top: topOffset,
                         bottom: 52,
-                        right: 12,
+                        right: panel == null
+                            ? -(compact ? constraints.maxWidth : 430) - 32
+                            : 12,
                         width: compact ? constraints.maxWidth - 24 : 430,
-                        child: _MainPanel(
-                          game: game,
-                          panel: panel,
-                          currency: currency,
-                          onPanel: (p) => setState(() => panel = p),
-                          onCreateRoute: () => _openCreateRoute(),
-                        ),
+                        child: panel == null
+                            ? const SizedBox.shrink()
+                            : _MainPanel(
+                                game: game,
+                                panel: panel!,
+                                currency: currency,
+                                onClose: () => setState(() => panel = null),
+                                onCreateRoute: () => _openCreateRoute(),
+                              ),
                       ),
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 260),
                         curve: Curves.easeInOut,
                         left: selectedAirport == null ? -460 : 12,
-                        top: compact ? 112 : 92,
+                        top: topOffset,
                         bottom: 52,
                         width: compact ? constraints.maxWidth - 24 : 430,
                         child: selectedAirport == null
@@ -476,7 +486,9 @@ class _TopBar extends StatelessWidget {
     required this.compact,
     required this.currency,
     required this.searchOpen,
+    required this.selectedPanel,
     required this.onToggleSearch,
+    required this.onPanel,
     required this.onCurrency,
     required this.onSpeed,
     required this.onAirport,
@@ -485,7 +497,9 @@ class _TopBar extends StatelessWidget {
   final bool compact;
   final CurrencyOption currency;
   final bool searchOpen;
+  final _Panel? selectedPanel;
   final VoidCallback onToggleSearch;
+  final ValueChanged<_Panel> onPanel;
   final ValueChanged<CurrencyOption> onCurrency;
   final ValueChanged<int> onSpeed;
   final ValueChanged<Airport> onAirport;
@@ -495,12 +509,13 @@ class _TopBar extends StatelessWidget {
     final speedValue = game.speed == 0
         ? 0
         : (game.speed / 300).round().clamp(1, 6);
+    final nav = _PanelNav(selectedPanel: selectedPanel, onPanel: onPanel);
     return Container(
       decoration: BoxDecoration(
         color: _chromeSurface(context),
         border: Border(bottom: BorderSide(color: _hairline(context))),
       ),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: Column(
         children: [
           Row(
@@ -512,19 +527,24 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               _GameMenu(game: game, currency: currency, onCurrency: onCurrency),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _DateBadge(game: game),
+              if (!compact) ...[
+                const SizedBox(width: 10),
+                Flexible(child: nav),
+              ],
               const Spacer(),
-              if (!compact) SizedBox(width: 320, child: search),
+              if (!compact) SizedBox(width: 260, child: search),
               if (compact)
                 IconButton(
                   tooltip: 'Search airports',
                   onPressed: onToggleSearch,
                   icon: Icon(searchOpen ? Icons.close : Icons.search),
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               DropdownButton<CurrencyOption>(
                 value: currency,
+                isDense: true,
                 underline: const SizedBox.shrink(),
                 items: currencyOptions
                     .map((c) => DropdownMenuItem(value: c, child: Text(c.code)))
@@ -533,8 +553,15 @@ class _TopBar extends StatelessWidget {
                   if (v != null) onCurrency(v);
                 },
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               SegmentedButton<int>(
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
                 segments: const [
                   ButtonSegment(value: 0, icon: Icon(Icons.pause)),
                   ButtonSegment(value: 1, label: Text('1x')),
@@ -558,11 +585,88 @@ class _TopBar extends StatelessWidget {
                 ? Padding(padding: const EdgeInsets.only(top: 8), child: search)
                 : const SizedBox.shrink(),
           ),
+          if (compact)
+            Padding(padding: const EdgeInsets.only(top: 5), child: nav),
         ],
       ),
     );
   }
 }
+
+class _PanelNav extends StatelessWidget {
+  const _PanelNav({required this.selectedPanel, required this.onPanel});
+
+  final _Panel? selectedPanel;
+  final ValueChanged<_Panel> onPanel;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: _Panel.values
+          .map(
+            (panel) => Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _PanelNavButton(
+                panel: panel,
+                selected: selectedPanel == panel,
+                onTap: () => onPanel(panel),
+              ),
+            ),
+          )
+          .toList(),
+    ),
+  );
+}
+
+class _PanelNavButton extends StatelessWidget {
+  const _PanelNavButton({
+    required this.panel,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _Panel panel;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+    onPressed: onTap,
+    icon: Icon(_panelIcon(panel), size: 16),
+    label: Text(_panelLabel(panel)),
+    style: OutlinedButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      minimumSize: const Size(0, 34),
+      foregroundColor: selected ? const Color(0xff77c9ff) : null,
+      backgroundColor: selected
+          ? const Color(0xff2f8cff).withValues(alpha: 0.16)
+          : _subtleSurface(context),
+      side: BorderSide(
+        color: selected ? const Color(0xff77c9ff) : _hairline(context),
+      ),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+    ),
+  );
+}
+
+IconData _panelIcon(_Panel panel) => switch (panel) {
+  _Panel.routes => Icons.alt_route,
+  _Panel.fleet => Icons.flight,
+  _Panel.finance => Icons.account_balance_wallet,
+  _Panel.competitors => Icons.groups,
+  _Panel.hubs => Icons.apartment,
+};
+
+String _panelLabel(_Panel panel) => switch (panel) {
+  _Panel.routes => 'Routes',
+  _Panel.fleet => 'Fleet',
+  _Panel.finance => 'Finance',
+  _Panel.competitors => 'Rivals',
+  _Panel.hubs => 'Hubs',
+};
 
 class _AirlineBadge extends StatelessWidget {
   const _AirlineBadge({
@@ -581,7 +685,7 @@ class _AirlineBadge extends StatelessWidget {
       onTap: () =>
           _showAirlineProfileDialog(context, game, currency, onCurrency),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: _cardSurface(context),
           border: Border.all(color: _hairline(context)),
@@ -590,14 +694,17 @@ class _AirlineBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _AirlineLogo(logo: game.player.logoEmoji, size: 34),
-            const SizedBox(width: 10),
+            _AirlineLogo(logo: game.player.logoEmoji, size: 28),
+            const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   game.player.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   money(game.player.cashUSD, currency),
@@ -606,6 +713,7 @@ class _AirlineBadge extends StatelessWidget {
                         ? const Color(0xff25c96b)
                         : const Color(0xffff6b6b),
                     fontWeight: FontWeight.w800,
+                    fontSize: 13,
                   ),
                 ),
               ],
@@ -1942,7 +2050,7 @@ class _DateBadge extends StatelessWidget {
     final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
     final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xff111827),
         border: Border.all(color: const Color(0xff263247)),
@@ -1950,7 +2058,7 @@ class _DateBadge extends StatelessWidget {
       ),
       child: Text(
         'Day $day, $year · $hour:$minute',
-        style: const TextStyle(fontWeight: FontWeight.w800),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -3228,30 +3336,39 @@ class _MainPanel extends StatelessWidget {
     required this.game,
     required this.panel,
     required this.currency,
-    required this.onPanel,
+    required this.onClose,
     required this.onCreateRoute,
   });
   final GameController game;
   final _Panel panel;
   final CurrencyOption currency;
-  final ValueChanged<_Panel> onPanel;
+  final VoidCallback onClose;
   final VoidCallback onCreateRoute;
   @override
   Widget build(BuildContext context) => _PanelShell(
     child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: SegmentedButton<_Panel>(
-            segments: const [
-              ButtonSegment(value: _Panel.routes, label: Text('Routes')),
-              ButtonSegment(value: _Panel.fleet, label: Text('Fleet')),
-              ButtonSegment(value: _Panel.finance, label: Text('Finance')),
-              ButtonSegment(value: _Panel.competitors, label: Text('Rivals')),
-              ButtonSegment(value: _Panel.hubs, label: Text('Hubs')),
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+          child: Row(
+            children: [
+              Icon(_panelIcon(panel), color: const Color(0xff77c9ff)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _panelLabel(panel),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Close panel',
+                onPressed: onClose,
+                icon: const Icon(Icons.close),
+              ),
             ],
-            selected: {panel},
-            onSelectionChanged: (v) => onPanel(v.first),
           ),
         ),
         const Divider(height: 1),
