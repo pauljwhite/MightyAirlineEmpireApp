@@ -16,6 +16,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Create route'), findsOneWidget);
+    expect(find.text('Origin'), findsWidgets);
+    expect(find.text('Destination'), findsWidgets);
+    expect(find.text('Aircraft compatible'), findsOneWidget);
     expect(find.textContaining('Create + buy'), findsOneWidget);
     expect(find.text('Create inactive route'), findsNothing);
 

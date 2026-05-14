@@ -7457,6 +7457,200 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
   }
 }
 
+class _RouteJourneyCard extends StatelessWidget {
+  const _RouteJourneyCard({
+    required this.origin,
+    required this.destination,
+    required this.distanceKm,
+    required this.demand,
+    required this.competitorCount,
+    required this.aircraftType,
+    required this.rangeLimited,
+    required this.runwayLimited,
+    required this.currency,
+  });
+
+  final Airport origin;
+  final Airport destination;
+  final double distanceKm;
+  final double demand;
+  final int competitorCount;
+  final AircraftType aircraftType;
+  final bool rangeLimited;
+  final bool runwayLimited;
+  final CurrencyOption currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final potentialValue =
+        demand * (150 + math.sqrt(math.max(250, distanceKm)) * 18);
+    final statusColor = rangeLimited || runwayLimited
+        ? const Color(0xffff6b6b)
+        : const Color(0xff3af083);
+    final statusText = rangeLimited
+        ? '${aircraftType.model} range ${_formatCount(aircraftType.rangeKm)} km'
+        : runwayLimited
+        ? 'Runway too short for ${aircraftType.model}'
+        : 'Aircraft compatible';
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _JourneyAirportBlock(
+                  label: 'Origin',
+                  airport: origin,
+                  alignEnd: false,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  children: [
+                    const Icon(Icons.flight_takeoff, color: Color(0xff77c9ff)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _distanceLabel(distanceKm),
+                      style: const TextStyle(
+                        color: Color(0xff9aa4b5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _JourneyAirportBlock(
+                  label: 'Destination',
+                  airport: destination,
+                  alignEnd: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _JourneyPill(
+                icon: Icons.groups,
+                label: '${_formatCount(demand)} pax/day',
+              ),
+              _JourneyPill(
+                icon: Icons.trending_up,
+                label: '${money(potentialValue, currency)}/day potential',
+              ),
+              _JourneyPill(
+                icon: Icons.route,
+                label: competitorCount == 0
+                    ? 'No live rivals'
+                    : '$competitorCount live rival route${competitorCount == 1 ? '' : 's'}',
+              ),
+              _JourneyPill(
+                icon: rangeLimited || runwayLimited
+                    ? Icons.warning_amber
+                    : Icons.check_circle,
+                label: statusText,
+                color: statusColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyAirportBlock extends StatelessWidget {
+  const _JourneyAirportBlock({
+    required this.label,
+    required this.airport,
+    required this.alignEnd,
+  });
+
+  final String label;
+  final Airport airport;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: alignEnd
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: Color(0xff8b95a8), fontSize: 12),
+      ),
+      Text(
+        airport.iata,
+        style: const TextStyle(
+          color: Color(0xff77c9ff),
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+        ),
+      ),
+      Text(
+        airport.city,
+        textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      Text(
+        airport.country,
+        textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xff9aa4b5), fontSize: 12),
+      ),
+    ],
+  );
+}
+
+class _JourneyPill extends StatelessWidget {
+  const _JourneyPill({
+    required this.icon,
+    required this.label,
+    this.color = const Color(0xff9aa4b5),
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+    decoration: BoxDecoration(
+      color: _subtleSurface(context),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: _hairline(context)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _CreateRouteDialog extends StatefulWidget {
   const _CreateRouteDialog({
     required this.game,
@@ -7543,6 +7737,19 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     }
     final effectiveType = selectedAircraftType ?? type;
     type = effectiveType;
+    final runwayLimited =
+        !canAirportHandleAircraft(origin, effectiveType) ||
+        !canAirportHandleAircraft(destination, effectiveType);
+    final rangeLimited = effectiveType.rangeKm < distance;
+    final pair = routePairKey(origin.iata, destination.iata);
+    final competitorCount = widget.game.routes.values
+        .where(
+          (route) =>
+              route.isActive &&
+              route.airlineId != 'player' &&
+              routePairKey(route.originIata, route.destinationIata) == pair,
+        )
+        .length;
     final hasAircraftForRoute = selectedAircraft != null || buyNewAircraft;
     final canAffordPendingAircraft =
         !buyNewAircraft ||
@@ -7636,6 +7843,20 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                   'Origin and destination must be different airports.',
                 ),
               ],
+              const SizedBox(height: 10),
+              _RouteJourneyCard(
+                origin: origin,
+                destination: destination,
+                distanceKm: distance,
+                demand: sameAirport
+                    ? 0
+                    : baselineDailyPassengers(origin, destination),
+                competitorCount: sameAirport ? 0 : competitorCount,
+                aircraftType: effectiveType,
+                rangeLimited: rangeLimited,
+                runwayLimited: runwayLimited,
+                currency: widget.currency,
+              ),
               const SizedBox(height: 10),
               _RouteAircraftPicker(
                 availableAircraft: availableAircraft,
