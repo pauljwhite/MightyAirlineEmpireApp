@@ -2907,65 +2907,93 @@ class _AirportDestinationCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0xff151b2b),
-    borderRadius: BorderRadius.circular(10),
-    child: InkWell(
+  Widget build(BuildContext context) {
+    final valueText =
+        '${money(value, currency)}/d ${isLiveRoute ? 'live' : 'potential'}';
+    final valueColor = isLiveRoute
+        ? value >= 0
+              ? const Color(0xff3af083)
+              : const Color(0xffff6b6b)
+        : const Color(0xff8b95a8);
+    return Material(
+      color: const Color(0xff151b2b),
       borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    '${airport.iata} · ${airport.city}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${airport.iata} · ${airport.city}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${demand.round()} pax/d',
-                  style: const TextStyle(
-                    color: Color(0xff6ed4ff),
-                    fontWeight: FontWeight.w900,
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 76,
+                      maxWidth: 96,
+                    ),
+                    child: Text(
+                      '${_formatCount(demand)} pax/d',
+                      textAlign: TextAlign.right,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xff6ed4ff),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_distanceLabel(distanceKm)} · ${airport.size.name}',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xff8b95a8)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_distanceLabel(distanceKm)} · ${airport.size.name}',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xff8b95a8)),
+                    ),
                   ),
-                ),
-                Text(
-                  '${money(value, currency)}/d ${isLiveRoute ? 'live' : 'potential'}',
-                  style: const TextStyle(
-                    color: Color(0xff8b95a8),
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 112,
+                      maxWidth: 148,
+                    ),
+                    child: Text(
+                      valueText,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: valueColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 String _distanceLabel(double km) =>
