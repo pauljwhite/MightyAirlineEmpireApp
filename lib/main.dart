@@ -2515,7 +2515,11 @@ class _WorldMapState extends State<_WorldMap> {
               ),
             ),
           ),
-          MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+          ValueListenableBuilder<int>(
+            valueListenable: widget.game.mapAnimationTick,
+            builder: (context, _, _) =>
+                MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+          ),
           MarkerLayer(markers: _airportMarkers()),
           RichAttributionWidget(
             showFlutterMapAttribution: false,

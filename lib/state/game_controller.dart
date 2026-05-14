@@ -518,7 +518,7 @@ class GameController extends ChangeNotifier {
   GameSettings settings = const GameSettings();
   int gameDay = 0;
   int gameTimeMs = 0;
-  int speed = 300;
+  int speed = 60;
   bool isPaused = false;
   bool hasWon = false;
   bool hasLost = false;
@@ -533,12 +533,20 @@ class GameController extends ChangeNotifier {
   final newsTicker = <NewsTickerItem>[];
   final newsArticles = <String, NewsArticle>{};
   final newspaperQueue = <String>[];
+  final mapAnimationTick = ValueNotifier<int>(0);
   String? latestArticleId;
   int _nextAircraft = 1;
   int _nextRoute = 1;
   int _nextLoan = 1;
   int _nextTicker = 1;
   int _nextAirline = 1;
+  int _lastClockNotifyGameMs = 0;
+
+  @override
+  void dispose() {
+    mapAnimationTick.dispose();
+    super.dispose();
+  }
 
   void pushNewsItem(
     String text, {
@@ -710,6 +718,7 @@ class GameController extends ChangeNotifier {
   void setSpeed(int nextSpeed) {
     speed = nextSpeed;
     isPaused = nextSpeed == 0;
+    _lastClockNotifyGameMs = gameTimeMs;
     notifyListeners();
   }
 
@@ -725,7 +734,12 @@ class GameController extends ChangeNotifier {
       runDailyTick();
       daysProcessed += 1;
     }
-    if (daysProcessed == 0) notifyListeners();
+    mapAnimationTick.value += 1;
+    if (daysProcessed == 0 &&
+        gameTimeMs - _lastClockNotifyGameMs >= 15 * 60 * 1000) {
+      _lastClockNotifyGameMs = gameTimeMs;
+      notifyListeners();
+    }
   }
 
   void _advanceAircraftPositions(int deltaGameMs) {
@@ -858,7 +872,7 @@ class GameController extends ChangeNotifier {
     settings = nextSettings ?? settings;
     gameDay = 0;
     gameTimeMs = 0;
-    speed = 300;
+    speed = 60;
     isPaused = false;
     hasWon = false;
     hasLost = false;
@@ -878,6 +892,7 @@ class GameController extends ChangeNotifier {
     _nextLoan = 1;
     _nextTicker = 1;
     _nextAirline = 1;
+    _lastClockNotifyGameMs = 0;
     final startingHub = airportsByIata.containsKey(settings.startingHubIata)
         ? settings.startingHubIata
         : 'LHR';
@@ -2835,7 +2850,7 @@ class GameController extends ChangeNotifier {
     );
     gameDay = (raw['gameDay'] as num?)?.round() ?? 0;
     gameTimeMs = (raw['gameTimeMs'] as num?)?.round() ?? 0;
-    speed = (raw['speed'] as num?)?.round() ?? 300;
+    speed = (raw['speed'] as num?)?.round() ?? 60;
     isPaused = raw['isPaused'] == true;
     hasWon = raw['hasWon'] == true;
     hasLost = raw['hasLost'] == true;

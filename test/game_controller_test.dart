@@ -147,6 +147,24 @@ void main() {
     expect(after.status, AircraftStatus.flying);
   });
 
+  test('map animation ticks do not rebuild the full game UI every frame', () {
+    final game = GameController();
+    var fullUiRebuilds = 0;
+    var mapFrames = 0;
+    game.addListener(() => fullUiRebuilds += 1);
+    game.mapAnimationTick.addListener(() => mapFrames += 1);
+
+    game.setSpeed(60);
+    fullUiRebuilds = 0;
+    game.advanceGameClock(const Duration(milliseconds: 16));
+    game.advanceGameClock(const Duration(milliseconds: 16));
+    game.advanceGameClock(const Duration(milliseconds: 16));
+
+    expect(mapFrames, equals(3));
+    expect(fullUiRebuilds, equals(0));
+    expect(game.gameDay, equals(0));
+  });
+
   test('airport closures persist and suspend route economics', () {
     final game = GameController();
     final type = aircraftTypesById['b707-120']!;
