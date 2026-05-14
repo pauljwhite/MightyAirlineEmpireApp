@@ -77,13 +77,17 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     super.dispose();
   }
 
-  void _openCreateRoute({Airport? origin, Airport? destination}) {
+  void _openCreateRoute({
+    Airport? origin,
+    Airport? destination,
+    bool useSelectedAirport = false,
+  }) {
     showDialog<void>(
       context: context,
       builder: (context) => _CreateRouteDialog(
         game: game,
         currency: currency,
-        origin: origin ?? selectedAirport,
+        origin: origin ?? (useSelectedAirport ? selectedAirport : null),
         destination: destination,
       ),
     );
@@ -7468,6 +7472,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   late Airport destination = _initialRouteDestination(
     origin,
     widget.destination,
+    widget.game,
   );
   late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
   late final ecoController = TextEditingController();
@@ -7606,7 +7611,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                 onChanged: (a) => setState(() {
                   origin = a;
                   if (destination.iata == a.iata) {
-                    destination = _fallbackRouteDestination(a);
+                    destination = _fallbackRouteDestination(a, widget.game);
                   }
                   error = null;
                 }),
@@ -7908,13 +7913,31 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   }
 }
 
-Airport _initialRouteDestination(Airport origin, Airport? requested) {
+Airport _initialRouteDestination(
+  Airport origin,
+  Airport? requested,
+  GameController game,
+) {
   if (requested != null && requested.iata != origin.iata) return requested;
-  return _fallbackRouteDestination(origin);
+  return _fallbackRouteDestination(origin, game);
 }
 
-Airport _fallbackRouteDestination(Airport origin) {
+Airport _fallbackRouteDestination(Airport origin, GameController game) {
   const preferred = ['JFK', 'LHR', 'LAX', 'CDG', 'HND', 'DXB', 'SYD'];
+  for (final iata in preferred) {
+    final airport = airportsByIata[iata];
+    if (airport != null &&
+        airport.iata != origin.iata &&
+        _hasAffordableRouteAircraft(origin, airport, game)) {
+      return airport;
+    }
+  }
+  for (final airport in airports) {
+    if (airport.iata != origin.iata &&
+        _hasAffordableRouteAircraft(origin, airport, game)) {
+      return airport;
+    }
+  }
   for (final iata in preferred) {
     final airport = airportsByIata[iata];
     if (airport != null && airport.iata != origin.iata) return airport;
@@ -7923,6 +7946,31 @@ Airport _fallbackRouteDestination(Airport origin) {
     (airport) => airport.iata != origin.iata,
     orElse: () => origin,
   );
+}
+
+bool _hasAffordableRouteAircraft(
+  Airport origin,
+  Airport destination,
+  GameController game,
+) {
+  final distance = haversineKm(
+    origin.lat,
+    origin.lon,
+    destination.lat,
+    destination.lon,
+  );
+  final gameYear = game.settings.startingYear + game.gameDay ~/ 365;
+  for (final type in aircraftTypes) {
+    if (type.yearIntroduced > gameYear) continue;
+    if (type.purchasePrice > game.player.cashUSD) continue;
+    if (type.rangeKm < distance) continue;
+    if (!canAirportHandleAircraft(origin, type) ||
+        !canAirportHandleAircraft(destination, type)) {
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 class _RouteAircraftPicker extends StatelessWidget {
