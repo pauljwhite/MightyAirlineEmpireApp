@@ -3716,11 +3716,6 @@ class _FleetViewState extends State<_FleetView> {
   var manufacturer = 'All';
   String? confirmingSaleId;
 
-  String _categoryLabel(AircraftCategory category) =>
-      category == AircraftCategory.sst
-      ? 'SST'
-      : category.name[0].toUpperCase() + category.name.substring(1);
-
   String _maintenanceTierLabel(MaintenanceTier tier) =>
       tier.name[0].toUpperCase() + tier.name.substring(1);
 
@@ -3742,11 +3737,21 @@ class _FleetViewState extends State<_FleetView> {
       ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
         ..sort(),
     ];
-    final visibleTypes = aircraftTypes
-        .where(
-          (type) => manufacturer == 'All' || type.manufacturer == manufacturer,
-        )
-        .toList(growable: false);
+    final visibleTypes =
+        aircraftTypes
+            .where(
+              (type) =>
+                  manufacturer == 'All' || type.manufacturer == manufacturer,
+            )
+            .toList()
+          ..sort((a, b) {
+            final aAvailable = a.yearIntroduced <= gameYear;
+            final bAvailable = b.yearIntroduced <= gameYear;
+            if (aAvailable != bAvailable) return aAvailable ? -1 : 1;
+            final maker = a.manufacturer.compareTo(b.manufacturer);
+            if (maker != 0) return maker;
+            return a.model.compareTo(b.model);
+          });
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -3787,7 +3792,12 @@ class _FleetViewState extends State<_FleetView> {
                 },
               ),
               const SizedBox(height: 12),
-              ...visibleTypes.take(40).map((type) {
+              Text(
+                'Showing ${visibleTypes.length} aircraft${manufacturer == 'All' ? '' : ' from $manufacturer'}',
+                style: const TextStyle(color: Color(0xff9aa4b5)),
+              ),
+              const SizedBox(height: 12),
+              ...visibleTypes.map((type) {
                 final unavailable = type.yearIntroduced > gameYear;
                 final canAfford = game.player.cashUSD >= type.purchasePrice;
                 final canBuy = !unavailable && canAfford;
@@ -3815,7 +3825,7 @@ class _FleetViewState extends State<_FleetView> {
                               ),
                             ),
                             Text(
-                              '${_categoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
+                              '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${type.rangeKm} km range',
                               style: const TextStyle(color: Color(0xff9aa4b5)),
                             ),
                             Text(
@@ -4029,7 +4039,7 @@ class _FleetViewState extends State<_FleetView> {
                 ),
                 if (type != null)
                   Text(
-                    '${_categoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${_formatCount(type.rangeKm)} km range · ${type.cruiseSpeedKmh} km/h',
+                    '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${_formatCount(type.rangeKm)} km range · ${type.cruiseSpeedKmh} km/h',
                     style: const TextStyle(color: Color(0xff9aa4b5)),
                   ),
                 const SizedBox(height: 8),
@@ -4330,6 +4340,11 @@ class _FleetStatusChip extends StatelessWidget {
     ),
   );
 }
+
+String _aircraftCategoryLabel(AircraftCategory category) =>
+    category == AircraftCategory.sst
+    ? 'SST'
+    : category.name[0].toUpperCase() + category.name.substring(1);
 
 class _FinanceView extends StatelessWidget {
   const _FinanceView({required this.game, required this.currency});
@@ -7138,9 +7153,12 @@ class _InlineAircraftShop extends StatelessWidget {
                   enabled: enabled,
                   title: type.displayName,
                   subtitle:
+                      '${_aircraftCategoryLabel(type.category)} · '
                       '${type.seatsEconomy}Y'
                       '${type.seatsBusiness > 0 ? '/${type.seatsBusiness}J' : ''}'
-                      ' · ${type.rangeKm.toStringAsFixed(0)} km · '
+                      ' · ${type.rangeKm.toStringAsFixed(0)} km range · '
+                      '${type.minRunwayM} m runway · '
+                      '${type.cruiseSpeedKmh} km/h · '
                       '${money(type.purchasePrice, currency)}',
                   trailing: trailing,
                   onTap: () => onSelected(type),
