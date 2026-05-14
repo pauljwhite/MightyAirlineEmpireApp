@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 
 import 'core/airport_search.dart';
 import 'core/constants.dart';
@@ -2138,7 +2140,7 @@ class _MapToggle extends StatelessWidget {
   );
 }
 
-class _WorldMap extends StatelessWidget {
+class _WorldMap extends StatefulWidget {
   const _WorldMap({
     required this.game,
     required this.showAiOnMap,
@@ -2151,71 +2153,277 @@ class _WorldMap extends StatelessWidget {
   final Airport? selectedAirport;
   final ValueChanged<Airport> onAirportSelected;
   final ValueChanged<RoutePlan> onRouteSelected;
+
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTapDown: (d) {
-      final box = context.findRenderObject() as RenderBox;
-      final airport = _nearestAirport(d.localPosition, box.size);
-      if (airport != null) {
-        onAirportSelected(airport);
-        return;
-      }
-      final route = _nearestRoute(d.localPosition, box.size);
-      if (route != null) onRouteSelected(route);
-    },
-    child: CustomPaint(
-      painter: _MapPainter(
-        game: game,
-        showAiOnMap: showAiOnMap,
-        selectedAirport: selectedAirport,
-      ),
-      child: const SizedBox.expand(),
-    ),
-  );
-  Airport? _nearestAirport(Offset p, Size size) {
-    Airport? best;
-    var bestDistance = 999.0;
-    for (final a in airports) {
-      final d = (_airportPoint(a, size) - p).distance;
-      final hit = a.size == AirportSize.small ? 8.0 : 14.0;
-      if (d < hit && d < bestDistance) {
-        best = a;
-        bestDistance = d;
-      }
-    }
-    return best;
+  State<_WorldMap> createState() => _WorldMapState();
+}
+
+class _WorldMapState extends State<_WorldMap> {
+  final LayerHitNotifier<RoutePlan> _routeHitNotifier = ValueNotifier(null);
+
+  @override
+  void dispose() {
+    _routeHitNotifier.dispose();
+    super.dispose();
   }
 
-  RoutePlan? _nearestRoute(Offset p, Size size) {
-    RoutePlan? best;
-    var bestDistance = 999.0;
-    final drawableRoutes = game.routes.values.where((route) {
-      if (!route.isActive || route.aircraftId == null) return false;
-      if (showAiOnMap) return true;
-      return game.airlines[route.airlineId]?.isPlayer == true;
-    });
+  @override
+  Widget build(BuildContext context) {
+    final drawableRoutes = _drawableRoutes().toList(growable: false);
+
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: const LatLng(26, 12),
+        initialZoom: 2.05,
+        minZoom: 2,
+        maxZoom: 8,
+        interactionOptions: const InteractionOptions(
+          flags:
+              InteractiveFlag.drag |
+              InteractiveFlag.pinchZoom |
+              InteractiveFlag.scrollWheelZoom |
+              InteractiveFlag.doubleTapZoom,
+        ),
+        backgroundColor: const Color(0xff08111f),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'mighty_airline_empire_app',
+          tileBuilder: (context, tileWidget, tile) => ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              0.42,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.46,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.56,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+            ]),
+            child: Opacity(opacity: 0.7, child: tileWidget),
+          ),
+        ),
+        MouseRegion(
+          hitTestBehavior: HitTestBehavior.deferToChild,
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.deferToChild,
+            onTap: () {
+              final route = _routeHitNotifier.value?.hitValues.lastOrNull;
+              if (route != null) widget.onRouteSelected(route);
+            },
+            child: PolylineLayer<RoutePlan>(
+              hitNotifier: _routeHitNotifier,
+              minimumHitbox: 28,
+              simplificationTolerance: 0,
+              polylines: _routePolylines(drawableRoutes),
+            ),
+          ),
+        ),
+        MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+        MarkerLayer(markers: _airportMarkers()),
+        RichAttributionWidget(
+          showFlutterMapAttribution: false,
+          attributions: [
+            TextSourceAttribution('OpenStreetMap contributors', onTap: () {}),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Iterable<RoutePlan> _drawableRoutes() =>
+      widget.game.routes.values.where((route) {
+        if (!route.isActive || route.aircraftId == null) return false;
+        if (widget.showAiOnMap) return true;
+        return widget.game.airlines[route.airlineId]?.isPlayer == true;
+      });
+
+  List<Polyline<RoutePlan>> _routePolylines(List<RoutePlan> drawableRoutes) {
+    final lines = <Polyline<RoutePlan>>[];
     for (final route in drawableRoutes) {
       final origin = airportsByIata[route.originIata];
       final dest = airportsByIata[route.destinationIata];
       if (origin == null || dest == null) continue;
-      final segments = _routeArcSegments(origin, dest, size, pointCount: 28);
-      var routeDistance = 999.0;
-      for (final segment in segments) {
-        for (var i = 1; i < segment.length; i += 1) {
-          routeDistance = math.min(
-            routeDistance,
-            _distanceToSegment(p, segment[i - 1], segment[i]),
-          );
-        }
-      }
-      if (routeDistance < 18 && routeDistance < bestDistance) {
-        best = route;
-        bestDistance = routeDistance;
+      final airline = widget.game.airlines[route.airlineId];
+      final isPlayer = airline?.isPlayer == true;
+      final color = _colorFromHex(airline?.color ?? '#2f8cff');
+      for (final segment in _routeArcLatLngSegments(origin, dest)) {
+        lines.add(
+          Polyline<RoutePlan>(
+            points: segment,
+            color: color.withValues(alpha: isPlayer ? 0.9 : 0.5),
+            borderColor: color.withValues(alpha: isPlayer ? 0.24 : 0.14),
+            borderStrokeWidth: isPlayer ? 5.5 : 4,
+            strokeWidth: isPlayer ? 2.6 : 1.6,
+            hitValue: route,
+          ),
+        );
       }
     }
-    return best;
+    return lines;
   }
+
+  List<Marker> _airportMarkers() => airports
+      .map((a) {
+        final airport = widget.game.airportByIata(a.iata) ?? a;
+        final closedUntil = airport.closedUntilGameDay;
+        final isClosed =
+            closedUntil != null && closedUntil >= widget.game.gameDay;
+        final selected = widget.selectedAirport?.iata == a.iata;
+        final radius = switch (a.size) {
+          AirportSize.small => 2.2,
+          AirportSize.medium => 3.0,
+          AirportSize.large => 4.0,
+          AirportSize.major => 5.3,
+        };
+        final color = selected
+            ? const Color(0xffffd166)
+            : isClosed
+            ? const Color(0xffff6b6b)
+            : const Color(0xff58a6ff);
+
+        return Marker(
+          point: LatLng(a.lat, a.lon),
+          width: 36,
+          height: 36,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onAirportSelected(airport),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: selected ? radius * 2 + 8 : radius * 2,
+                height: selected ? radius * 2 + 8 : radius * 2,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: isClosed
+                      ? Border.all(color: const Color(0xffffb3b3), width: 2)
+                      : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: selected ? 0.38 : 0.22),
+                      blurRadius: selected ? 12 : 6,
+                      spreadRadius: selected ? 2 : 0,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      })
+      .toList(growable: false);
+
+  List<Marker> _planeMarkers(List<RoutePlan> drawableRoutes) {
+    final markers = <Marker>[];
+    for (final route in drawableRoutes) {
+      final marker = _planeMarker(route);
+      if (marker != null) markers.add(marker);
+    }
+    return markers;
+  }
+
+  Marker? _planeMarker(RoutePlan route) {
+    final ac = widget.game.aircraft[route.aircraftId];
+    if (ac == null ||
+        ac.isGrounded ||
+        ac.status == AircraftStatus.maintenance ||
+        ac.status == AircraftStatus.crashed) {
+      return null;
+    }
+    final origin = airportsByIata[route.originIata];
+    final dest = airportsByIata[route.destinationIata];
+    if (origin == null || dest == null) return null;
+
+    final cycle = (ac.flightProgress * 2).clamp(0, 2).toDouble();
+    final t = cycle <= 1 ? cycle : 2 - cycle;
+    final from = cycle <= 1 ? origin : dest;
+    final to = cycle <= 1 ? dest : origin;
+    final visualPoint = _visualArcPoint(from.lat, from.lon, to.lat, to.lon, t);
+    final ahead = _visualArcPoint(
+      from.lat,
+      from.lon,
+      to.lat,
+      to.lon,
+      math.min(1, t + 0.01),
+    );
+    final angle = math.atan2(
+      -(ahead.lat - visualPoint.lat),
+      _shortestLonDelta(visualPoint.lon, ahead.lon),
+    );
+    final airline = widget.game.airlines[route.airlineId];
+    final color = _colorFromHex(airline?.color ?? '#ffffff');
+    final type = aircraftTypesById[ac.typeId];
+    final sizePx = switch (type?.category) {
+      AircraftCategory.regional => 22.0,
+      AircraftCategory.narrowbody => 25.0,
+      AircraftCategory.widebody => 30.0,
+      AircraftCategory.sst => 29.0,
+      null => 25.0,
+    };
+
+    return Marker(
+      point: LatLng(visualPoint.lat, visualPoint.lon),
+      width: sizePx + 12,
+      height: sizePx + 12,
+      child: IgnorePointer(
+        child: Transform.rotate(
+          angle: angle,
+          child: CustomPaint(
+            painter: _PlaneMarkerPainter(
+              color: color,
+              category: type?.category,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<List<LatLng>> _routeArcLatLngSegments(
+  Airport origin,
+  Airport destination, {
+  int pointCount = 32,
+}) {
+  final lonDelta = _shortestLonDelta(origin.lon, destination.lon);
+  final rawPoints = <({double lat, double lon})>[];
+  for (var i = 0; i <= pointCount; i += 1) {
+    rawPoints.add(
+      _visualArcPoint(
+        origin.lat,
+        origin.lon,
+        destination.lat,
+        destination.lon,
+        i / pointCount,
+        lonDelta: lonDelta,
+        normalize: false,
+      ),
+    );
+  }
+  return _splitArcAtAntimeridian(rawPoints)
+      .map(
+        (segment) => segment
+            .map((point) => LatLng(point.lat, point.lon))
+            .toList(growable: false),
+      )
+      .where((segment) => segment.length > 1)
+      .toList(growable: false);
 }
 
 Offset _airportPoint(Airport a, Size size) => Offset(
@@ -2339,14 +2547,126 @@ double? _antimeridianBetween(double fromLon, double toLon) {
   return crossing.toDouble();
 }
 
-double _distanceToSegment(Offset p, Offset a, Offset b) {
-  final ab = b - a;
-  final lengthSquared = ab.dx * ab.dx + ab.dy * ab.dy;
-  if (lengthSquared == 0) return (p - a).distance;
-  final t = (((p.dx - a.dx) * ab.dx + (p.dy - a.dy) * ab.dy) / lengthSquared)
-      .clamp(0.0, 1.0);
-  final projection = Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
-  return (p - projection).distance;
+Color _colorFromHex(String hex) {
+  final clean = hex.replaceFirst('#', '');
+  final value =
+      int.tryParse(clean.length == 6 ? 'ff$clean' : clean, radix: 16) ??
+      0xffffffff;
+  return Color(value);
+}
+
+class _PlaneMarkerPainter extends CustomPainter {
+  const _PlaneMarkerPainter({required this.color, required this.category});
+
+  final Color color;
+  final AircraftCategory? category;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shortest = math.min(size.width, size.height);
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.scale(shortest * 0.38);
+    canvas.drawCircle(
+      Offset.zero,
+      0.95,
+      Paint()..color = color.withValues(alpha: 0.16),
+    );
+    final plane = _planePathForCategory(category);
+    canvas.drawPath(
+      plane,
+      Paint()
+        ..color = const Color(0xff050915)
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 0.16,
+    );
+    canvas.drawPath(
+      plane,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      plane,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.14)
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 0.05,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaneMarkerPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.category != category;
+}
+
+Path _planePathForCategory(AircraftCategory? category) {
+  switch (category) {
+    case AircraftCategory.regional:
+      return Path()
+        ..moveTo(1.0, 0)
+        ..cubicTo(0.76, -0.12, 0.42, -0.17, -0.15, -0.16)
+        ..lineTo(-0.8, -0.55)
+        ..lineTo(-0.55, -0.12)
+        ..lineTo(-0.96, -0.08)
+        ..lineTo(-0.96, 0.08)
+        ..lineTo(-0.55, 0.12)
+        ..lineTo(-0.8, 0.55)
+        ..lineTo(-0.15, 0.16)
+        ..cubicTo(0.42, 0.17, 0.76, 0.12, 1.0, 0)
+        ..close();
+    case AircraftCategory.widebody:
+      return Path()
+        ..moveTo(1.08, 0)
+        ..cubicTo(0.75, -0.2, 0.05, -0.24, -0.42, -0.2)
+        ..lineTo(-0.18, -0.86)
+        ..lineTo(-0.48, -0.92)
+        ..lineTo(-0.78, -0.18)
+        ..lineTo(-1.0, -0.14)
+        ..lineTo(-0.88, 0)
+        ..lineTo(-1.0, 0.14)
+        ..lineTo(-0.78, 0.18)
+        ..lineTo(-0.48, 0.92)
+        ..lineTo(-0.18, 0.86)
+        ..lineTo(-0.42, 0.2)
+        ..cubicTo(0.05, 0.24, 0.75, 0.2, 1.08, 0)
+        ..close();
+    case AircraftCategory.sst:
+      return Path()
+        ..moveTo(1.2, 0)
+        ..lineTo(0.25, -0.16)
+        ..lineTo(-0.2, -0.75)
+        ..lineTo(-0.42, -0.68)
+        ..lineTo(-0.34, -0.15)
+        ..lineTo(-1.05, -0.34)
+        ..lineTo(-0.78, 0)
+        ..lineTo(-1.05, 0.34)
+        ..lineTo(-0.34, 0.15)
+        ..lineTo(-0.42, 0.68)
+        ..lineTo(-0.2, 0.75)
+        ..lineTo(0.25, 0.16)
+        ..close();
+    case AircraftCategory.narrowbody:
+    case null:
+      return Path()
+        ..moveTo(1.05, 0)
+        ..cubicTo(0.72, -0.15, 0.12, -0.18, -0.34, -0.14)
+        ..lineTo(-0.54, -0.7)
+        ..lineTo(-0.78, -0.65)
+        ..lineTo(-0.65, -0.12)
+        ..lineTo(-1.0, -0.09)
+        ..lineTo(-1.0, 0.09)
+        ..lineTo(-0.65, 0.12)
+        ..lineTo(-0.78, 0.65)
+        ..lineTo(-0.54, 0.7)
+        ..lineTo(-0.34, 0.14)
+        ..cubicTo(0.12, 0.18, 0.72, 0.15, 1.05, 0)
+        ..close();
+  }
 }
 
 class _GeoPoint {
