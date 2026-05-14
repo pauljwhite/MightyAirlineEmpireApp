@@ -4734,6 +4734,20 @@ class _FinanceView extends StatelessWidget {
               _InfoRow('Daily payment', money(debtService, currency)),
               _InfoRow('Daily interest', money(debtInterest, currency)),
               const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: creditLimit <= 0
+                      ? 0
+                      : (player.totalDebt / creditLimit).clamp(0, 1),
+                  minHeight: 8,
+                  color: player.totalDebt > creditLimit * 0.8
+                      ? const Color(0xffffd166)
+                      : const Color(0xff77c9ff),
+                  backgroundColor: const Color(0xff293244),
+                ),
+              ),
+              const SizedBox(height: 12),
               if (player.loans.isEmpty)
                 const _EmptyState('No active loans.')
               else
@@ -4756,18 +4770,41 @@ class _FinanceView extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: loanOffers
-                    .map(
-                      (offer) => OutlinedButton(
-                        onPressed: game.canApplyForLoan(offer)
-                            ? () => game.applyForLoan(offer)
-                            : null,
-                        child: Text(
-                          '${money(offer.amountUSD, currency)} · ${formatInterestRate(offer.annualInterestRate)}',
-                        ),
+                children: loanOffers.map((offer) {
+                  final available = game.canApplyForLoan(offer);
+                  final dailyPayment = calculateDailyLoanPayment(
+                    offer.amountUSD,
+                    offer.annualInterestRate,
+                    offer.termYears,
+                  );
+                  return SizedBox(
+                    width: 190,
+                    child: OutlinedButton(
+                      onPressed: available
+                          ? () => game.applyForLoan(offer)
+                          : null,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            money(offer.amountUSD, currency),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          Text(
+                            '${formatInterestRate(offer.annualInterestRate)} · ${offer.termYears}y · ${money(dailyPayment, currency)}/day',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          if (!available)
+                            const Text(
+                              'credit limit',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                        ],
                       ),
-                    )
-                    .toList(),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -4804,7 +4841,7 @@ class _LoanAccordionTile extends StatelessWidget {
       (label: '10%', amount: loan.principalUSD * 0.10),
       (label: '25%', amount: loan.principalUSD * 0.25),
       (label: '50%', amount: loan.principalUSD * 0.50),
-      (label: 'Clear loan', amount: loan.principalUSD),
+      (label: 'Full', amount: loan.principalUSD),
     ];
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
@@ -4842,9 +4879,7 @@ class _LoanAccordionTile extends StatelessWidget {
                 onPressed: affordable <= 0
                     ? null
                     : () => game.repayLoan(loan.id, affordable),
-                child: Text(
-                  'What I can afford · ${money(affordable, currency)}',
-                ),
+                child: Text('Max cash · ${money(affordable, currency)}'),
               ),
             ],
           ),
