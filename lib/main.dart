@@ -47,6 +47,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   Timer? _gameLoop;
   DateTime? _lastTickAt;
+  var _initialNewGameDialogShown = false;
   var currency = currencyOptions.first;
   Airport? selectedAirport = airportsByIata['LHR'];
   _Panel? panel;
@@ -56,7 +57,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   @override
   void initState() {
     super.initState();
-    game = GameController();
+    game = GameController(autoStart: false);
     _lastTickAt = DateTime.now();
     _gameLoop = Timer.periodic(const Duration(milliseconds: 16), (_) {
       final now = DateTime.now();
@@ -67,6 +68,22 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
         delta > const Duration(milliseconds: 80)
             ? const Duration(milliseconds: 80)
             : delta,
+      );
+    });
+  }
+
+  void _scheduleInitialNewGameDialog() {
+    if (_initialNewGameDialogShown || game.hasStarted) return;
+    _initialNewGameDialogShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || game.hasStarted) return;
+      final dialogContext = _navigatorKey.currentContext ?? context;
+      _showNewGameDialog(
+        dialogContext,
+        game,
+        currency,
+        (v) => setState(() => currency = v),
+        forceStart: true,
       );
     });
   }
@@ -135,6 +152,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
       animation: game,
       builder: (context, _) {
         final lightMode = game.themeMode == ThemeModeSetting.light;
+        _scheduleInitialNewGameDialog();
         return MaterialApp(
           navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
@@ -154,125 +172,152 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                           : Brightness.dark,
                     ),
                   ),
-          home: Scaffold(
-            body: SafeArea(
-              bottom: false,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 980;
-                  final topOffset = compact
-                      ? (mobileSearchOpen ? 132.0 : 92.0)
-                      : 72.0;
-                  _scheduleHeraldAutoOpen(context);
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: _WorldMap(
-                          game: game,
-                          showAiOnMap: game.showAiOnMap,
-                          selectedAirport: selectedAirport,
-                          onAirportSelected: (a) =>
-                              setState(() => selectedAirport = a),
-                          onRouteSelected: _openRouteDetail,
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: _TopBar(
-                          game: game,
-                          compact: compact,
-                          currency: currency,
-                          searchOpen: mobileSearchOpen,
-                          selectedPanel: panel,
-                          onToggleSearch: () => setState(
-                            () => mobileSearchOpen = !mobileSearchOpen,
-                          ),
-                          onPanel: (p) =>
-                              setState(() => panel = panel == p ? null : p),
-                          onCurrency: (v) => setState(() => currency = v),
-                          onSpeed: game.setSpeed,
-                          onAirport: (a) => setState(() {
-                            selectedAirport = a;
-                            mobileSearchOpen = false;
-                          }),
-                        ),
-                      ),
-                      Positioned(
-                        top: topOffset,
-                        left: 12,
-                        child: _MapToggle(
-                          showAi: game.showAiOnMap,
-                          onChanged: game.setShowAiOnMap,
-                        ),
-                      ),
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeInOut,
-                        top: topOffset,
-                        bottom: 52,
-                        right: panel == null
-                            ? -(compact ? constraints.maxWidth : 430) - 32
-                            : 12,
-                        width: compact ? constraints.maxWidth - 24 : 430,
-                        child: panel == null
-                            ? const SizedBox.shrink()
-                            : _MainPanel(
+          home: game.hasStarted
+              ? Scaffold(
+                  body: SafeArea(
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 980;
+                        final topOffset = compact
+                            ? (mobileSearchOpen ? 132.0 : 92.0)
+                            : 72.0;
+                        _scheduleHeraldAutoOpen(context);
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: _WorldMap(
                                 game: game,
-                                panel: panel!,
-                                currency: currency,
-                                onClose: () => setState(() => panel = null),
-                                onCreateRoute: () => _openCreateRoute(),
+                                showAiOnMap: game.showAiOnMap,
+                                selectedAirport: selectedAirport,
+                                onAirportSelected: (a) =>
+                                    setState(() => selectedAirport = a),
+                                onRouteSelected: _openRouteDetail,
                               ),
-                      ),
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeInOut,
-                        left: selectedAirport == null ? -460 : 12,
-                        top: topOffset,
-                        bottom: 52,
-                        width: compact ? constraints.maxWidth - 24 : 430,
-                        child: selectedAirport == null
-                            ? const SizedBox.shrink()
-                            : _AirportPanel(
-                                game: game,
-                                airport: selectedAirport!,
-                                currency: currency,
-                                onClose: () =>
-                                    setState(() => selectedAirport = null),
-                                onCreateRoute: (origin, destination) =>
-                                    _openCreateRoute(
-                                      origin: origin,
-                                      destination: destination,
-                                    ),
-                              ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: _Ticker(game: game),
-                      ),
-                      if (game.hasWon || game.hasLost)
-                        Positioned.fill(
-                          child: _GameOutcomeOverlay(
-                            game: game,
-                            currency: currency,
-                            onNewGame: () => _showNewGameDialog(
-                              context,
-                              game,
-                              currency,
-                              (v) => setState(() => currency = v),
                             ),
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: _TopBar(
+                                game: game,
+                                compact: compact,
+                                currency: currency,
+                                searchOpen: mobileSearchOpen,
+                                selectedPanel: panel,
+                                onToggleSearch: () => setState(
+                                  () => mobileSearchOpen = !mobileSearchOpen,
+                                ),
+                                onPanel: (p) => setState(
+                                  () => panel = panel == p ? null : p,
+                                ),
+                                onCurrency: (v) => setState(() => currency = v),
+                                onSpeed: game.setSpeed,
+                                onAirport: (a) => setState(() {
+                                  selectedAirport = a;
+                                  mobileSearchOpen = false;
+                                }),
+                              ),
+                            ),
+                            Positioned(
+                              top: topOffset,
+                              left: 12,
+                              child: _MapToggle(
+                                showAi: game.showAiOnMap,
+                                onChanged: game.setShowAiOnMap,
+                              ),
+                            ),
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeInOut,
+                              top: topOffset,
+                              bottom: 52,
+                              right: panel == null
+                                  ? -(compact ? constraints.maxWidth : 430) - 32
+                                  : 12,
+                              width: compact ? constraints.maxWidth - 24 : 430,
+                              child: panel == null
+                                  ? const SizedBox.shrink()
+                                  : _MainPanel(
+                                      game: game,
+                                      panel: panel!,
+                                      currency: currency,
+                                      onClose: () =>
+                                          setState(() => panel = null),
+                                      onCreateRoute: () => _openCreateRoute(),
+                                    ),
+                            ),
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeInOut,
+                              left: selectedAirport == null ? -460 : 12,
+                              top: topOffset,
+                              bottom: 52,
+                              width: compact ? constraints.maxWidth - 24 : 430,
+                              child: selectedAirport == null
+                                  ? const SizedBox.shrink()
+                                  : _AirportPanel(
+                                      game: game,
+                                      airport: selectedAirport!,
+                                      currency: currency,
+                                      onClose: () => setState(
+                                        () => selectedAirport = null,
+                                      ),
+                                      onCreateRoute: (origin, destination) =>
+                                          _openCreateRoute(
+                                            origin: origin,
+                                            destination: destination,
+                                          ),
+                                    ),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: _Ticker(game: game),
+                            ),
+                            if (game.hasWon || game.hasLost)
+                              Positioned.fill(
+                                child: _GameOutcomeOverlay(
+                                  game: game,
+                                  currency: currency,
+                                  onNewGame: () => _showNewGameDialog(
+                                    context,
+                                    game,
+                                    currency,
+                                    (v) => setState(() => currency = v),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                )
+              : Scaffold(
+                  body: SafeArea(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.flight_takeoff, size: 54),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Mighty Airline Empire',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Set up your airline to begin.',
+                            style: TextStyle(color: Color(0xff9aa4b5)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
         );
       },
     );
@@ -1623,8 +1668,9 @@ void _showNewGameDialog(
   BuildContext context,
   GameController game,
   CurrencyOption currentCurrency,
-  ValueChanged<CurrencyOption> onCurrency,
-) {
+  ValueChanged<CurrencyOption> onCurrency, {
+  bool forceStart = false,
+}) {
   final nameController = TextEditingController(
     text: game.settings.playerAirlineName,
   );
@@ -1657,6 +1703,7 @@ void _showNewGameDialog(
 
   showDialog<void>(
     context: context,
+    barrierDismissible: !forceStart,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
         final startingCash = startingCashByDifficulty[difficulty]!;
@@ -1668,304 +1715,309 @@ void _showNewGameDialog(
           orElse: () => _newGameEras.first,
         );
         final selectedColor = _normaliseHexColor(colorController.text);
-        return AlertDialog(
-          title: const Text('Start new airline'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Airline name',
-                      border: OutlineInputBorder(),
+        return PopScope(
+          canPop: !forceStart,
+          child: AlertDialog(
+            title: const Text('Start new airline'),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Airline name',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Airline colour',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _airlineColorOptions
-                        .map(
-                          (color) => InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () {
-                              colorController.text = color;
-                              setState(() {});
-                            },
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                color: _MapPainter._colorFromHex(color),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: selectedColor == color.toLowerCase()
-                                      ? Theme.of(context).colorScheme.primary
-                                      : _hairline(context),
-                                  width: selectedColor == color.toLowerCase()
-                                      ? 3
-                                      : 1,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Airline colour',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _airlineColorOptions
+                          .map(
+                            (color) => InkWell(
+                              borderRadius: BorderRadius.circular(999),
+                              onTap: () {
+                                colorController.text = color;
+                                setState(() {});
+                              },
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: _MapPainter._colorFromHex(color),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: selectedColor == color.toLowerCase()
+                                        ? Theme.of(context).colorScheme.primary
+                                        : _hairline(context),
+                                    width: selectedColor == color.toLowerCase()
+                                        ? 3
+                                        : 1,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: colorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Custom colour',
-                      hintText: '#3b82f6',
-                      border: OutlineInputBorder(),
+                          )
+                          .toList(),
                     ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _AirlineLogo(
-                        logo: emojiController.text.trim().isEmpty
-                            ? '✈️'
-                            : emojiController.text.trim(),
-                        size: 46,
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: colorController,
+                      decoration: const InputDecoration(
+                        labelText: 'Custom colour',
+                        hintText: '#3b82f6',
+                        border: OutlineInputBorder(),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: emojiController,
-                          decoration: const InputDecoration(
-                            labelText: 'Logo emoji, short mark, or data:image',
-                            border: OutlineInputBorder(),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _AirlineLogo(
+                          logo: emojiController.text.trim().isEmpty
+                              ? '✈️'
+                              : emojiController.text.trim(),
+                          size: 46,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: emojiController,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Logo emoji, short mark, or data:image',
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => setState(() {}),
                           ),
-                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _LogoPicker(
+                      value: emojiController.text.trim(),
+                      onChanged: (value) {
+                        emojiController.text = value;
+                        setState(() {});
+                      },
+                      onUploadLogo: () async {
+                        try {
+                          final uploaded = await _pickAirlineLogoImage();
+                          if (!context.mounted || uploaded == null) return;
+                          emojiController.text = uploaded;
+                          setState(() => error = null);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          setState(() => error = e.toString());
+                        }
+                      },
+                    ),
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          error!,
+                          style: const TextStyle(color: Color(0xffff6b6b)),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _LogoPicker(
-                    value: emojiController.text.trim(),
-                    onChanged: (value) {
-                      emojiController.text = value;
-                      setState(() {});
-                    },
-                    onUploadLogo: () async {
-                      try {
-                        final uploaded = await _pickAirlineLogoImage();
-                        if (!context.mounted || uploaded == null) return;
-                        emojiController.text = uploaded;
-                        setState(() => error = null);
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        setState(() => error = e.toString());
-                      }
-                    },
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: const TextStyle(color: Color(0xffff6b6b)),
-                      ),
+                    const SizedBox(height: 16),
+                    _AirportDropdown(
+                      label: 'Starting hub',
+                      value: startingHub,
+                      onChanged: (airport) =>
+                          setState(() => startingHub = airport),
                     ),
-                  const SizedBox(height: 16),
-                  _AirportDropdown(
-                    label: 'Starting hub',
-                    value: startingHub,
-                    onChanged: (airport) =>
-                        setState(() => startingHub = airport),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Starting era',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _newGameEras
-                        .map(
-                          (option) => ChoiceChip(
-                            label: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  option.year.toString(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                Text(
-                                  option.label,
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ],
-                            ),
-                            selected: startingYear == option.year,
-                            onSelected: (_) =>
-                                setState(() => startingYear = option.year),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$availableAircraft aircraft available · ${era.flagship}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: _mutedText(context)),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<Difficulty>(
-                    initialValue: difficulty,
-                    decoration: const InputDecoration(
-                      labelText: 'Difficulty',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Starting era',
+                      style: Theme.of(context).textTheme.labelLarge,
                     ),
-                    items: Difficulty.values
-                        .map(
-                          (value) => DropdownMenuItem(
-                            value: value,
-                            child: Text(
-                              '${value.name[0].toUpperCase()}${value.name.substring(1)} · ${money(startingCashByDifficulty[value]!, selectedCurrency)}',
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => difficulty = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text('AI airlines: $aiCount'),
-                  Slider(
-                    value: aiCount.toDouble(),
-                    min: 0,
-                    max: 12,
-                    divisions: 12,
-                    label: '$aiCount',
-                    onChanged: (value) =>
-                        setState(() => aiCount = value.round()),
-                  ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<GameObjective>(
-                    segments: const [
-                      ButtonSegment(
-                        value: GameObjective.lastAirlineStanding,
-                        label: Text('Last airline standing'),
-                      ),
-                      ButtonSegment(
-                        value: GameObjective.marketShare,
-                        label: Text('Market share'),
-                      ),
-                    ],
-                    selected: {objective},
-                    onSelectionChanged: (value) =>
-                        setState(() => objective = value.first),
-                  ),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: objective == GameObjective.marketShare
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Target market share: ${targetMarketShare.round()}%',
-                                ),
-                                Slider(
-                                  value: targetMarketShare.toDouble(),
-                                  min: 60,
-                                  max: 100,
-                                  divisions: 40,
-                                  label: '${targetMarketShare.round()}%',
-                                  onChanged: (value) => setState(
-                                    () => targetMarketShare = value
-                                        .roundToDouble(),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _newGameEras
+                          .map(
+                            (option) => ChoiceChip(
+                              label: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    option.year.toString(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  Text(
+                                    option.label,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                              selected: startingYear == option.year,
+                              onSelected: (_) =>
+                                  setState(() => startingYear = option.year),
                             ),
                           )
-                        : const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<CurrencyOption>(
-                    initialValue: selectedCurrency,
-                    decoration: const InputDecoration(
-                      labelText: 'Currency',
-                      border: OutlineInputBorder(),
+                          .toList(),
                     ),
-                    items: currencyOptions
-                        .map(
-                          (value) => DropdownMenuItem(
-                            value: value,
-                            child: Text('${value.code} · ${value.name}'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => selectedCurrency = value);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Starting cash: ${money(startingCash, selectedCurrency)}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '$availableAircraft aircraft available · ${era.flagship}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _mutedText(context),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<Difficulty>(
+                      initialValue: difficulty,
+                      decoration: const InputDecoration(
+                        labelText: 'Difficulty',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: Difficulty.values
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(
+                                '${value.name[0].toUpperCase()}${value.name.substring(1)} · ${money(startingCashByDifficulty[value]!, selectedCurrency)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) setState(() => difficulty = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text('AI airlines: $aiCount'),
+                    Slider(
+                      value: aiCount.toDouble(),
+                      min: 0,
+                      max: 12,
+                      divisions: 12,
+                      label: '$aiCount',
+                      onChanged: (value) =>
+                          setState(() => aiCount = value.round()),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<GameObjective>(
+                      segments: const [
+                        ButtonSegment(
+                          value: GameObjective.lastAirlineStanding,
+                          label: Text('Last airline standing'),
+                        ),
+                        ButtonSegment(
+                          value: GameObjective.marketShare,
+                          label: Text('Market share'),
+                        ),
+                      ],
+                      selected: {objective},
+                      onSelectionChanged: (value) =>
+                          setState(() => objective = value.first),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: objective == GameObjective.marketShare
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Target market share: ${targetMarketShare.round()}%',
+                                  ),
+                                  Slider(
+                                    value: targetMarketShare.toDouble(),
+                                    min: 60,
+                                    max: 100,
+                                    divisions: 40,
+                                    label: '${targetMarketShare.round()}%',
+                                    onChanged: (value) => setState(
+                                      () => targetMarketShare = value
+                                          .roundToDouble(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<CurrencyOption>(
+                      initialValue: selectedCurrency,
+                      decoration: const InputDecoration(
+                        labelText: 'Currency',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: currencyOptions
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text('${value.code} · ${value.name}'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => selectedCurrency = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Starting cash: ${money(startingCash, selectedCurrency)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
               ),
             ),
+            actions: [
+              if (!forceStart)
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              FilledButton.icon(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  final emoji = emojiController.text.trim();
+                  game.startNewGame(
+                    game.settings.copyWith(
+                      playerAirlineName: name.isEmpty ? 'My Airline' : name,
+                      playerAirlineColor:
+                          _normaliseHexColor(colorController.text) ?? '#3b82f6',
+                      playerAirlineEmoji: emoji.isEmpty ? '✈️' : emoji,
+                      startingHubIata: startingHub.iata,
+                      difficulty: difficulty,
+                      startingCash: startingCash,
+                      aiCount: aiCount,
+                      startingYear: startingYear,
+                      objective: objective,
+                      targetMarketShare: targetMarketShare,
+                      currency: selectedCurrency.code,
+                    ),
+                  );
+                  onCurrency(selectedCurrency);
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.flight_takeoff),
+                label: const Text('Start'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final emoji = emojiController.text.trim();
-                game.startNewGame(
-                  game.settings.copyWith(
-                    playerAirlineName: name.isEmpty ? 'My Airline' : name,
-                    playerAirlineColor:
-                        _normaliseHexColor(colorController.text) ?? '#3b82f6',
-                    playerAirlineEmoji: emoji.isEmpty ? '✈️' : emoji,
-                    startingHubIata: startingHub.iata,
-                    difficulty: difficulty,
-                    startingCash: startingCash,
-                    aiCount: aiCount,
-                    startingYear: startingYear,
-                    objective: objective,
-                    targetMarketShare: targetMarketShare,
-                    currency: selectedCurrency.code,
-                  ),
-                );
-                onCurrency(selectedCurrency);
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.flight_takeoff),
-              label: const Text('Start'),
-            ),
-          ],
         );
       },
     ),

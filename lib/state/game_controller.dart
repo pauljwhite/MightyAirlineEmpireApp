@@ -508,8 +508,8 @@ const _aiSeeds = <_AiSeed>[
 ];
 
 class GameController extends ChangeNotifier {
-  GameController() {
-    startNewGame();
+  GameController({bool autoStart = true}) {
+    if (autoStart) startNewGame();
   }
 
   static const saveVersion = 1;
@@ -522,6 +522,7 @@ class GameController extends ChangeNotifier {
   bool isPaused = false;
   bool hasWon = false;
   bool hasLost = false;
+  bool hasStarted = false;
   ThemeModeSetting themeMode = ThemeModeSetting.dark;
   bool showAiOnMap = true;
   double globalFuelPrice = fuelPriceUsdPerLiter;
@@ -731,6 +732,7 @@ class GameController extends ChangeNotifier {
   }
 
   void advanceGameClock(Duration realDelta) {
+    if (!hasStarted) return;
     if (isPaused || speed <= 0) return;
     final delta = (realDelta.inMilliseconds * speed).round();
     if (delta <= 0) return;
@@ -877,6 +879,7 @@ class GameController extends ChangeNotifier {
   }
 
   void startNewGame([GameSettings? nextSettings]) {
+    hasStarted = true;
     settings = nextSettings ?? settings;
     gameDay = 0;
     gameTimeMs = 0;
@@ -2910,6 +2913,7 @@ class GameController extends ChangeNotifier {
   };
 
   void importJson(String rawJson) {
+    hasStarted = true;
     final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
     final raw = decoded['state'] is Map
         ? Map<String, dynamic>.from(decoded['state'] as Map)
