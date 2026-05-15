@@ -293,7 +293,7 @@ RouteEconomicsResult calculateRouteEconomics({
   final bizPax = math
       .min(
         bizCapacity,
-        (baselinePax * 0.1 * bizShare * repMod * crashPenalty * condMod)
+        (baselinePax * 0.08 * bizShare * repMod * crashPenalty * condMod)
             .floor(),
       )
       .round();

@@ -1180,10 +1180,10 @@ class _SpeedControl extends StatelessWidget {
         ],
         child: Container(
           height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: _subtleSurface(context),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(100),
             border: Border.all(color: _hairline(context)),
           ),
           child: Row(
@@ -1226,13 +1226,13 @@ class _SpeedControl extends StatelessWidget {
     ];
 
     return Container(
-      height: 34,
+      height: 36,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: dark
             ? Colors.white.withValues(alpha: 0.07)
             : Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: dark
               ? Colors.white.withValues(alpha: 0.10)
@@ -1311,7 +1311,7 @@ class _SpeedSegmentState extends State<_SpeedSegment> {
                             ? Colors.white.withValues(alpha: 0.12)
                             : Colors.black.withValues(alpha: 0.08))
                       : Colors.transparent),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(100),
             boxShadow: widget.selected && !_pressed
                 ? [
                     BoxShadow(
@@ -2389,33 +2389,87 @@ void _showNewGameDialog(
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _newGameEras
-                          .map(
-                            (option) => ChoiceChip(
-                              label: Column(
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        spacing: 8,
+                        children: _newGameEras.map((option) {
+                          final selected = startingYear == option.year;
+                          final dark = Theme.of(context).brightness ==
+                              Brightness.dark;
+                          return GestureDetector(
+                            onTap: () =>
+                                setState(() => startingYear = option.year),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 130),
+                              curve: Curves.easeOut,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? const Color(0xff0a84ff)
+                                    : (dark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.black.withValues(alpha: 0.05)),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.transparent
+                                      : (dark
+                                          ? Colors.white.withValues(alpha: 0.10)
+                                          : Colors.black.withValues(alpha: 0.08)),
+                                ),
+                                boxShadow: selected
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xff0a84ff,
+                                          ).withValues(alpha: 0.35),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     option.year.toString(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      color: selected
+                                          ? Colors.white
+                                          : (dark
+                                              ? Colors.white
+                                              : Colors.black87),
                                     ),
                                   ),
+                                  const SizedBox(height: 2),
                                   Text(
                                     option.label,
-                                    style: const TextStyle(fontSize: 11),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: selected
+                                          ? Colors.white.withValues(alpha: 0.85)
+                                          : (dark
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.50,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.45,
+                                                )),
+                                    ),
                                   ),
                                 ],
                               ),
-                              selected: startingYear == option.year,
-                              onSelected: (_) =>
-                                  setState(() => startingYear = option.year),
                             ),
-                          )
-                          .toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(

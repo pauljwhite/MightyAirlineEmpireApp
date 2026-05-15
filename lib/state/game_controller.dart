@@ -29,7 +29,7 @@ const _aiCriticalCashThreshold = 5000000.0;
 const _aiLossMakingRouteThreshold = -2500.0;
 const _aiBuyoutIntervalDays = 90;
 const _aiDissolveIntervalDays = 30;
-const _aiDissolveThreshold = -100000000.0;
+const _aiDissolveThreshold = -50000000.0;
 const _aiShareSaleCashThreshold = 8000000.0;
 
 class NetworkOptimisationPreview {
@@ -544,7 +544,6 @@ class GameController extends ChangeNotifier {
   int _nextAirline = 1;
   int _lastClockNotifyGameMs = 0;
 
-  static const _aiExpansionRouteCap = 20;
   static const _aiExpansionReserveUSD = 5000000.0;
 
   @override
@@ -1002,7 +1001,7 @@ class GameController extends ChangeNotifier {
   double _aiPriceMultiplier(AirlinePersonality personality) =>
       switch (personality) {
         AirlinePersonality.aggressive => 0.9,
-        AirlinePersonality.budget => 0.78,
+        AirlinePersonality.budget => 0.75,
         AirlinePersonality.premium => 1.22,
         AirlinePersonality.conservative => 1.05,
         AirlinePersonality.balanced => 1,
@@ -1452,16 +1451,16 @@ class GameController extends ChangeNotifier {
 
   // Typed aircraft events — (label, probability, conditionHit, reputationHit, ground)
   static const _fleetEvents = <(String, double, double, double, bool)>[
-    ('bird strike', 0.018, 8, 2, false),
-    ('engine fault', 0.012, 14, 5, true),
-    ('hydraulic issue', 0.010, 10, 3, true),
-    ('tyre blowout', 0.016, 6, 2, false),
-    ('fuselage crack', 0.007, 18, 8, true),
-    ('avionics fault', 0.009, 8, 4, true),
-    ('fuel leak', 0.008, 12, 6, true),
-    ('pressurisation fault', 0.006, 10, 5, true),
-    ('landing gear fault', 0.011, 12, 5, true),
-    ('fire warning', 0.005, 16, 10, true),
+    ('bird strike', 0.0018, 8, 2, false),
+    ('engine fault', 0.0012, 14, 5, true),
+    ('hydraulic issue', 0.0010, 10, 3, true),
+    ('tyre blowout', 0.0016, 6, 2, false),
+    ('fuselage crack', 0.0007, 18, 8, true),
+    ('avionics fault', 0.0009, 8, 4, true),
+    ('fuel leak', 0.0008, 12, 6, true),
+    ('pressurisation fault', 0.0006, 10, 5, true),
+    ('landing gear fault', 0.0011, 12, 5, true),
+    ('fire warning', 0.0005, 16, 10, true),
   ];
 
   void _maybeRunRandomFleetEvent() {
@@ -1560,7 +1559,7 @@ class GameController extends ChangeNotifier {
       isGrounded: false,
       clearGroundedReason: true,
       status: route == null ? AircraftStatus.idle : AircraftStatus.flying,
-      maintenanceHoursOwed: ac.maintenanceHoursOwed + 18,
+      maintenanceHoursOwed: ac.maintenanceHoursOwed,
       knownFaultRiskMod: math.max(ac.knownFaultRiskMod, 3),
     );
     pushNewsItem(
@@ -1687,7 +1686,7 @@ class GameController extends ChangeNotifier {
     if (airline == null || airline.isPlayer || airline.isInsolvent) return;
     final threshold = switch (airline.personality) {
       AirlinePersonality.premium => 65.0,
-      AirlinePersonality.conservative => 50.0,
+      AirlinePersonality.conservative => 52.0,
       AirlinePersonality.balanced => 40.0,
       AirlinePersonality.aggressive => 28.0,
       AirlinePersonality.budget => 18.0,
@@ -2009,8 +2008,19 @@ class GameController extends ChangeNotifier {
       netProfits[airlineId] = profit;
       passengerTotals[airlineId] = totalPassengers;
       final penaltyLeft = (airline.crashPenaltyDaysLeft - 1).clamp(0, 9999);
-      final reputationRecovery = airline.isPlayer ? 0.5 : 0.3;
-      final newReputation = (airline.reputationScore + reputationRecovery)
+      const reputationRecovery = 0.1;
+      // Drain reputation for operating poorly-maintained aircraft (condition < 40)
+      final fleet = airline.isPlayer
+          ? playerFleet
+          : fleetForAirline(airlineId);
+      final conditionDrain = fleet
+          .where((ac) =>
+              ac.status == AircraftStatus.flying && ac.condition < 40)
+          .fold<double>(0.0, (sum, ac) {
+        return sum + ((40 - ac.condition) / 40) * 0.15;
+      });
+      final newReputation =
+          (airline.reputationScore + reputationRecovery - conditionDrain)
           .clamp(0, 100)
           .toDouble();
       airlines[airlineId] = airline.copyWith(
@@ -2175,19 +2185,11 @@ class GameController extends ChangeNotifier {
     );
     routes[routeId] = route.copyWith(isActive: false);
 
-    if (airline.isPlayer) {
-      airlines[airlineId] = airline.copyWith(
-        cashUSD: airline.cashUSD - 50000000,
-        reputationScore: math.max(0, airline.reputationScore - 45).toDouble(),
-        crashPenaltyDaysLeft: 30,
-      );
-    } else {
-      airlines[airlineId] = airline.copyWith(
-        cashUSD: airline.cashUSD - 25000000,
-        reputationScore: math.max(0, airline.reputationScore - 40).toDouble(),
-        crashPenaltyDaysLeft: 30,
-      );
-    }
+    airlines[airlineId] = airline.copyWith(
+      cashUSD: airline.cashUSD - 50000000,
+      reputationScore: math.max(0, airline.reputationScore - 25).toDouble(),
+      crashPenaltyDaysLeft: 30,
+    );
 
     final article = NewsArticle(
       id: '${airline.isPlayer ? 'crash' : 'ai_crash'}_${gameDay}_$aircraftId',
@@ -2259,9 +2261,10 @@ class GameController extends ChangeNotifier {
   }
 
   void _resolveInsolvencies() {
-    const insolvencyLimit = -100000000.0;
+    const playerInsolvencyLimit = -100000000.0;
+    const aiInsolvencyLimit = -50000000.0;
     final playerAirline = airlines['player'];
-    if (playerAirline != null && playerAirline.cashUSD <= insolvencyLimit) {
+    if (playerAirline != null && playerAirline.cashUSD <= playerInsolvencyLimit) {
       hasLost = true;
       pushNewsItem(
         '${playerAirline.name} is insolvent after cash fell below -\$100M.',
@@ -2274,7 +2277,7 @@ class GameController extends ChangeNotifier {
     var allCompetitorsInsolvent = true;
     for (final airline in competitors) {
       anyCompetitor = true;
-      if (airline.cashUSD > insolvencyLimit) {
+      if (airline.cashUSD > aiInsolvencyLimit) {
         allCompetitorsInsolvent = false;
         continue;
       }
@@ -2329,7 +2332,7 @@ class GameController extends ChangeNotifier {
   int _aiExpansionIntervalDays(AirlinePersonality personality) =>
       switch (personality) {
         AirlinePersonality.aggressive => 5,
-        AirlinePersonality.balanced => 10,
+        AirlinePersonality.balanced => 8,
         AirlinePersonality.conservative => 16,
         AirlinePersonality.premium => 12,
         AirlinePersonality.budget => 8,
@@ -2342,8 +2345,8 @@ class GameController extends ChangeNotifier {
       // Stagger by a deterministic per-airline offset so not all expand at once
       final offset = airline.id.hashCode.abs() % interval;
       if ((gameDay + offset) % interval != 0) continue;
-      if (airline.cashUSD < 12000000 ||
-          airline.routeIds.length >= _aiExpansionRouteCap) {
+      final aiCashReserve = 12000000 + airline.fleetIds.length * 2500000.0;
+      if (airline.cashUSD < aiCashReserve) {
         continue;
       }
       final hub = airportByIata(airline.hubIatas.firstOrNull ?? '');
@@ -2384,15 +2387,57 @@ class GameController extends ChangeNotifier {
           candidate.airport.lon,
         );
         final flightHours = distKm / type.cruiseSpeedKmh;
+        // Compute cost-based seed price (mirrors web estimateAIOperation)
+        final flightsPerWeek = _defaultAiFrequency(airline.personality);
+        final costProbeRoute = RoutePlan(
+          id: '_cost_probe',
+          airlineId: airline.id,
+          originIata: hub.iata,
+          destinationIata: candidate.airport.iata,
+          aircraftId: '_dummy',
+          flightsPerWeek: flightsPerWeek,
+          priceEconomy: 100,
+          priceBusiness: 0,
+          isActive: true,
+          createdGameDay: gameDay,
+          distanceKm: distKm,
+          flightDurationHours: flightHours,
+        );
+        final costProbeAc = Aircraft(
+          id: '_dummy',
+          name: '_dummy',
+          airlineId: airline.id,
+          typeId: type.id,
+          status: AircraftStatus.flying,
+          purchasedGameDay: gameDay,
+          condition: 100,
+        );
+        final flightCosts = computeFlightCost(
+          costProbeRoute,
+          costProbeAc,
+          type,
+          hub,
+          candidate.airport,
+          globalFuelPrice,
+          currentGameDay: gameDay,
+        );
+        final totalSeats = type.seatsEconomy + type.seatsBusiness;
+        final costPerSeat =
+            totalSeats > 0 ? flightCosts.totalCost / totalSeats : 200.0;
+        final priceMultiplier = _aiPriceMultiplier(airline.personality);
+        final seedEco =
+            math.max(50, (costPerSeat * 1.45 * priceMultiplier).round());
+        final seedBiz =
+            type.seatsBusiness > 0 ? (seedEco * 4.0).round() : 0;
         final dummyRoute = RoutePlan(
           id: '_estimate',
           airlineId: airline.id,
           originIata: hub.iata,
           destinationIata: candidate.airport.iata,
           aircraftId: '_dummy',
-          flightsPerWeek: _defaultAiFrequency(airline.personality),
-          priceEconomy: (distKm * 0.12 + 75).round(),
-          priceBusiness: (distKm * 0.24 + 210).round(),
+          flightsPerWeek: flightsPerWeek,
+          priceEconomy: seedEco,
+          priceBusiness: seedBiz,
           isActive: true,
           createdGameDay: gameDay,
           distanceKm: distKm,
@@ -2470,7 +2515,7 @@ class GameController extends ChangeNotifier {
         final allAirlines = airlines.values.toList(growable: false);
         // 8-step sweep: 0.84x to 1.20x of current price
         const steps = [0.84, 0.90, 0.96, 1.00, 1.04, 1.08, 1.14, 1.20];
-        var bestRevenue = -double.infinity;
+        var bestProfit = -double.infinity;
         var bestEco = route.priceEconomy;
         var bestBiz = route.priceBusiness;
         for (final mult in steps) {
@@ -2491,8 +2536,8 @@ class GameController extends ChangeNotifier {
             gameDay: gameDay,
             airportDailyPax: airportDailyPax,
           );
-          if (result.revenue > bestRevenue) {
-            bestRevenue = result.revenue;
+          if (result.profit > bestProfit) {
+            bestProfit = result.profit;
             bestEco = trialRoute.priceEconomy;
             bestBiz = trialRoute.priceBusiness;
           }
@@ -2723,7 +2768,6 @@ class GameController extends ChangeNotifier {
     final usedHubs = activeCompetitors
         .expand((airline) => airline.hubIatas)
         .toSet();
-    usedHubs.addAll(player.hubIatas);
     final availableHubs = _aiSpawnHubs
         .where(
           (iata) => !usedHubs.contains(iata) && airportsByIata[iata] != null,
@@ -2837,17 +2881,23 @@ class GameController extends ChangeNotifier {
               type.rangeKm >= distance &&
               canAirportHandleAircraft(origin, type) &&
               canAirportHandleAircraft(destination, type) &&
-              type.purchasePrice <= airline.cashUSD * 0.35,
+              type.purchasePrice <= airline.cashUSD * switch (airline.personality) {
+                AirlinePersonality.aggressive => 0.34,
+                AirlinePersonality.balanced => 0.28,
+                AirlinePersonality.budget => 0.30,
+                AirlinePersonality.premium => 0.30,
+                AirlinePersonality.conservative => 0.24,
+              },
         )
         .toList();
     if (affordable.isEmpty) return null;
     final homeAirport = airportByIata(airline.hubIatas.firstOrNull ?? '');
     affordable.sort((a, b) {
       final scoreA =
-          (a.seatsEconomy + a.seatsBusiness * 1.8) *
+          a.seatsEconomy *
           aiManufacturerPreferenceWeight(airline, a, homeAirport);
       final scoreB =
-          (b.seatsEconomy + b.seatsBusiness * 1.8) *
+          b.seatsEconomy *
           aiManufacturerPreferenceWeight(airline, b, homeAirport);
       final scoreCompare = scoreB.compareTo(scoreA);
       return scoreCompare == 0
