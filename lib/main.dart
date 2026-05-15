@@ -1623,6 +1623,24 @@ void _showRebrandDialog(
       builder: (context, setState) {
         final name = nameController.text.trim();
         final logo = logoController.text.trim();
+        final nameChanged =
+            name.isNotEmpty && name != game.player.name;
+        final colorChanged = colour != game.player.color;
+        final logoChanged =
+            logo.isNotEmpty && logo != game.player.logoEmoji;
+        final value = game.playerCompanyValue();
+        final nameCost = nameChanged && colorChanged
+            ? 0.0
+            : nameChanged
+            ? math.max(1000000, value * 0.04)
+            : 0.0;
+        final colorCost = colorChanged && !nameChanged
+            ? math.max(250000, value * 0.015)
+            : colorChanged && nameChanged
+            ? math.max(1200000, value * 0.05)
+            : 0.0;
+        final logoCost =
+            logoChanged ? math.max(500000, value * 0.02) : 0.0;
         final cost = game.rebrandCost(
           name: name,
           color: colour,
@@ -1738,8 +1756,24 @@ void _showRebrandDialog(
                         .toList(),
                   ),
                   const SizedBox(height: 12),
+                  if (hasChange) ...[
+                    if (nameChanged && colorChanged)
+                      _InfoRow(
+                        'Name + colour change',
+                        money(colorCost, currency),
+                      )
+                    else ...[
+                      if (nameChanged)
+                        _InfoRow('Name change', money(nameCost, currency)),
+                      if (colorChanged)
+                        _InfoRow('Colour change', money(colorCost, currency)),
+                    ],
+                    if (logoChanged)
+                      _InfoRow('Logo change', money(logoCost, currency)),
+                    const Divider(),
+                  ],
                   Text(
-                    hasChange ? 'Cost: ${money(cost, currency)}' : 'No changes',
+                    hasChange ? 'Total: ${money(cost, currency)}' : 'No changes',
                     style: TextStyle(
                       color: hasChange
                           ? const Color(0xffffd166)
@@ -4142,6 +4176,8 @@ class _RoutesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final routes = game.playerRoutes;
+    final activeCount = routes.where((r) => r.isActive).length;
+    final inactiveCount = routes.length - activeCount;
     final optimisation = game.previewNetworkOptimisation();
     final canOptimiseAll =
         optimisation.hasChanges && game.player.cashUSD >= optimisation.costUSD;
@@ -4160,14 +4196,56 @@ class _RoutesView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _MetricCard(
-          'Daily route profit',
-          money(
-            routes.fold<double>(0, (sum, route) => sum + route.dailyProfit),
-            currency,
-          ),
-          const Color(0xff3af083),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                'Daily route profit',
+                money(
+                  routes.fold<double>(
+                    0,
+                    (sum, route) => sum + route.dailyProfit,
+                  ),
+                  currency,
+                ),
+                const Color(0xff3af083),
+              ),
+            ),
+            if (routes.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MetricCard(
+                  'Active',
+                  '$activeCount / ${routes.length}',
+                  activeCount == routes.length
+                      ? const Color(0xff3af083)
+                      : const Color(0xffffd166),
+                ),
+              ),
+            ],
+          ],
         ),
+        if (inactiveCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 14,
+                  color: Color(0xffffd166),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$inactiveCount inactive route${inactiveCount > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    color: Color(0xffffd166),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (routes.isNotEmpty)
           _Card(
             child: Column(
@@ -7673,33 +7751,127 @@ void _showTakeoverDialog(
         final price = (valuation.totalPrice - value * (stake / 100))
             .clamp(0, double.infinity)
             .toDouble();
+        final acquiredFleet = game.fleetForAirline(airlineId);
+        final acquiredRoutes = game.routesForAirline(airlineId);
         return AlertDialog(
           title: Text('Acquire ${airline.name}'),
           content: SizedBox(
             width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _InfoRow('Fleet', money(valuation.fleetValue, currency)),
-                _InfoRow('Routes', money(valuation.routeValue, currency)),
-                _InfoRow('Cash', money(valuation.cashValue, currency)),
-                _InfoRow('Debt', money(valuation.debtValue, currency)),
-                _InfoRow(
-                  'Control premium',
-                  money(valuation.controlPremium, currency),
-                ),
-                const Divider(),
-                _InfoRow('Your stake', '${stake.toStringAsFixed(0)}%'),
-                _InfoRow('Price to pay', money(price, currency)),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      error!,
-                      style: const TextStyle(color: Color(0xffff6b6b)),
-                    ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _InfoRow('Fleet', money(valuation.fleetValue, currency)),
+                  _InfoRow('Routes', money(valuation.routeValue, currency)),
+                  _InfoRow('Cash', money(valuation.cashValue, currency)),
+                  _InfoRow('Debt', money(valuation.debtValue, currency)),
+                  _InfoRow(
+                    'Control premium',
+                    money(valuation.controlPremium, currency),
                   ),
-              ],
+                  const Divider(),
+                  _InfoRow('Your stake', '${stake.toStringAsFixed(0)}%'),
+                  _InfoRow('Price to pay', money(price, currency)),
+                  if (acquiredFleet.isNotEmpty || acquiredRoutes.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ExpansionTile(
+                      title: const Text(
+                        'Assets acquired',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      children: [
+                        if (acquiredFleet.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6, bottom: 2),
+                            child: Text(
+                              'Aircraft',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xff9aa4b5),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          ...acquiredFleet.map((ac) {
+                            final t = aircraftTypesById[ac.typeId];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      t?.displayName ?? ac.typeId,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${ac.condition.toStringAsFixed(0)}% cond',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff9aa4b5),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                        if (acquiredRoutes.isNotEmpty) ...[
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8, bottom: 2),
+                            child: Text(
+                              'Routes',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xff9aa4b5),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          ...acquiredRoutes.map((r) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${r.originIata} →${r.destinationIata}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${money(r.dailyProfit, currency)}/day',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: r.dailyProfit >= 0
+                                          ? const Color(0xff3af083)
+                                          : const Color(0xffff6b6b),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
+                  ],
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xffff6b6b)),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           actions: [
