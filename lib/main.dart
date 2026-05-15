@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart';
@@ -172,6 +173,40 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
                       brightness: lightMode
                           ? Brightness.light
                           : Brightness.dark,
+                    ),
+                    dialogTheme: DialogThemeData(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      backgroundColor: lightMode
+                          ? const Color(0xf7ffffff)
+                          : const Color(0xee0d1526),
+                      elevation: 24,
+                    ),
+                    filledButtonTheme: FilledButtonThemeData(
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    outlinedButtonTheme: OutlinedButtonThemeData(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    textButtonTheme: TextButtonThemeData(
+                      style: TextButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
                   ),
           home: game.hasStarted
@@ -579,7 +614,10 @@ class _TopBar extends StatelessWidget {
       onPanel: onPanel,
       compact: compact,
     );
-    return Container(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
       decoration: BoxDecoration(
         color: _chromeSurface(context),
         border: Border(bottom: BorderSide(color: _hairline(context))),
@@ -589,57 +627,59 @@ class _TopBar extends StatelessWidget {
         children: [
           SizedBox(
             height: 54,
-            child: Row(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _AirlineBadge(
-                      game: game,
-                      currency: currency,
-                      onCurrency: onCurrency,
-                      compact: compact,
-                    ),
-                    const SizedBox(width: 6),
-                    _DateBadge(game: game, compact: compact),
-                    const SizedBox(width: 6),
-                    _SpeedControl(
-                      compact: compact,
-                      speedValue: speedValue,
-                      onSpeed: onSpeed,
-                    ),
-                    IconButton(
-                      tooltip: 'Advance day',
-                      onPressed: game.runDailyTick,
-                      icon: const Icon(Icons.skip_next),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: search,
-                      ),
+                // Search centred absolutely so it stays in the middle of the bar
+                if (!compact)
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child: search,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                ] else
-                  const Spacer(),
+                // Left controls and right nav on top, non-opaque so search shows between
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (compact)
-                      IconButton(
-                        tooltip: 'Search airports',
-                        onPressed: onToggleSearch,
-                        icon: Icon(searchOpen ? Icons.close : Icons.search),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    nav,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _AirlineBadge(
+                          game: game,
+                          currency: currency,
+                          onCurrency: onCurrency,
+                          compact: compact,
+                        ),
+                        const SizedBox(width: 6),
+                        _DateBadge(game: game, compact: compact),
+                        const SizedBox(width: 6),
+                        _SpeedControl(
+                          compact: compact,
+                          speedValue: speedValue,
+                          onSpeed: onSpeed,
+                        ),
+                        IconButton(
+                          tooltip: 'Advance day',
+                          onPressed: game.runDailyTick,
+                          icon: const Icon(Icons.skip_next),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (compact)
+                          IconButton(
+                            tooltip: 'Search airports',
+                            onPressed: onToggleSearch,
+                            icon: Icon(searchOpen ? Icons.close : Icons.search),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        nav,
+                      ],
+                    ),
                   ],
                 ),
               ],
@@ -653,6 +693,8 @@ class _TopBar extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    ),
       ),
     );
   }
@@ -3371,19 +3413,22 @@ class _MapPainter extends CustomPainter {
     final from = cycle <= 1 ? origin : dest;
     final to = cycle <= 1 ? dest : origin;
     final visualPoint = _visualArcPoint(from.lat, from.lon, to.lat, to.lon, t);
+    final tAhead = t + 0.01;
+    final lookBack = tAhead > 1.0;
     final ahead = _visualArcPoint(
       from.lat,
       from.lon,
       to.lat,
       to.lon,
-      math.min(1, t + 0.01),
+      lookBack ? math.max(0.0, t - 0.01) : math.min(1.0, tAhead),
     );
     final point = _latLonPoint(visualPoint.lat, visualPoint.lon, size);
     final aheadPoint = _latLonPoint(ahead.lat, ahead.lon, size);
-    final angle = math.atan2(
+    final rawAngle = math.atan2(
       aheadPoint.dy - point.dy,
       aheadPoint.dx - point.dx,
     );
+    final angle = lookBack ? rawAngle + math.pi : rawAngle;
     final airline = game.airlines[route.airlineId];
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
@@ -6377,7 +6422,28 @@ class _FinanceView extends StatelessWidget {
                     width: 190,
                     child: OutlinedButton(
                       onPressed: available
-                          ? () => game.applyForLoan(offer)
+                          ? () => showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Confirm Loan'),
+                                content: Text(
+                                  'Apply for a ${money(offer.amountUSD, currency)} loan at ${formatInterestRate(offer.annualInterestRate)} over ${offer.termYears} ${offer.termYears == 1 ? "year" : "years"}?\n\nDaily repayment: ${money(dailyPayment, currency)}/day',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () {
+                                      Navigator.of(ctx).pop();
+                                      game.applyForLoan(offer);
+                                    },
+                                    child: const Text('Apply'),
+                                  ),
+                                ],
+                              ),
+                            )
                           : null,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -7169,8 +7235,9 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
   }
 
   Widget _buildList() {
-    final airlines = [widget.game.player, ...widget.game.competitors]
+    final sortedCompetitors = [...widget.game.competitors]
       ..sort((a, b) => b.marketSharePercent.compareTo(a.marketSharePercent));
+    final airlines = [widget.game.player, ...sortedCompetitors];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -9496,8 +9563,15 @@ class _Card extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: _cardSurface(context),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: _hairline(context)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: _isLight(context) ? 0.04 : 0.20),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: child,
   );
@@ -9539,33 +9613,45 @@ class _PanelShell extends StatelessWidget {
   const _PanelShell({required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: _panelSurface(context),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _hairline(context)),
-      boxShadow: [
-        BoxShadow(
-          color: _isLight(context)
-              ? Colors.black.withValues(alpha: 0.16)
-              : Colors.black.withValues(alpha: 0.54),
-          blurRadius: 22,
-          offset: const Offset(0, 10),
+  Widget build(BuildContext context) {
+    final dark = !_isLight(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark
+                ? const Color(0xd40b1020)
+                : const Color(0xedffffff),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: dark
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.60 : 0.18),
+                blurRadius: 40,
+                spreadRadius: -4,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: child,
         ),
-      ],
-    ),
-    child: ClipRRect(borderRadius: BorderRadius.circular(16), child: child),
-  );
+      ),
+    );
+  }
 }
 
 bool _isLight(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light;
 
 Color _chromeSurface(BuildContext context) =>
-    _isLight(context) ? const Color(0xf7ffffff) : const Color(0xee050915);
+    _isLight(context) ? const Color(0xeaffffff) : const Color(0xd4050915);
 
-Color _panelSurface(BuildContext context) =>
-    _isLight(context) ? const Color(0xf7ffffff) : const Color(0xee0b1020);
 
 Color _cardSurface(BuildContext context) =>
     _isLight(context) ? const Color(0xfff8fafc) : const Color(0xff151b2b);

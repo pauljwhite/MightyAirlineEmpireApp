@@ -1107,7 +1107,15 @@ class GameController extends ChangeNotifier {
       currentLat: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lat ?? 0,
       currentLon: airportByIata(owner.hubIatas.firstOrNull ?? 'LHR')?.lon ?? 0,
     );
-    aircraft[id] = ac;
+    // Apply fleet maintenance policy to newly purchased aircraft
+    final policy = owner.maintenancePolicy;
+    aircraft[id] = policy.enabled
+        ? ac.copyWith(
+            autoMaintenanceEnabled: true,
+            autoMaintenanceThreshold: policy.threshold,
+            autoMaintenanceTier: policy.tier,
+          )
+        : ac;
     airlines[ownerId] = owner.copyWith(
       cashUSD: owner.cashUSD - type.purchasePrice,
       fleetIds: [...owner.fleetIds, id],
