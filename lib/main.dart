@@ -2115,25 +2115,40 @@ void _showNewGameDialog(
                           : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<CurrencyOption>(
-                      initialValue: selectedCurrency,
-                      decoration: const InputDecoration(
-                        labelText: 'Currency',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: currencyOptions
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text('${value.code} · ${value.name}'),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => selectedCurrency = value);
-                        }
-                      },
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Currency',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xff9aa4b5),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: currencyOptions.map((opt) {
+                            final isSelected = opt.code == selectedCurrency.code;
+                            return FilterChip(
+                              selected: isSelected,
+                              label: Text(
+                                '${opt.symbol} ${opt.code}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w800
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              tooltip: opt.name,
+                              onSelected: (_) =>
+                                  setState(() => selectedCurrency = opt),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -6710,12 +6725,18 @@ class _LoanAccordionTile extends StatelessWidget {
             children: [
               ...repaymentOptions.map((option) {
                 final canPay = cash >= option.amount;
-                return OutlinedButton(
-                  onPressed: canPay
-                      ? () => game.repayLoan(loan.id, option.amount)
-                      : null,
-                  child: Text(
-                    '${option.label} · ${money(option.amount, currency)}',
+                final shortfall = option.amount - cash;
+                return Tooltip(
+                  message: canPay
+                      ? ''
+                      : 'Need ${money(shortfall, currency)} more',
+                  child: OutlinedButton(
+                    onPressed: canPay
+                        ? () => game.repayLoan(loan.id, option.amount)
+                        : null,
+                    child: Text(
+                      '${option.label} · ${money(option.amount, currency)}',
+                    ),
                   ),
                 );
               }),
