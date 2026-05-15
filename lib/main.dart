@@ -71,6 +71,24 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
             : delta,
       );
     });
+    _tryRestoreAutoSave();
+  }
+
+  void _tryRestoreAutoSave() {
+    GameController.loadAutoSave().then((saved) {
+      if (!mounted || saved == null || game.hasStarted) return;
+      try {
+        game.importJson(saved);
+        final restoredCurrency = currencyOptions.firstWhere(
+          (c) => c.code == game.settings.currency,
+          orElse: () => currencyOptions.first,
+        );
+        setState(() => currency = restoredCurrency);
+        _initialNewGameDialogShown = true;
+      } catch (_) {
+        // Corrupt save — ignore and let the new-game dialog open normally
+      }
+    });
   }
 
   void _scheduleInitialNewGameDialog() {
@@ -2169,6 +2187,7 @@ void _showNewGameDialog(
                 onPressed: () {
                   final name = nameController.text.trim();
                   final emoji = emojiController.text.trim();
+                  GameController.clearAutoSave();
                   game.startNewGame(
                     game.settings.copyWith(
                       playerAirlineName: name.isEmpty ? 'My Airline' : name,

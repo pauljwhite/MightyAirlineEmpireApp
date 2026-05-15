@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
 import '../core/geo.dart';
@@ -1993,7 +1994,32 @@ class GameController extends ChangeNotifier {
       'Day $gameDay: profit ${playerSnapshot.profit.round()} USD, passengers ${playerSnapshot.passengers}.',
     );
     notifyListeners();
+    _scheduleAutoSave();
     return playerSnapshot;
+  }
+
+  // ─── Auto-save ────────────────────────────────────────────────────────────
+
+  static const _autoSaveKey = 'mighty_airline_autosave';
+  static const _autoSaveIntervalDays = 1;
+  int _lastAutoSaveDay = -1;
+
+  void _scheduleAutoSave() {
+    if (gameDay - _lastAutoSaveDay < _autoSaveIntervalDays) return;
+    _lastAutoSaveDay = gameDay;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_autoSaveKey, exportJson());
+    });
+  }
+
+  static Future<String?> loadAutoSave() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_autoSaveKey);
+  }
+
+  static Future<void> clearAutoSave() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_autoSaveKey);
   }
 
   bool _isAirportClosed(Airport airport) {
