@@ -9611,6 +9611,13 @@ class _TickerState extends State<_Ticker> {
         item.severity == 'breaking';
     final tickerText =
         '${isAlert ? '‼️ ' : ''}${item.text}${article == null ? '' : ' Read the article'}';
+    final tagText = isAlert ? 'FLEET ALERT' : 'NEWS';
+    final tagColor =
+        isAlert ? const Color(0xffff8c42) : const Color(0xffffd166);
+    final tagBg = isAlert
+        ? const Color(0xffffd166).withValues(alpha: 0.12)
+        : Colors.transparent;
+
     return InkWell(
       onTap: article == null
           ? null
@@ -9623,31 +9630,59 @@ class _TickerState extends State<_Ticker> {
       child: Container(
         height: 42,
         color: const Color(0xff050915),
-        alignment: Alignment.centerLeft,
-        child: TweenAnimationBuilder<double>(
-          key: ValueKey('${item.id}-$animationCycle-$speed'),
-          tween: Tween(begin: 1, end: -1),
-          duration: Duration(seconds: _tickerDurationSeconds(speed)),
-          onEnd: _advanceTicker,
-          builder: (context, value, child) => FractionalTranslation(
-            translation: Offset(value, 0),
-            child: child,
-          ),
-          child: Text(
-            '  $tickerText     $tickerText',
-            maxLines: 1,
-            style: TextStyle(
-              color: article != null || isAlert
-                  ? const Color(0xffffd166)
-                  : const Color(0xffc7d2e5),
-              fontWeight: article != null || isAlert
-                  ? FontWeight.w900
-                  : FontWeight.w700,
-              decoration: article == null
-                  ? TextDecoration.none
-                  : TextDecoration.underline,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: tagBg,
+                border: Border.all(
+                  color: tagColor.withValues(alpha: 0.45),
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                tagText,
+                style: TextStyle(
+                  color: tagColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ClipRect(
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey('${item.id}-$animationCycle-$speed'),
+                  tween: Tween(begin: 1, end: -1),
+                  duration: Duration(seconds: _tickerDurationSeconds(speed)),
+                  onEnd: _advanceTicker,
+                  builder: (context, value, child) => FractionalTranslation(
+                    translation: Offset(value, 0),
+                    child: child,
+                  ),
+                  child: Text(
+                    '  $tickerText     $tickerText',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: article != null || isAlert
+                          ? const Color(0xffffd166)
+                          : const Color(0xffc7d2e5),
+                      fontWeight: article != null || isAlert
+                          ? FontWeight.w900
+                          : FontWeight.w700,
+                      decoration: article == null
+                          ? TextDecoration.none
+                          : TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
