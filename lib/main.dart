@@ -200,7 +200,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                       : ThemeData.dark(useMaterial3: true))
                   .copyWith(
                     scaffoldBackgroundColor: lightMode
-                        ? const Color(0xffeef2f7)
+                        ? const Color(0xfff2f2f7)
                         : const Color(0xff050915),
                     colorScheme: ColorScheme.fromSeed(
                       seedColor: const Color(0xff2f8cff),
@@ -208,39 +208,281 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                           ? Brightness.light
                           : Brightness.dark,
                     ),
+                    // ── Dialogs ────────────────────────────────────────────
                     dialogTheme: DialogThemeData(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(22),
                       ),
                       backgroundColor: lightMode
-                          ? const Color(0xf7ffffff)
-                          : const Color(0xee0d1526),
-                      elevation: 24,
+                          ? const Color(0xf8f8f8f8)
+                          : const Color(0xec121a2c),
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 0,
+                      titleTextStyle: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                        color: lightMode ? const Color(0xff111827) : Colors.white,
+                      ),
                     ),
+                    // ── Buttons ────────────────────────────────────────────
                     filledButtonTheme: FilledButtonThemeData(
                       style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                          horizontal: 22,
+                          vertical: 13,
                         ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                        elevation: 0,
                       ),
                     ),
                     outlinedButtonTheme: OutlinedButtonThemeData(
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 11,
                         ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                        elevation: 0,
                       ),
                     ),
                     textButtonTheme: TextButtonThemeData(
                       style: TextButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
                         ),
                       ),
+                    ),
+                    elevatedButtonTheme: ElevatedButtonThemeData(
+                      style: ElevatedButton.styleFrom(
+                        shape: const StadiumBorder(),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 13,
+                        ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    // ── Text inputs ────────────────────────────────────────
+                    inputDecorationTheme: InputDecorationTheme(
+                      filled: true,
+                      fillColor: lightMode
+                          ? const Color(0xffebebf0)
+                          : Colors.white.withValues(alpha: 0.07),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: const Color(0xff2f8cff),
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: Color(0xffff453a),
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: Color(0xffff453a),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      isDense: true,
+                      hintStyle: TextStyle(
+                        color: lightMode
+                            ? const Color(0xff8e8e93)
+                            : const Color(0xff636366),
+                        fontSize: 15,
+                      ),
+                      labelStyle: TextStyle(
+                        fontSize: 15,
+                        color: lightMode
+                            ? const Color(0xff636366)
+                            : const Color(0xff8e8e93),
+                      ),
+                    ),
+                    // ── Switch (iOS-like) ───────────────────────────────────
+                    switchTheme: SwitchThemeData(
+                      thumbColor: WidgetStateProperty.all(Colors.white),
+                      trackColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return const Color(0xff30d158);
+                        }
+                        return lightMode
+                            ? const Color(0xffe5e5ea)
+                            : const Color(0xff39393d);
+                      }),
+                      trackOutlineColor: WidgetStateProperty.all(
+                        Colors.transparent,
+                      ),
+                    ),
+                    // ── Slider ──────────────────────────────────────────────
+                    sliderTheme: SliderThemeData(
+                      activeTrackColor: const Color(0xff2f8cff),
+                      inactiveTrackColor: lightMode
+                          ? const Color(0xffd1d1d6)
+                          : Colors.white.withValues(alpha: 0.18),
+                      thumbColor: Colors.white,
+                      overlayColor: const Color(0x292f8cff),
+                      trackHeight: 4,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 11,
+                        elevation: 3,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 20,
+                      ),
+                    ),
+                    // ── Chips ───────────────────────────────────────────────
+                    chipTheme: ChipThemeData(
+                      shape: const StadiumBorder(),
+                      side: BorderSide.none,
+                      backgroundColor: lightMode
+                          ? const Color(0xffe5e5ea)
+                          : Colors.white.withValues(alpha: 0.1),
+                      selectedColor: const Color(0xff2f8cff),
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: lightMode ? const Color(0xff1c1c1e) : Colors.white,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    // ── Segmented button ────────────────────────────────────
+                    segmentedButtonTheme: SegmentedButtonThemeData(
+                      style: SegmentedButton.styleFrom(
+                        shape: const StadiumBorder(),
+                        backgroundColor: lightMode
+                            ? const Color(0xffe5e5ea)
+                            : Colors.white.withValues(alpha: 0.08),
+                        selectedBackgroundColor: const Color(0xff2f8cff),
+                        foregroundColor: lightMode
+                            ? const Color(0xff3c3c43)
+                            : const Color(0xffaeaeb2),
+                        selectedForegroundColor: Colors.white,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                        side: BorderSide.none,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    // ── List tiles ───────────────────────────────────────────
+                    listTileTheme: ListTileThemeData(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    // ── Popup / context menus ────────────────────────────────
+                    popupMenuTheme: PopupMenuThemeData(
+                      color: lightMode
+                          ? const Color(0xf8f8f8f8)
+                          : const Color(0xee121a2c),
+                      elevation: 12,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(
+                          color: lightMode
+                              ? Colors.black.withValues(alpha: 0.07)
+                              : Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        letterSpacing: -0.2,
+                      ),
+                      labelTextStyle: WidgetStateProperty.all(
+                        const TextStyle(
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                    // ── Snack bars ───────────────────────────────────────────
+                    snackBarTheme: SnackBarThemeData(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: lightMode
+                          ? const Color(0xff2c2c2e)
+                          : const Color(0xff2c2c2e),
+                      contentTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 8,
+                    ),
+                    // ── Cards ────────────────────────────────────────────────
+                    cardTheme: CardThemeData(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(
+                          color: lightMode
+                              ? Colors.black.withValues(alpha: 0.07)
+                              : Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      color: lightMode
+                          ? const Color(0xfff8f8f8)
+                          : const Color(0xff151b2b),
+                      surfaceTintColor: Colors.transparent,
+                    ),
+                    // ── Dividers ─────────────────────────────────────────────
+                    dividerTheme: DividerThemeData(
+                      color: lightMode
+                          ? Colors.black.withValues(alpha: 0.08)
+                          : Colors.white.withValues(alpha: 0.08),
+                      thickness: 0.5,
+                      space: 1,
                     ),
                   ),
           home: game.hasStarted
@@ -1247,7 +1489,6 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     initialValue: currency,
                     decoration: const InputDecoration(
                       labelText: 'Display currency',
-                      border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: currencyOptions
@@ -1526,7 +1767,7 @@ class _LogoPicker extends StatelessWidget {
 void _showSettingsDialog(BuildContext context, GameController game) {
   showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => _GlassDialog(
       title: const Text('Settings'),
       content: SizedBox(
         width: 420,
@@ -1536,7 +1777,7 @@ void _showSettingsDialog(BuildContext context, GameController game) {
           children: [
             const Text(
               'Appearance',
-              style: TextStyle(fontWeight: FontWeight.w900),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
             const SizedBox(height: 12),
             _ThemeOption(
@@ -1681,7 +1922,7 @@ void _showRebrandDialog(
           logoEmoji: logo,
         );
         final hasChange = cost > 0;
-        return AlertDialog(
+        return _GlassDialog(
           title: const Text('Rebrand airline'),
           content: SizedBox(
             width: 480,
@@ -1727,7 +1968,6 @@ void _showRebrandDialog(
                     controller: nameController,
                     decoration: const InputDecoration(
                       labelText: 'Airline name',
-                      border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() => error = null),
                   ),
@@ -1736,7 +1976,6 @@ void _showRebrandDialog(
                     controller: logoController,
                     decoration: const InputDecoration(
                       labelText: 'Logo emoji, short mark, or data:image',
-                      border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() => error = null),
                   ),
@@ -1911,7 +2150,7 @@ void _showNewGameDialog(
         final selectedColor = _normaliseHexColor(colorController.text);
         return PopScope(
           canPop: !forceStart,
-          child: AlertDialog(
+          child: _GlassDialog(
             title: const Text('Start new airline'),
             content: SizedBox(
               width: 560,
@@ -1924,7 +2163,6 @@ void _showNewGameDialog(
                       controller: nameController,
                       decoration: const InputDecoration(
                         labelText: 'Airline name',
-                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1970,7 +2208,6 @@ void _showNewGameDialog(
                       decoration: const InputDecoration(
                         labelText: 'Custom colour',
                         hintText: '#3b82f6',
-                        border: OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -1990,7 +2227,6 @@ void _showNewGameDialog(
                             decoration: const InputDecoration(
                               labelText:
                                   'Logo emoji, short mark, or data:image',
-                              border: OutlineInputBorder(),
                             ),
                             onChanged: (_) => setState(() {}),
                           ),
@@ -2077,7 +2313,6 @@ void _showNewGameDialog(
                       initialValue: difficulty,
                       decoration: const InputDecoration(
                         labelText: 'Difficulty',
-                        border: OutlineInputBorder(),
                       ),
                       items: Difficulty.values
                           .map(
@@ -2338,7 +2573,7 @@ void _showExportDialog(BuildContext context, GameController game) {
   showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
+      builder: (dialogContext, setState) => _GlassDialog(
         title: const Text('Export progress'),
         content: SizedBox(
           width: 620,
@@ -2347,7 +2582,7 @@ void _showExportDialog(BuildContext context, GameController game) {
             readOnly: true,
             minLines: 8,
             maxLines: 14,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+            decoration: const InputDecoration(),
           ),
         ),
         actions: [
@@ -2398,7 +2633,7 @@ void _showImportDialog(
   showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
+      builder: (dialogContext, setState) => _GlassDialog(
         title: const Text('Import progress'),
         content: SizedBox(
           width: 620,
@@ -2410,7 +2645,6 @@ void _showImportDialog(
                 minLines: 8,
                 maxLines: 14,
                 decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
                   hintText: 'Paste exported JSON',
                 ),
               ),
@@ -2493,21 +2727,24 @@ class _DateBadge extends StatelessWidget {
     final label = compact
         ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
         : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
+    final dark = !_isLight(context);
     return Container(
       width: compact ? 132 : 178,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xff111827),
-        border: Border.all(color: const Color(0xff263247)),
-        borderRadius: BorderRadius.circular(24),
+        color: dark ? const Color(0xcc0d1526) : const Color(0xddffffff),
+        border: Border.all(color: _hairline(context)),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Text(
         label,
         textAlign: TextAlign.left,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w800,
-          fontFeatures: [FontFeature.tabularFigures()],
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          color: dark ? Colors.white : const Color(0xff1c1c1e),
         ),
       ),
     );
@@ -2550,37 +2787,83 @@ class _SearchBox extends StatelessWidget {
       focusNode: focus,
       decoration: InputDecoration(
         hintText: 'Search airports',
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search, size: 18),
         isDense: true,
-        filled: true,
-        fillColor: const Color(0xff111827),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
-    optionsViewBuilder: (context, onSelected, options) => Align(
-      alignment: Alignment.topLeft,
-      child: Material(
-        color: const Color(0xff111827),
-        borderRadius: BorderRadius.circular(12),
-        elevation: 12,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 340, maxHeight: 280),
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: options.length,
-            itemBuilder: (context, index) {
-              final a = options.elementAt(index);
-              return ListTile(
-                dense: true,
-                title: Text('${a.iata} · ${a.city}'),
-                subtitle: Text('${a.name}, ${a.country}'),
-                onTap: () => onSelected(a),
-              );
-            },
+    optionsViewBuilder: (context, onSelected, options) {
+      final dark = !_isLight(context);
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Material(
+                color: dark ? const Color(0xee121a2c) : const Color(0xf5f5f5f5),
+                borderRadius: BorderRadius.circular(18),
+                elevation: 0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: dark
+                          ? Colors.white.withValues(alpha: 0.12)
+                          : Colors.black.withValues(alpha: 0.07),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: dark ? 0.5 : 0.15),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 340,
+                      maxHeight: 300,
+                    ),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final a = options.elementAt(index);
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 2,
+                          ),
+                          title: Text(
+                            '${a.iata} · ${a.city}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${a.name}, ${a.country}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _mutedText(context),
+                            ),
+                          ),
+                          onTap: () => onSelected(a),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
@@ -2589,26 +2872,44 @@ class _MapToggle extends StatelessWidget {
   final bool showAi;
   final ValueChanged<bool> onChanged;
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: const Color(0xee0b1020),
+  Widget build(BuildContext context) {
+    final dark = !_isLight(context);
+    return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xff263247)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Show AI on map',
-            style: TextStyle(fontWeight: FontWeight.w700),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xcc0b1020) : const Color(0xddffffff),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: dark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
           ),
-          Switch(value: showAi, onChanged: onChanged),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, right: 4, top: 2, bottom: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Show AI on map',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: -0.2,
+                    color: dark ? Colors.white70 : const Color(0xff3c3c43),
+                  ),
+                ),
+                Switch(value: showAi, onChanged: onChanged),
+              ],
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _WorldMap extends StatefulWidget {
@@ -6751,7 +7052,7 @@ class _FinanceView extends StatelessWidget {
                       onPressed: available
                           ? () => showDialog<void>(
                               context: context,
-                              builder: (ctx) => AlertDialog(
+                              builder: (ctx) => _GlassDialog(
                                 title: const Text('Confirm Loan'),
                                 content: Text(
                                   'Apply for a ${money(offer.amountUSD, currency)} loan at ${formatInterestRate(offer.annualInterestRate)} over ${offer.termYears} ${offer.termYears == 1 ? "year" : "years"}?\n\nDaily repayment: ${money(dailyPayment, currency)}/day',
@@ -7796,7 +8097,7 @@ void _showShareTradeDialog(
             ? 0.0
             : (value / 100 * clampedPercent / 100000).round() * 100000.0;
         final price = selling ? sellPrice : buyPrice;
-        return AlertDialog(
+        return _GlassDialog(
           title: Text('${selling ? 'Sell' : 'Buy'} ${airline.name} shares'),
           content: SizedBox(
             width: 460,
@@ -8041,7 +8342,7 @@ void _showTakeoverDialog(
             .toDouble();
         final acquiredFleet = game.fleetForAirline(airlineId);
         final acquiredRoutes = game.routesForAirline(airlineId);
-        return AlertDialog(
+        return _GlassDialog(
           title: Text('Acquire ${airline.name}'),
           content: SizedBox(
             width: 480,
@@ -8216,7 +8517,7 @@ class _RouteSummaryDialog extends StatelessWidget {
         : condition >= 40
         ? const Color(0xffffd166)
         : const Color(0xffff6b6b);
-    return AlertDialog(
+    return _GlassDialog(
       title: Text(
         latestRoute.airlineId == 'player' ? 'Route Detail' : 'Competitor Route',
       ),
@@ -8673,7 +8974,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
       return available && byManufacturer && fits;
     }).toList();
     shopTypes.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
-    return AlertDialog(
+    return _GlassDialog(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -8690,7 +8991,6 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
             ),
         ],
       ),
-      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -9403,9 +9703,8 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         !(selectedAircraft != null && !selectedAircraftUsable) &&
         !sameAirport;
 
-    return AlertDialog(
+    return _GlassDialog(
       title: const Text('New Route'),
-      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(
         width: 580,
         child: SingleChildScrollView(
@@ -10285,7 +10584,6 @@ class _AirportDropdown extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: const Icon(Icons.flight_takeoff),
-        border: const OutlineInputBorder(),
       ),
     ),
   );
@@ -10476,6 +10774,88 @@ Color _hairline(BuildContext context) => _isLight(context)
 
 Color _mutedText(BuildContext context) =>
     _isLight(context) ? const Color(0xff64748b) : const Color(0xff9aa4b5);
+
+/// Glass-effect dialog wrapper.
+///
+/// Use instead of [AlertDialog] directly. Adds BackdropFilter blur and
+/// frosted-glass surface decoration.
+class _GlassDialog extends StatelessWidget {
+  const _GlassDialog({this.title, this.content, this.actions});
+  final Widget? title;
+  final Widget? content;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = !_isLight(context);
+    final theme = Theme.of(context);
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xec121a2c) : const Color(0xf5f8faff),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: dark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.black.withValues(alpha: 0.07),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: dark ? 0.60 : 0.18),
+                  blurRadius: 48,
+                  spreadRadius: -4,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (title != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+                    child: DefaultTextStyle(
+                      style: theme.dialogTheme.titleTextStyle ??
+                          theme.textTheme.titleLarge!,
+                      child: title!,
+                    ),
+                  ),
+                if (content != null)
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                      child: content,
+                    ),
+                  ),
+                if (actions != null && actions!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: actions!
+                          .map((a) => Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: a,
+                              ))
+                          .toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _Ticker extends StatefulWidget {
   const _Ticker({required this.game});
