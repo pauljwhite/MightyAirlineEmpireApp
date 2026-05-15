@@ -8364,33 +8364,28 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                 onChanged: (value) => setState(() => flights = value.round()),
               ),
               const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              _AdaptiveRow(
+                gap: 16,
                 children: [
-                  Expanded(
-                    child: _FareSliderField(
-                      controller: ecoController,
-                      label: 'Economy (${widget.currency.code})',
-                      suggested: fareGuide.suggestedEconomy,
-                      maxFare: fareGuide.maxEconomy,
-                      currency: widget.currency,
-                      enabled: true,
-                      onChanged: () => setState(() {}),
-                    ),
+                  _FareSliderField(
+                    controller: ecoController,
+                    label: 'Economy (${widget.currency.code})',
+                    suggested: fareGuide.suggestedEconomy,
+                    maxFare: fareGuide.maxEconomy,
+                    currency: widget.currency,
+                    enabled: true,
+                    onChanged: () => setState(() {}),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _FareSliderField(
-                      controller: bizController,
-                      label: hasBusiness
-                          ? 'Business (${widget.currency.code})'
-                          : 'No business cabin',
-                      suggested: fareGuide.suggestedBusiness,
-                      maxFare: fareGuide.maxBusiness,
-                      currency: widget.currency,
-                      enabled: hasBusiness,
-                      onChanged: () => setState(() {}),
-                    ),
+                  _FareSliderField(
+                    controller: bizController,
+                    label: hasBusiness
+                        ? 'Business (${widget.currency.code})'
+                        : 'No business cabin',
+                    suggested: fareGuide.suggestedBusiness,
+                    maxFare: fareGuide.maxBusiness,
+                    currency: widget.currency,
+                    enabled: hasBusiness,
+                    onChanged: () => setState(() {}),
                   ),
                 ],
               ),
@@ -8845,34 +8840,28 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Airport selection (side-by-side) ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // ── Airport selection (side-by-side on wide, stacked on mobile) ──
+              _AdaptiveRow(
                 children: [
-                  Expanded(
-                    child: _AirportDropdown(
-                      label: 'Origin',
-                      value: origin,
-                      onChanged: (a) => setState(() {
-                        origin = a;
-                        if (destination.iata == a.iata) {
-                          destination =
-                              _fallbackRouteDestination(a, widget.game);
-                        }
-                        error = null;
-                      }),
-                    ),
+                  _AirportDropdown(
+                    label: 'Origin',
+                    value: origin,
+                    onChanged: (a) => setState(() {
+                      origin = a;
+                      if (destination.iata == a.iata) {
+                        destination =
+                            _fallbackRouteDestination(a, widget.game);
+                      }
+                      error = null;
+                    }),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AirportDropdown(
-                      label: 'Destination',
-                      value: destination,
-                      onChanged: (a) => setState(() {
-                        destination = a;
-                        error = null;
-                      }),
-                    ),
+                  _AirportDropdown(
+                    label: 'Destination',
+                    value: destination,
+                    onChanged: (a) => setState(() {
+                      destination = a;
+                      error = null;
+                    }),
                   ),
                 ],
               ),
@@ -9049,34 +9038,29 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               ),
               const SizedBox(height: 8),
 
-              // Economy + Business fares side-by-side
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Economy + Business fares (side-by-side on wide, stacked on mobile)
+              _AdaptiveRow(
+                gap: 16,
                 children: [
-                  Expanded(
-                    child: _FareSliderField(
-                      controller: ecoController,
-                      label: 'Economy (${widget.currency.code})',
-                      suggested: fareGuide.suggestedEconomy,
-                      maxFare: fareGuide.maxEconomy,
-                      currency: widget.currency,
-                      enabled: true,
-                      onChanged: () => setState(() {}),
-                    ),
+                  _FareSliderField(
+                    controller: ecoController,
+                    label: 'Economy (${widget.currency.code})',
+                    suggested: fareGuide.suggestedEconomy,
+                    maxFare: fareGuide.maxEconomy,
+                    currency: widget.currency,
+                    enabled: true,
+                    onChanged: () => setState(() {}),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _FareSliderField(
-                      controller: bizController,
-                      label: guideType.seatsBusiness > 0
-                          ? 'Business (${widget.currency.code})'
-                          : 'No business cabin',
-                      suggested: fareGuide.suggestedBusiness,
-                      maxFare: fareGuide.maxBusiness,
-                      currency: widget.currency,
-                      enabled: guideType.seatsBusiness > 0,
-                      onChanged: () => setState(() {}),
-                    ),
+                  _FareSliderField(
+                    controller: bizController,
+                    label: guideType.seatsBusiness > 0
+                        ? 'Business (${widget.currency.code})'
+                        : 'No business cabin',
+                    suggested: fareGuide.suggestedBusiness,
+                    maxFare: fareGuide.maxBusiness,
+                    currency: widget.currency,
+                    enabled: guideType.seatsBusiness > 0,
+                    onChanged: () => setState(() {}),
                   ),
                 ],
               ),
@@ -9791,6 +9775,43 @@ class _Card extends StatelessWidget {
     ),
     child: child,
   );
+}
+
+/// Renders children side-by-side on wide screens, stacked vertically on narrow.
+class _AdaptiveRow extends StatelessWidget {
+  const _AdaptiveRow({required this.children, this.gap = 12.0});
+  final List<Widget> children;
+  final double gap;
+
+  static const double _breakpoint = 400.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _breakpoint) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                Expanded(child: children[i]),
+                if (i < children.length - 1) SizedBox(width: gap),
+              ],
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              children[i],
+              if (i < children.length - 1) SizedBox(height: gap),
+            ],
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _EmptyState extends StatelessWidget {
