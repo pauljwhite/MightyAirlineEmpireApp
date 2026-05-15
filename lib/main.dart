@@ -101,6 +101,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
     bool useSelectedAirport = false,
   }) {
     final dialogContext = _navigatorKey.currentContext ?? context;
+    final navigator = _navigatorKey.currentState;
     showDialog<void>(
       context: dialogContext,
       builder: (context) => _CreateRouteDialog(
@@ -108,6 +109,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
         currency: currency,
         origin: origin ?? (useSelectedAirport ? selectedAirport : null),
         destination: destination,
+        onClose: () => navigator?.pop(),
       ),
     );
   }
@@ -587,53 +589,58 @@ class _TopBar extends StatelessWidget {
         children: [
           SizedBox(
             height: 54,
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _AirlineBadge(
-                        game: game,
-                        currency: currency,
-                        onCurrency: onCurrency,
-                        compact: compact,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _AirlineBadge(
+                      game: game,
+                      currency: currency,
+                      onCurrency: onCurrency,
+                      compact: compact,
+                    ),
+                    const SizedBox(width: 6),
+                    _DateBadge(game: game, compact: compact),
+                    const SizedBox(width: 6),
+                    _SpeedControl(
+                      compact: compact,
+                      speedValue: speedValue,
+                      onSpeed: onSpeed,
+                    ),
+                    IconButton(
+                      tooltip: 'Advance day',
+                      onPressed: game.runDailyTick,
+                      icon: const Icon(Icons.skip_next),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                if (!compact) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 340),
+                        child: search,
                       ),
-                      const SizedBox(width: 6),
-                      _DateBadge(game: game, compact: compact),
-                      const SizedBox(width: 6),
-                      _SpeedControl(
-                        compact: compact,
-                        speedValue: speedValue,
-                        onSpeed: onSpeed,
-                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ] else
+                  const Spacer(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (compact)
                       IconButton(
-                        tooltip: 'Advance day',
-                        onPressed: game.runDailyTick,
-                        icon: const Icon(Icons.skip_next),
+                        tooltip: 'Search airports',
+                        onPressed: onToggleSearch,
+                        icon: Icon(searchOpen ? Icons.close : Icons.search),
                         visualDensity: VisualDensity.compact,
                       ),
-                    ],
-                  ),
-                ),
-                if (!compact) SizedBox(width: 340, child: search),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (compact)
-                        IconButton(
-                          tooltip: 'Search airports',
-                          onPressed: onToggleSearch,
-                          icon: Icon(searchOpen ? Icons.close : Icons.search),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      nav,
-                    ],
-                  ),
+                    nav,
+                  ],
                 ),
               ],
             ),
@@ -809,30 +816,95 @@ class _SpeedControl extends StatelessWidget {
       );
     }
 
-    return SegmentedButton<int>(
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 3),
-        ),
-        textStyle: WidgetStateProperty.all(
-          const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-        ),
+    return Container(
+      height: 32,
+      decoration: BoxDecoration(
+        color: _subtleSurface(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _hairline(context)),
       ),
-      segments: [
-        const ButtonSegment(value: 0, icon: Icon(Icons.pause, size: 15)),
-        ..._speedOptions.map(
-          (option) => ButtonSegment(
-            value: option.value,
-            label: Text(option.label),
-            tooltip: option.label,
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SpeedSegment(
+            selected: speedValue == 0,
+            tooltip: 'Pause',
+            width: 28,
+            onTap: () => onSpeed(0),
+            child: const Icon(Icons.pause, size: 13),
+          ),
+          ..._speedOptions.map(
+            (option) => _SpeedSegment(
+              selected: speedValue == option.value,
+              tooltip: option.label,
+              width: 28,
+              onTap: () => onSpeed(option.value),
+              child: Text(
+                option.label,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeedSegment extends StatelessWidget {
+  const _SpeedSegment({
+    required this.selected,
+    required this.tooltip,
+    required this.width,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool selected;
+  final String tooltip;
+  final double width;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedColor = const Color(0xff2f8cff).withValues(alpha: 0.22);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: width,
+          height: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? selectedColor : Colors.transparent,
+            border: Border(
+              right: BorderSide(
+                color: _hairline(context).withValues(alpha: .7),
+              ),
+            ),
+          ),
+          child: IconTheme(
+            data: IconThemeData(
+              color: selected ? const Color(0xff77c9ff) : null,
+            ),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(
+                color: selected ? const Color(0xff77c9ff) : null,
+              ),
+              child: child,
+            ),
           ),
         ),
-      ],
-      selected: {speedValue},
-      onSelectionChanged: (v) => onSpeed(v.first),
+      ),
     );
   }
 }
@@ -2293,8 +2365,12 @@ class _DateBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        textAlign: TextAlign.left,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }
@@ -5477,7 +5553,7 @@ class _BuyAircraftDialogState extends State<_BuyAircraftDialog> {
     if (widget.game.player.cashUSD < type.purchasePrice) return;
     try {
       widget.game.buyAircraft(type.id);
-      Navigator.pop(context);
+      Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
       setState(
         () => purchaseError = e.toString().replaceFirst('Bad state: ', ''),
@@ -8148,7 +8224,7 @@ class _RouteJourneyCard extends StatelessWidget {
   final double distanceKm;
   final double demand;
   final int competitorCount;
-  final AircraftType aircraftType;
+  final AircraftType? aircraftType;
   final bool rangeLimited;
   final bool runwayLimited;
   final CurrencyOption currency;
@@ -8157,13 +8233,17 @@ class _RouteJourneyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final potentialValue =
         demand * (150 + math.sqrt(math.max(250, distanceKm)) * 18);
-    final statusColor = rangeLimited || runwayLimited
+    final statusColor = aircraftType == null
+        ? const Color(0xff9aa4b5)
+        : rangeLimited || runwayLimited
         ? const Color(0xffff6b6b)
         : const Color(0xff3af083);
-    final statusText = rangeLimited
-        ? '${aircraftType.model} range ${_formatCount(aircraftType.rangeKm)} km'
+    final statusText = aircraftType == null
+        ? 'No aircraft selected'
+        : rangeLimited
+        ? '${aircraftType!.model} range ${_formatCount(aircraftType!.rangeKm)} km'
         : runwayLimited
-        ? 'Runway too short for ${aircraftType.model}'
+        ? 'Runway too short for ${aircraftType!.model}'
         : 'Aircraft compatible';
 
     return _Card(
@@ -8225,7 +8305,9 @@ class _RouteJourneyCard extends StatelessWidget {
                     : '$competitorCount live rival route${competitorCount == 1 ? '' : 's'}',
               ),
               _JourneyPill(
-                icon: rangeLimited || runwayLimited
+                icon: aircraftType == null
+                    ? Icons.info_outline
+                    : rangeLimited || runwayLimited
                     ? Icons.warning_amber
                     : Icons.check_circle,
                 label: statusText,
@@ -8328,11 +8410,13 @@ class _CreateRouteDialog extends StatefulWidget {
   const _CreateRouteDialog({
     required this.game,
     required this.currency,
+    required this.onClose,
     this.origin,
     this.destination,
   });
   final GameController game;
   final CurrencyOption currency;
+  final VoidCallback onClose;
   final Airport? origin;
   final Airport? destination;
   @override
@@ -8346,13 +8430,13 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     widget.destination,
     widget.game,
   );
-  late AircraftType type = aircraftTypesById['b707-120'] ?? aircraftTypes.first;
+  AircraftType? type;
   late final ecoController = TextEditingController();
   late final bizController = TextEditingController();
   String? selectedAircraftId;
   String buyManufacturer = 'All';
   bool showAircraftShop = false;
-  bool buyNewAircraft = true;
+  bool buyNewAircraft = false;
   int flights = 7;
   bool optimise = true;
   String? error;
@@ -8396,24 +8480,20 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         )
         .toList();
     buyableAircraft.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
-    final affordableBuyableAircraft = buyableAircraft
-        .where((t) => widget.game.player.cashUSD >= t.purchasePrice)
-        .toList(growable: false);
-    if (buyableAircraft.isNotEmpty &&
-        (!buyableAircraft.contains(type) ||
-            (buyNewAircraft &&
-                selectedAircraft == null &&
-                widget.game.player.cashUSD < type.purchasePrice))) {
-      type = affordableBuyableAircraft.isNotEmpty
-          ? affordableBuyableAircraft.first
-          : buyableAircraft.first;
+    if (type != null && !buyableAircraft.contains(type)) {
+      type = null;
+      buyNewAircraft = false;
     }
-    final effectiveType = selectedAircraftType ?? type;
-    type = effectiveType;
+    final effectiveType =
+        selectedAircraftType ?? (buyNewAircraft ? type : null);
+    final guideType =
+        effectiveType ?? buyableAircraft.firstOrNull ?? aircraftTypes.first;
     final runwayLimited =
-        !canAirportHandleAircraft(origin, effectiveType) ||
-        !canAirportHandleAircraft(destination, effectiveType);
-    final rangeLimited = effectiveType.rangeKm < distance;
+        effectiveType != null &&
+        (!canAirportHandleAircraft(origin, effectiveType) ||
+            !canAirportHandleAircraft(destination, effectiveType));
+    final rangeLimited =
+        effectiveType != null && effectiveType.rangeKm < distance;
     final pair = routePairKey(origin.iata, destination.iata);
     final competitorCount = widget.game.routes.values
         .where(
@@ -8423,15 +8503,18 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               routePairKey(route.originIata, route.destinationIata) == pair,
         )
         .length;
-    final hasAircraftForRoute = selectedAircraft != null || buyNewAircraft;
+    final hasAircraftForRoute =
+        selectedAircraft != null || (buyNewAircraft && type != null);
     final canAffordPendingAircraft =
         !buyNewAircraft ||
         selectedAircraft != null ||
-        widget.game.player.cashUSD >= type.purchasePrice;
+        (type != null && widget.game.player.cashUSD >= type!.purchasePrice);
     final pendingPurchaseValid =
         !buyNewAircraft ||
         selectedAircraft != null ||
-        (buyableAircraft.contains(type) && canAffordPendingAircraft);
+        (type != null &&
+            buyableAircraft.contains(type) &&
+            canAffordPendingAircraft);
     final canCreate =
         !sameAirport &&
         (selectedAircraft == null || selectedAircraftUsable) &&
@@ -8458,22 +8541,24 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         : buyableAircraft
               .where((t) => t.manufacturer == buyManufacturer)
               .toList(growable: false);
-    final fareGuide = _currentFareGuide(distance);
+    final fareGuide = _currentFareGuide(distance, guideType);
     final previewRoute = _previewRoute(distance, fareGuide);
-    final previewAircraft = Aircraft(
-      id: 'preview',
-      typeId: effectiveType.id,
-      name: effectiveType.displayName,
-      airlineId: 'player',
-      purchasedGameDay: widget.game.gameDay,
-      condition: selectedAircraft?.condition ?? 100,
-    );
+    final previewAircraft = effectiveType == null
+        ? null
+        : Aircraft(
+            id: 'preview',
+            typeId: effectiveType.id,
+            name: effectiveType.displayName,
+            airlineId: 'player',
+            purchasedGameDay: widget.game.gameDay,
+            condition: selectedAircraft?.condition ?? 100,
+          );
     final previewEconomics = !hasAircraftForRoute
         ? null
         : calculateRouteEconomics(
             route: previewRoute,
-            aircraft: previewAircraft,
-            type: effectiveType,
+            aircraft: previewAircraft!,
+            type: effectiveType!,
             origin: origin,
             destination: destination,
             airline: widget.game.player,
@@ -8545,6 +8630,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                 onSelectNoAircraft: () => setState(() {
                   selectedAircraftId = null;
                   buyNewAircraft = false;
+                  type = null;
                 }),
                 onSelectAircraft: (id) => setState(() {
                   selectedAircraftId = id;
@@ -8575,7 +8661,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                   types: shopAircraft,
                   manufacturers: manufacturers,
                   selectedManufacturer: buyManufacturer,
-                  selectedTypeId: selectedAircraft == null ? type.id : null,
+                  selectedTypeId: selectedAircraft == null ? type?.id : null,
                   distanceKm: distance,
                   cash: widget.game.player.cashUSD,
                   origin: origin,
@@ -8612,13 +8698,13 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               const SizedBox(height: 10),
               _FareSliderField(
                 controller: bizController,
-                label: type.seatsBusiness > 0
+                label: guideType.seatsBusiness > 0
                     ? 'Business fare (${widget.currency.code})'
                     : 'No business cabin',
                 suggested: fareGuide.suggestedBusiness,
                 maxFare: fareGuide.maxBusiness,
                 currency: widget.currency,
-                enabled: type.seatsBusiness > 0,
+                enabled: guideType.seatsBusiness > 0,
                 onChanged: () => setState(() {}),
               ),
               const SizedBox(height: 12),
@@ -8687,15 +8773,15 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             !hasAircraftForRoute
                 ? 'Create inactive route'
                 : selectedAircraft == null
-                ? 'Create + buy ${type.model}'
-                : 'Create + assign ${type.model}',
+                ? 'Create + buy ${type?.model ?? 'aircraft'}'
+                : 'Create + assign ${selectedAircraftType?.model ?? 'aircraft'}',
           ),
         ),
       ],
     );
   }
 
-  _FareGuide _currentFareGuide(double distance) {
+  _FareGuide _currentFareGuide(double distance, AircraftType guideType) {
     final previewRoute = RoutePlan(
       id: 'preview',
       airlineId: 'player',
@@ -8709,15 +8795,15 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     );
     final previewAircraft = Aircraft(
       id: 'preview',
-      typeId: type.id,
-      name: type.displayName,
+      typeId: guideType.id,
+      name: guideType.displayName,
       airlineId: 'player',
       purchasedGameDay: widget.game.gameDay,
     );
     return _fareGuideForRoute(
       route: previewRoute,
       aircraft: previewAircraft,
-      type: type,
+      type: guideType,
       origin: origin,
       destination: destination,
       fuelPrice: widget.game.globalFuelPrice,
@@ -8734,7 +8820,8 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     priceEconomy: ecoController.text.trim().isEmpty
         ? fareGuide.suggestedEconomy
         : _clampedFare(ecoController.text, fareGuide.maxEconomy),
-    priceBusiness: type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
+    priceBusiness:
+        fareGuide.suggestedBusiness <= 0 || bizController.text.trim().isEmpty
         ? 0
         : _clampedFare(bizController.text, fareGuide.maxBusiness),
     createdGameDay: widget.game.gameDay,
@@ -8742,18 +8829,22 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
   );
 
   void _optimiseSetup() {
+    final optimisationType = selectedAircraftId == null
+        ? type
+        : aircraftTypesById[widget.game.aircraft[selectedAircraftId!]?.typeId];
+    if (optimisationType == null) return;
     final distance = haversineKm(
       origin.lat,
       origin.lon,
       destination.lat,
       destination.lon,
     );
-    final fareGuide = _currentFareGuide(distance);
+    final fareGuide = _currentFareGuide(distance, optimisationType);
     final previewRoute = _previewRoute(distance, fareGuide);
     final previewAircraft = Aircraft(
       id: 'preview',
-      typeId: type.id,
-      name: type.displayName,
+      typeId: optimisationType.id,
+      name: optimisationType.displayName,
       airlineId: 'player',
       purchasedGameDay: widget.game.gameDay,
     );
@@ -8761,7 +8852,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
       RouteOptimisationInput(
         route: previewRoute,
         aircraft: previewAircraft,
-        aircraftType: type,
+        aircraftType: optimisationType,
         origin: origin,
         destination: destination,
         globalFuelPrice: widget.game.globalFuelPrice,
@@ -8787,25 +8878,41 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         destination.lat,
         destination.lon,
       );
-      final fareGuide = _currentFareGuide(distance);
+      final createType = selectedAircraftId == null
+          ? (type ??
+                _fallbackAircraftTypeForRoute(origin, destination, widget.game))
+          : aircraftTypesById[widget
+                .game
+                .aircraft[selectedAircraftId!]!
+                .typeId];
+      if (createType == null) {
+        throw StateError('No compatible aircraft type available for route');
+      }
+      final fareGuide = _currentFareGuide(distance, createType);
+      widget.onClose();
       final route = widget.game.createRoute(
         originIata: origin.iata,
         destinationIata: destination.iata,
-        aircraftTypeId: type.id,
+        aircraftTypeId: createType.id,
         aircraftId: selectedAircraftId,
         flightsPerWeek: flights,
         priceEconomy: ecoController.text.trim().isEmpty
             ? null
             : _clampedFare(ecoController.text, fareGuide.maxEconomy),
         priceBusiness:
-            type.seatsBusiness <= 0 || bizController.text.trim().isEmpty
+            createType.seatsBusiness <= 0 || bizController.text.trim().isEmpty
             ? null
             : _clampedFare(bizController.text, fareGuide.maxBusiness),
         buyNewAircraft: buyNewAircraft && selectedAircraftId == null,
       );
-      if (optimise && route.aircraftId != null)
-        widget.game.optimiseRoute(route.id);
-      Navigator.pop(context);
+      if (optimise && route.aircraftId != null) {
+        try {
+          widget.game.optimiseRoute(route.id);
+        } catch (_) {
+          // Route creation has succeeded; optimisation can still be retried
+          // from route detail if the route is missing transient data.
+        }
+      }
     } catch (e) {
       setState(() => error = e.toString().replaceFirst('Bad state: ', ''));
     }
@@ -8870,6 +8977,32 @@ bool _hasAffordableRouteAircraft(
     return true;
   }
   return false;
+}
+
+AircraftType? _fallbackAircraftTypeForRoute(
+  Airport origin,
+  Airport destination,
+  GameController game,
+) {
+  final distance = haversineKm(
+    origin.lat,
+    origin.lon,
+    destination.lat,
+    destination.lon,
+  );
+  final gameYear = game.settings.startingYear + game.gameDay ~/ 365;
+  final compatible =
+      aircraftTypes
+          .where(
+            (type) =>
+                type.yearIntroduced <= gameYear &&
+                type.rangeKm >= distance &&
+                canAirportHandleAircraft(origin, type) &&
+                canAirportHandleAircraft(destination, type),
+          )
+          .toList()
+        ..sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
+  return compatible.firstOrNull;
 }
 
 class _RouteAircraftPicker extends StatelessWidget {

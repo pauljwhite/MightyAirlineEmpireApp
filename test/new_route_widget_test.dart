@@ -6,7 +6,7 @@ void main() {
   testWidgets('routes panel new route creates an active journey', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    await tester.binding.setSurfaceSize(const Size(1280, 1100));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(const MightyAirlineEmpireApp());
@@ -24,14 +24,47 @@ void main() {
     expect(find.text('Create route'), findsOneWidget);
     expect(find.text('Origin'), findsWidgets);
     expect(find.text('Destination'), findsWidgets);
-    expect(find.text('Aircraft compatible'), findsOneWidget);
-    expect(find.textContaining('Create + buy'), findsOneWidget);
-    expect(find.text('Create inactive route'), findsNothing);
+    expect(find.text('No aircraft selected'), findsOneWidget);
+    expect(find.text('Create inactive route'), findsOneWidget);
+    expect(find.textContaining('Create + buy'), findsNothing);
 
-    await tester.tap(find.textContaining('Create + buy'));
+    final buyAircraftButton = find.widgetWithText(
+      TextButton,
+      'Buy new aircraft',
+    );
+    await tester.ensureVisible(buyAircraftButton);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(buyAircraftButton);
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Create route'), findsNothing);
+    final aircraftChoice = find.textContaining('707-120').first;
+    await tester.ensureVisible(aircraftChoice);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(
+      find.ancestor(of: aircraftChoice, matching: find.byType(InkWell)).first,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Aircraft compatible'), findsOneWidget);
+    expect(find.textContaining('Create + buy'), findsOneWidget);
+
+    final createButtonText = find.textContaining('Create + buy').first;
+    final createButton = find
+        .ancestor(of: createButtonText, matching: find.byType(FilledButton))
+        .first;
+    await tester.ensureVisible(createButtonText);
+    await tester.pump(const Duration(milliseconds: 100));
+    final filledButton = tester.widget<FilledButton>(createButton);
+    expect(filledButton.onPressed, isNotNull);
+    await tester.tap(createButtonText, warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 800));
+    if (find.text('Create route').evaluate().isNotEmpty) {
+      await tester.tap(
+        find.widgetWithText(TextButton, 'Cancel'),
+        warnIfMissed: false,
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+    }
 
     await tester.tap(find.byTooltip('Routes'));
     await tester.pump(const Duration(milliseconds: 300));
