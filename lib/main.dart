@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,7 +44,8 @@ class MightyAirlineEmpireApp extends StatefulWidget {
   State<MightyAirlineEmpireApp> createState() => _MightyAirlineEmpireAppState();
 }
 
-class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
+class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
+    with WidgetsBindingObserver {
   late final GameController game;
   final _navigatorKey = GlobalKey<NavigatorState>();
   Timer? _gameLoop;
@@ -58,6 +60,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     game = GameController(autoStart: false);
     _lastTickAt = DateTime.now();
     _gameLoop = Timer.periodic(const Duration(milliseconds: 16), (_) {
@@ -108,7 +111,20 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (game.hasStarted) {
+        SharedPreferences.getInstance().then(
+          (prefs) => prefs.setString('mighty_airline_autosave', game.exportJson()),
+        );
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gameLoop?.cancel();
     game.dispose();
     super.dispose();
