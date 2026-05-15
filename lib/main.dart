@@ -8101,50 +8101,39 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
     }).toList();
     shopTypes.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
     return AlertDialog(
-      title: Text('${route.originIata} →${route.destinationIata}'),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${route.originIata} → ${route.destinationIata}'),
+          if (origin != null && destination != null)
+            Text(
+              '${origin.city} → ${destination.city}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: Color(0xff9aa4b5),
+              ),
+            ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(
-        width: 520,
+        width: 560,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Flights per week: $flights'),
-              Slider(
-                value: flights.toDouble(),
-                min: 1,
-                max: 21,
-                divisions: 20,
-                label: '$flights/week',
-                onChanged: (value) => setState(() => flights = value.round()),
-              ),
-              _FareSliderField(
-                controller: ecoController,
-                label: 'Economy fare (${widget.currency.code})',
-                suggested: fareGuide.suggestedEconomy,
-                maxFare: fareGuide.maxEconomy,
-                currency: widget.currency,
-                enabled: true,
-                onChanged: () => setState(() {}),
-              ),
-              const SizedBox(height: 10),
-              _FareSliderField(
-                controller: bizController,
-                label: hasBusiness
-                    ? 'Business fare (${widget.currency.code})'
-                    : 'No business cabin',
-                suggested: fareGuide.suggestedBusiness,
-                maxFare: fareGuide.maxBusiness,
-                currency: widget.currency,
-                enabled: hasBusiness,
-                onChanged: () => setState(() {}),
-              ),
-              const SizedBox(height: 12),
+              // ── P&L preview (load factors + financials) ──
               _RoutePreviewCard(
                 current: route,
                 preview: previewEconomics?.route,
                 currency: widget.currency,
               ),
               const SizedBox(height: 12),
+
+              // ── Aircraft assignment ──
               _Card(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -8289,47 +8278,136 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+
+              // ── Pricing section ──
+              const Divider(height: 24),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pricing',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => setState(() {
+                          ecoController.text =
+                              fareGuide.suggestedEconomy.toString();
+                          if (hasBusiness) {
+                            bizController.text =
+                                fareGuide.suggestedBusiness.toString();
+                          }
+                        }),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text(
+                          'Reset',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                        ),
+                        onPressed: optimisationPreview == null
+                            ? null
+                            : () {
+                                final result = widget.game.optimiseRoute(
+                                  route.id,
+                                );
+                                setState(() {
+                                  flights = result.flightsPerWeek;
+                                  ecoController.text =
+                                      result.priceEconomy.toString();
+                                  bizController.text =
+                                      result.priceBusiness.toString();
+                                });
+                              },
+                        icon: const Icon(Icons.auto_fix_high, size: 16),
+                        label: Text(
+                          optimisationPreview == null ? 'Optimised' : 'Optimise',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Flights per week: $flights',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${(flights / 7).toStringAsFixed(1)}/day',
+                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                  ),
+                ],
+              ),
+              Slider(
+                value: flights.toDouble(),
+                min: 1,
+                max: 21,
+                divisions: 20,
+                label: '$flights/week',
+                onChanged: (value) => setState(() => flights = value.round()),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: optimisationPreview == null
-                          ? null
-                          : () {
-                              final result = widget.game.optimiseRoute(
-                                route.id,
-                              );
-                              setState(() {
-                                flights = result.flightsPerWeek;
-                                ecoController.text = result.priceEconomy
-                                    .toString();
-                                bizController.text = result.priceBusiness
-                                    .toString();
-                              });
-                            },
-                      icon: const Icon(Icons.auto_fix_high),
-                      label: Text(
-                        optimisationPreview == null ? 'Optimised' : 'Optimise',
-                      ),
+                    child: _FareSliderField(
+                      controller: ecoController,
+                      label: 'Economy (${widget.currency.code})',
+                      suggested: fareGuide.suggestedEconomy,
+                      maxFare: fareGuide.maxEconomy,
+                      currency: widget.currency,
+                      enabled: true,
+                      onChanged: () => setState(() {}),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => widget.game.updateRouteSettings(
-                        route.id,
-                        isActive: !route.isActive,
-                      ),
-                      icon: Icon(
-                        route.isActive ? Icons.pause_circle : Icons.play_circle,
-                      ),
-                      label: Text(route.isActive ? 'Suspend' : 'Resume'),
+                    child: _FareSliderField(
+                      controller: bizController,
+                      label: hasBusiness
+                          ? 'Business (${widget.currency.code})'
+                          : 'No business cabin',
+                      suggested: fareGuide.suggestedBusiness,
+                      maxFare: fareGuide.maxBusiness,
+                      currency: widget.currency,
+                      enabled: hasBusiness,
+                      onChanged: () => setState(() {}),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const Divider(height: 20),
+
+              // ── Route actions ──
+              OutlinedButton.icon(
+                onPressed: () => widget.game.updateRouteSettings(
+                  route.id,
+                  isActive: !route.isActive,
+                ),
+                icon: Icon(
+                  route.isActive ? Icons.pause_circle : Icons.play_circle,
+                ),
+                label: Text(route.isActive ? 'Suspend' : 'Resume'),
+              ),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () {
                   if (!confirmDelete) {
