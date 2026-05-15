@@ -1201,91 +1201,132 @@ class _SpeedControl extends StatelessWidget {
       );
     }
 
-    return Container(
-      height: 32,
-      decoration: BoxDecoration(
-        color: _subtleSurface(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _hairline(context)),
+    final dark = !_isLight(context);
+    final segments = <({int value, Widget label, String tooltip})>[
+      (
+        value: 0,
+        label: const Icon(Icons.pause_rounded, size: 14),
+        tooltip: 'Pause',
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SpeedSegment(
-            selected: speedValue == 0,
-            tooltip: 'Pause',
-            width: 28,
-            onTap: () => onSpeed(0),
-            child: const Icon(Icons.pause, size: 13),
-          ),
-          ..._speedOptions.map(
-            (option) => _SpeedSegment(
-              selected: speedValue == option.value,
-              tooltip: option.label,
-              width: 28,
-              onTap: () => onSpeed(option.value),
-              child: Text(
-                option.label,
-                maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
+      ..._speedOptions.map(
+        (o) => (
+          value: o.value,
+          label: Text(
+            o.label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              height: 1,
             ),
           ),
-        ],
+          tooltip: o.label,
+        ),
+      ),
+    ];
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: dark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.10)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: segments.map((seg) {
+          final selected = speedValue == seg.value;
+          return _SpeedSegment(
+            selected: selected,
+            tooltip: seg.tooltip,
+            onTap: () => onSpeed(seg.value),
+            dark: dark,
+            child: seg.label,
+          );
+        }).toList(),
       ),
     );
   }
 }
 
-class _SpeedSegment extends StatelessWidget {
+class _SpeedSegment extends StatefulWidget {
   const _SpeedSegment({
     required this.selected,
     required this.tooltip,
-    required this.width,
     required this.onTap,
+    required this.dark,
     required this.child,
   });
 
   final bool selected;
   final String tooltip;
-  final double width;
   final VoidCallback onTap;
+  final bool dark;
   final Widget child;
 
   @override
+  State<_SpeedSegment> createState() => _SpeedSegmentState();
+}
+
+class _SpeedSegmentState extends State<_SpeedSegment> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final selectedColor = const Color(0xff2f8cff).withValues(alpha: 0.22);
+    final fg = widget.selected
+        ? Colors.white
+        : (widget.dark
+              ? Colors.white.withValues(alpha: 0.55)
+              : Colors.black.withValues(alpha: 0.45));
+
     return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
+      message: widget.tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          width: width,
-          height: double.infinity,
-          alignment: Alignment.center,
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutCubic,
+          constraints: const BoxConstraints(minWidth: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: selected ? selectedColor : Colors.transparent,
-            border: Border(
-              right: BorderSide(
-                color: _hairline(context).withValues(alpha: .7),
-              ),
-            ),
+            color: widget.selected
+                ? (_pressed
+                      ? const Color(0xff006ed6)
+                      : const Color(0xff0a84ff))
+                : (_pressed
+                      ? (widget.dark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : Colors.black.withValues(alpha: 0.08))
+                      : Colors.transparent),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: widget.selected && !_pressed
+                ? [
+                    BoxShadow(
+                      color: const Color(0xff0a84ff).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: IconTheme(
-            data: IconThemeData(
-              color: selected ? const Color(0xff77c9ff) : null,
-            ),
+            data: IconThemeData(color: fg, size: 14),
             child: DefaultTextStyle.merge(
-              style: TextStyle(
-                color: selected ? const Color(0xff77c9ff) : null,
-              ),
-              child: child,
+              style: TextStyle(color: fg),
+              child: widget.child,
             ),
           ),
         ),
