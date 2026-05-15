@@ -3816,6 +3816,7 @@ class _AirportPanel extends StatelessWidget {
                 const SizedBox(height: 12),
                 ExpansionTile(
                   tilePadding: EdgeInsets.zero,
+                  initiallyExpanded: true,
                   title: const Text(
                     'Passenger destinations',
                     style: TextStyle(fontWeight: FontWeight.w800),
@@ -4272,7 +4273,7 @@ class _RouteCardState extends State<_RouteCard> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${route.originIata} -> ${route.destinationIata}',
+                  '${route.originIata} →${route.destinationIata}',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -5032,7 +5033,7 @@ class _FleetViewState extends State<_FleetView> {
                     : ac.isGrounded
                     ? 'Grounded'
                     : 'Unassigned'
-              : 'Route ${route.originIata} -> ${route.destinationIata}';
+              : 'Route ${route.originIata} →${route.destinationIata}';
           return ExpansionTile(
             tilePadding: const EdgeInsets.symmetric(horizontal: 12),
             childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -6223,18 +6224,70 @@ class _FinanceView extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Container(height: 12, color: const Color(0xff2dd4bf)),
-              ),
-              const SizedBox(height: 8),
-              const Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _OwnershipChip(label: 'You 100%', accent: Color(0xff2dd4bf)),
-                  _OwnershipChip(label: 'Float 0%', accent: Color(0xff64748b)),
-                ],
+              Builder(
+                builder: (context) {
+                  final float = game.marketFloatForAirline(player.id);
+                  final playerOwned = (100 - float).clamp(0, 100);
+                  final aiOwned = player.shareholders.entries
+                      .where((e) => e.key != 'player' && e.value > 0)
+                      .fold<double>(0, (sum, e) => sum + e.value);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          height: 12,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                flex: playerOwned.round(),
+                                child: Container(
+                                  color: const Color(0xff2dd4bf),
+                                ),
+                              ),
+                              if (aiOwned > 0)
+                                Flexible(
+                                  flex: aiOwned.round(),
+                                  child: Container(
+                                    color: const Color(0xffffd166),
+                                  ),
+                                ),
+                              if (float > 0)
+                                Flexible(
+                                  flex: float.round(),
+                                  child: Container(
+                                    color: const Color(0xff64748b),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _OwnershipChip(
+                            label: 'You ${playerOwned.toStringAsFixed(1)}%',
+                            accent: const Color(0xff2dd4bf),
+                          ),
+                          if (aiOwned > 0)
+                            _OwnershipChip(
+                              label: 'AI ${aiOwned.toStringAsFixed(1)}%',
+                              accent: const Color(0xffffd166),
+                            ),
+                          if (float > 0)
+                            _OwnershipChip(
+                              label: 'Float ${float.toStringAsFixed(1)}%',
+                              accent: const Color(0xff64748b),
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -6260,8 +6313,8 @@ class _FinanceView extends StatelessWidget {
                   final origin = game.airportByIata(route.originIata);
                   final dest = game.airportByIata(route.destinationIata);
                   final label = origin != null && dest != null
-                      ? '${origin.city} -> ${dest.city}'
-                      : '${route.originIata} -> ${route.destinationIata}';
+                      ? '${origin.city} →${dest.city}'
+                      : '${route.originIata} →${route.destinationIata}';
                   return _FinanceRouteRow(
                     label: label,
                     detail: '${route.flightsPerWeek} flights/week',
@@ -7066,12 +7119,12 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                       route.destinationIata,
                     );
                     final label = origin != null && dest != null
-                        ? '${origin.city} -> ${dest.city}'
-                        : '${route.originIata} -> ${route.destinationIata}';
+                        ? '${origin.city} →${dest.city}'
+                        : '${route.originIata} →${route.destinationIata}';
                     return _FinanceRouteRow(
                       label: label,
                       detail:
-                          '${route.originIata} -> ${route.destinationIata} · ${(route.loadFactorEconomy * 100).round()}% LF',
+                          '${route.originIata} →${route.destinationIata} · ${(route.loadFactorEconomy * 100).round()}% LF',
                       value: '${money(route.dailyProfit, widget.currency)}/day',
                       positive: route.dailyProfit >= 0,
                     );
@@ -7210,7 +7263,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                 .map(
                   (route) => ListTile(
                     title: Text(
-                      '${route.originIata} -> ${route.destinationIata}',
+                      '${route.originIata} →${route.destinationIata}',
                     ),
                     subtitle: Text(
                       '${route.flightsPerWeek}/week · ${money(route.dailyProfit, widget.currency)}/day',
@@ -7655,8 +7708,8 @@ class _RouteSummaryDialog extends StatelessWidget {
               ),
               Text(
                 origin != null && destination != null
-                    ? '${origin.city} -> ${destination.city}'
-                    : '${latestRoute.originIata} -> ${latestRoute.destinationIata}',
+                    ? '${origin.city} →${destination.city}'
+                    : '${latestRoute.originIata} →${latestRoute.destinationIata}',
                 style: const TextStyle(color: Color(0xff8b95a8)),
               ),
               const SizedBox(height: 14),
@@ -8048,7 +8101,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
     }).toList();
     shopTypes.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
     return AlertDialog(
-      title: Text('${route.originIata} -> ${route.destinationIata}'),
+      title: Text('${route.originIata} →${route.destinationIata}'),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
