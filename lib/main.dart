@@ -1117,12 +1117,24 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AirlineLogo(logo: player.logoEmoji, size: 38),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        player.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            player.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            'IATA: ${player.iataPrefix} · Founded ${game.settings.startingYear + player.foundedGameDay ~/ 365}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xff9aa4b5),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -6184,7 +6196,46 @@ class _FinanceView extends StatelessWidget {
                 'Market share',
                 '${player.marketSharePercent.toStringAsFixed(1)}%',
               ),
-              _InfoRow('Reputation', player.reputationScore.toStringAsFixed(0)),
+              Row(
+                children: [
+                  Expanded(
+                    child: _InfoRow(
+                      'Reputation',
+                      player.reputationScore.toStringAsFixed(0),
+                    ),
+                  ),
+                  if (player.reputationScore < 100)
+                    Tooltip(
+                      message: 'Spend \$5M to gain +10 reputation',
+                      child: TextButton.icon(
+                        onPressed: player.cashUSD >= 5000000
+                            ? () {
+                                final ok = game.launchPRCampaign();
+                                if (!ok) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'PR campaign launched! +10 reputation',
+                                    ),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            : null,
+                        icon: const Icon(Icons.campaign, size: 14),
+                        label: const Text('PR Campaign'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xff77c9ff),
+                          textStyle: const TextStyle(fontSize: 11),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -7249,8 +7300,30 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
             initiallyExpanded: true,
             children: fleet.map((ac) {
               final type = aircraftTypesById[ac.typeId];
+              final isCrashed = ac.status == AircraftStatus.crashed;
+              final inMaint = ac.status == AircraftStatus.maintenance;
+              final chipLabel = isCrashed
+                  ? 'LOST'
+                  : inMaint
+                  ? 'MAINT'
+                  : ac.isGrounded
+                  ? 'GROUNDED'
+                  : ac.autoMaintenanceEnabled
+                  ? 'AUTO'
+                  : null;
+              final chipColor = isCrashed || ac.isGrounded
+                  ? const Color(0xffff6b6b)
+                  : inMaint
+                  ? const Color(0xffffd166)
+                  : const Color(0xff77c9ff);
               return ListTile(
-                title: Text(ac.name),
+                title: Row(
+                  children: [
+                    Expanded(child: Text(ac.name)),
+                    if (chipLabel != null)
+                      _FleetStatusChip(label: chipLabel, color: chipColor),
+                  ],
+                ),
                 subtitle: Text(
                   '${type?.displayName ?? ac.typeId} · ${ac.condition.toStringAsFixed(0)}% condition',
                 ),
@@ -7287,62 +7360,102 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildList() {
-    final sortedCompetitors = [...widget.game.competitors]
-      ..sort((a, b) => b.marketSharePercent.compareTo(a.marketSharePercent));
-    final airlines = [widget.game.player, ...sortedCompetitors];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _MetricCard('Airlines', '${airlines.length}', const Color(0xff77c9ff)),
-        ...airlines.map(
-          (airline) => _Card(
-            child: InkWell(
-              onTap: () => setState(() => selected = airline),
-              child: Row(
+  Widget _airlineListTile(Airline airline) {
+    final playerStake =
+        airline.shareholders['player'] ?? 0.0;
+    return Opacity(
+      opacity: airline.isInsolvent ? 0.55 : 1.0,
+      child: _Card(
+        child: InkWell(
+          onTap: () => setState(() => selected = airline),
+          child: Row(
+            children: [
+              _AirlineLogo(logo: airline.logoEmoji, size: 30),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      airline.name,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft',
+                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                    ),
+                  ],
+                ),
+              ),
+              if (playerStake > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _FleetStatusChip(
+                    label: '${playerStake.toStringAsFixed(0)}%',
+                    color: const Color(0xff2dd4bf),
+                  ),
+                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _AirlineLogo(logo: airline.logoEmoji, size: 30),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          airline.name,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        Text(
-                          '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft',
-                          style: const TextStyle(color: Color(0xff9aa4b5)),
-                        ),
-                      ],
+                  Text(
+                    '${airline.marketSharePercent.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: Color(0xffffd166),
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${airline.marketSharePercent.toStringAsFixed(1)}%',
-                        style: const TextStyle(
-                          color: Color(0xffffd166),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        money(airline.lastDailyProfit, widget.currency),
-                        style: TextStyle(
-                          color: airline.lastDailyProfit >= 0
-                              ? const Color(0xff3af083)
-                              : const Color(0xffff6b6b),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    money(airline.lastDailyProfit, widget.currency),
+                    style: TextStyle(
+                      color: airline.lastDailyProfit >= 0
+                          ? const Color(0xff3af083)
+                          : const Color(0xffff6b6b),
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    final allCompetitors = [...widget.game.competitors];
+    final activeCompetitors = allCompetitors
+        .where((a) => !a.isInsolvent)
+        .toList()
+      ..sort((a, b) => b.marketSharePercent.compareTo(a.marketSharePercent));
+    final insolventCompetitors = allCompetitors
+        .where((a) => a.isInsolvent)
+        .toList();
+    final activeAirlines = [widget.game.player, ...activeCompetitors];
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MetricCard(
+          'Active Airlines',
+          '${activeAirlines.length}',
+          const Color(0xff77c9ff),
+        ),
+        ...activeAirlines.map(_airlineListTile),
+        if (insolventCompetitors.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ExpansionTile(
+            title: Text(
+              'Insolvent Airlines (${insolventCompetitors.length})',
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xffff6b6b),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            tilePadding: EdgeInsets.zero,
+            children: insolventCompetitors.map(_airlineListTile).toList(),
+          ),
+        ],
       ],
     );
   }

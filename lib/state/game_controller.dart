@@ -1622,6 +1622,17 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  bool launchPRCampaign() {
+    const cost = 5000000.0;
+    if (player.cashUSD < cost) return false;
+    airlines['player'] = player.copyWith(
+      cashUSD: player.cashUSD - cost,
+      reputationScore: (player.reputationScore + 10).clamp(0, 100).toDouble(),
+    );
+    notifyListeners();
+    return true;
+  }
+
   void updateMaintenancePolicy(MaintenancePolicy policy) {
     final next = policy.copyWith(
       threshold: policy.threshold.clamp(20, 80).toDouble(),
