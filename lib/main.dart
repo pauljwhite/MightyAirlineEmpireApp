@@ -2905,7 +2905,6 @@ class _DateBadge extends StatelessWidget {
         : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
     final dark = !_isLight(context);
     return Container(
-      width: compact ? 132 : 178,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: dark ? const Color(0xcc0d1526) : const Color(0xddffffff),
