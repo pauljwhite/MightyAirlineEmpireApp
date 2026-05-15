@@ -4372,15 +4372,32 @@ class _LoadFactorLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.previous,
   });
 
   final String label;
   final double value;
   final Color color;
+  final double? previous;
 
   @override
   Widget build(BuildContext context) {
     final pct = (value * 100).round();
+    final delta = previous != null ? ((value - previous!) * 100).round() : null;
+    final deltaColor = delta == null
+        ? null
+        : delta > 0
+            ? const Color(0xff3af083)
+            : delta < 0
+                ? const Color(0xffff6b6b)
+                : const Color(0xff9aa4b5);
+    final deltaText = delta == null
+        ? null
+        : delta > 0
+            ? '+${delta}pp'
+            : delta < 0
+                ? '${delta}pp'
+                : null;
     return Row(
       children: [
         SizedBox(
@@ -4407,6 +4424,22 @@ class _LoadFactorLine extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
         ),
+        if (deltaText != null) ...[
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 44,
+            child: Text(
+              deltaText,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: deltaColor,
+              ),
+            ),
+          ),
+        ] else if (previous != null)
+          const SizedBox(width: 50),
       ],
     );
   }
@@ -4445,6 +4478,7 @@ class _RoutePreviewCard extends StatelessWidget {
               label: 'Eco',
               value: route.loadFactorEconomy,
               color: const Color(0xff3af083),
+              previous: current.loadFactorEconomy,
             ),
             if (route.priceBusiness > 0 || route.loadFactorBusiness > 0)
               Padding(
@@ -4453,6 +4487,7 @@ class _RoutePreviewCard extends StatelessWidget {
                   label: 'Biz',
                   value: route.loadFactorBusiness,
                   color: const Color(0xff77c9ff),
+                  previous: current.loadFactorBusiness,
                 ),
               ),
             const Divider(height: 20),
