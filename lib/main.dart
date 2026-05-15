@@ -225,60 +225,126 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                         color: lightMode ? const Color(0xff111827) : Colors.white,
                       ),
                     ),
-                    // ── Buttons ────────────────────────────────────────────
+                    // ── Material button fallback (for any remaining M3 buttons) ──
                     filledButtonTheme: FilledButtonThemeData(
-                      style: FilledButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 13,
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.resolveWith((s) {
+                          if (s.contains(WidgetState.disabled)) {
+                            return lightMode
+                                ? const Color(0xffb8d0f0)
+                                : const Color(0xff1c2d48);
+                          }
+                          return const Color(0xff0a84ff);
+                        }),
+                        foregroundColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.disabled)
+                                ? (lightMode
+                                      ? const Color(0xff7096c8)
+                                      : const Color(0xff3d5272))
+                                : Colors.white),
+                        overlayColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.pressed)
+                                ? Colors.black.withValues(alpha: 0.15)
+                                : s.contains(WidgetState.hovered)
+                                ? Colors.black.withValues(alpha: 0.06)
+                                : Colors.transparent),
+                        shape: WidgetStateProperty.all(const StadiumBorder()),
+                        elevation: WidgetStateProperty.all(0),
+                        splashFactory: NoSplash.splashFactory,
+                        textStyle: WidgetStateProperty.all(
+                          const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          letterSpacing: -0.2,
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
                         ),
-                        elevation: 0,
+                        animationDuration: const Duration(milliseconds: 120),
                       ),
                     ),
                     outlinedButtonTheme: OutlinedButtonThemeData(
-                      style: OutlinedButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 11,
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.disabled)
+                                ? (lightMode
+                                      ? const Color(0xff9aa4b5)
+                                      : const Color(0xff4a5568))
+                                : lightMode
+                                ? const Color(0xff1c1c1e)
+                                : Colors.white),
+                        backgroundColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.pressed)
+                                ? (lightMode
+                                      ? Colors.black.withValues(alpha: 0.06)
+                                      : Colors.white.withValues(alpha: 0.10))
+                                : (lightMode
+                                      ? Colors.black.withValues(alpha: 0.03)
+                                      : Colors.white.withValues(alpha: 0.06))),
+                        side: WidgetStateProperty.resolveWith((s) => BorderSide(
+                          color: lightMode
+                              ? Colors.black.withValues(alpha: 0.11)
+                              : Colors.white.withValues(alpha: 0.14),
+                        )),
+                        shape: WidgetStateProperty.all(const StadiumBorder()),
+                        elevation: WidgetStateProperty.all(0),
+                        splashFactory: NoSplash.splashFactory,
+                        textStyle: WidgetStateProperty.all(
+                          const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          letterSpacing: -0.2,
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 11,
+                          ),
                         ),
-                        elevation: 0,
+                        animationDuration: const Duration(milliseconds: 120),
                       ),
                     ),
                     textButtonTheme: TextButtonThemeData(
-                      style: TextButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          letterSpacing: -0.2,
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.disabled)
+                                ? (lightMode
+                                      ? const Color(0xffb0b8c8)
+                                      : const Color(0xff3d5272))
+                                : const Color(0xff0a84ff)),
+                        overlayColor: WidgetStateProperty.resolveWith((s) =>
+                            s.contains(WidgetState.pressed)
+                                ? const Color(0xff0a84ff).withValues(alpha: 0.1)
+                                : s.contains(WidgetState.hovered)
+                                ? const Color(0xff0a84ff).withValues(alpha: 0.05)
+                                : Colors.transparent),
+                        shape: WidgetStateProperty.all(const StadiumBorder()),
+                        splashFactory: NoSplash.splashFactory,
+                        textStyle: WidgetStateProperty.all(
+                          const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                          ),
                         ),
+                        animationDuration: const Duration(milliseconds: 120),
                       ),
                     ),
                     elevatedButtonTheme: ElevatedButtonThemeData(
-                      style: ElevatedButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 13,
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.all(
+                          const Color(0xff0a84ff),
                         ),
-                        textStyle: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          letterSpacing: -0.2,
-                        ),
+                        foregroundColor: WidgetStateProperty.all(Colors.white),
+                        shape: WidgetStateProperty.all(const StadiumBorder()),
+                        elevation: WidgetStateProperty.all(0),
+                        splashFactory: NoSplash.splashFactory,
+                        animationDuration: const Duration(milliseconds: 120),
                       ),
                     ),
                     // ── Text inputs ────────────────────────────────────────
@@ -791,7 +857,8 @@ class _GameOutcomeOverlay extends StatelessWidget {
                   children: [
                     if (won) ...[
                       Expanded(
-                        child: OutlinedButton(
+                        child: _AppBtn(
+                          variant: _BtnVariant.ghost,
                           onPressed: game.dismissGameOutcome,
                           child: const Text('Continue Playing'),
                         ),
@@ -799,7 +866,7 @@ class _GameOutcomeOverlay extends StatelessWidget {
                       const SizedBox(width: 12),
                     ],
                     Expanded(
-                      child: FilledButton(
+                      child: _AppBtn(
                         onPressed: onNewGame,
                         child: const Text('Play Again'),
                       ),
@@ -1510,45 +1577,50 @@ class _AirlineProfileDropdown extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
                         _showRebrandDialog(context, game, currency);
                       },
                       icon: const Icon(Icons.edit),
-                      label: const Text('Rebrand'),
+                      child: const Text('Rebrand'),
                     ),
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
                         _showExportDialog(context, game);
                       },
                       icon: const Icon(Icons.upload_file),
-                      label: const Text('Export'),
+                      child: const Text('Export'),
                     ),
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
                         _showImportDialog(context, game, onCurrency);
                       },
                       icon: const Icon(Icons.download),
-                      label: const Text('Import'),
+                      child: const Text('Import'),
                     ),
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
                         _showSettingsDialog(context, game);
                       },
                       icon: const Icon(Icons.palette),
-                      label: const Text('Theme'),
+                      child: const Text('Theme'),
                     ),
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
                         _showNewGameDialog(context, game, currency, onCurrency);
                       },
                       icon: const Icon(Icons.restart_alt),
-                      label: const Text('Start again'),
+                      child: const Text('Start again'),
                     ),
                   ],
                 ),
@@ -1748,10 +1820,11 @@ class _LogoPicker extends StatelessWidget {
             .toList(),
       ),
       const SizedBox(height: 8),
-      OutlinedButton.icon(
+      _AppBtn(
+        variant: _BtnVariant.ghost,
         onPressed: onUploadLogo,
         icon: const Icon(Icons.upload_file),
-        label: const Text('Upload logo'),
+        child: const Text('Upload logo'),
       ),
       const SizedBox(height: 8),
       Text(
@@ -1804,7 +1877,8 @@ void _showSettingsDialog(BuildContext context, GameController game) {
         ),
       ),
       actions: [
-        TextButton(
+        _AppBtn(
+          variant: _BtnVariant.plain,
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
@@ -2067,11 +2141,12 @@ void _showRebrandDialog(
             ),
           ),
           actions: [
-            TextButton(
+            _AppBtn(
+              variant: _BtnVariant.plain,
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            FilledButton(
+            _AppBtn(
               onPressed: !hasChange || game.player.cashUSD < cost
                   ? null
                   : () {
@@ -2430,11 +2505,12 @@ void _showNewGameDialog(
             ),
             actions: [
               if (!forceStart)
-                TextButton(
+                _AppBtn(
+                  variant: _BtnVariant.plain,
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
-              FilledButton.icon(
+              _AppBtn(
                 onPressed: () {
                   final name = nameController.text.trim();
                   final emoji = emojiController.text.trim();
@@ -2459,7 +2535,7 @@ void _showNewGameDialog(
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.flight_takeoff),
-                label: const Text('Start'),
+                child: const Text('Start'),
               ),
             ],
           ),
@@ -2586,11 +2662,13 @@ void _showExportDialog(BuildContext context, GameController game) {
           ),
         ),
         actions: [
-          TextButton(
+          _AppBtn(
+            variant: _BtnVariant.plain,
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
-          OutlinedButton.icon(
+          _AppBtn(
+            variant: _BtnVariant.ghost,
             onPressed: saving
                 ? null
                 : () async {
@@ -2604,9 +2682,9 @@ void _showExportDialog(BuildContext context, GameController game) {
                     }
                   },
             icon: const Icon(Icons.save_alt),
-            label: Text(saving ? 'Saving...' : 'Save file'),
+            child: Text(saving ? 'Saving...' : 'Save file'),
           ),
-          FilledButton.icon(
+          _AppBtn(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: json));
               ScaffoldMessenger.of(context).showSnackBar(
@@ -2614,7 +2692,7 @@ void _showExportDialog(BuildContext context, GameController game) {
               );
             },
             icon: const Icon(Icons.copy),
-            label: const Text('Copy'),
+            child: const Text('Copy'),
           ),
         ],
       ),
@@ -2660,11 +2738,13 @@ void _showImportDialog(
           ),
         ),
         actions: [
-          TextButton(
+          _AppBtn(
+            variant: _BtnVariant.plain,
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
-          OutlinedButton.icon(
+          _AppBtn(
+            variant: _BtnVariant.ghost,
             onPressed: openingFile
                 ? null
                 : () async {
@@ -2690,9 +2770,9 @@ void _showImportDialog(
                     }
                   },
             icon: const Icon(Icons.folder_open),
-            label: Text(openingFile ? 'Opening...' : 'Open file'),
+            child: Text(openingFile ? 'Opening...' : 'Open file'),
           ),
-          FilledButton(
+          _AppBtn(
             onPressed: () {
               try {
                 _applyImportedJson(game, controller.text, onCurrency);
@@ -4178,21 +4258,23 @@ class _AirportPanel extends StatelessWidget {
                               ?.copyWith(color: const Color(0xff9aa4b5)),
                         ),
                         const SizedBox(height: 12),
-                        FilledButton.tonalIcon(
+                        _AppBtn(
+                          variant: _BtnVariant.tonal,
                           onPressed:
                               terminalCost == null ||
                                   game.player.cashUSD < terminalCost
                               ? null
                               : () => game.upgradeHubTerminal(airport.iata),
                           icon: const Icon(Icons.apartment),
-                          label: Text(
+                          child: Text(
                             terminalCost == null
                                 ? 'Terminal maxed'
                                 : 'Upgrade terminal ${money(terminalCost, currency)}',
-                          ),
+                          )
                         ),
                         const SizedBox(height: 8),
-                        FilledButton.tonalIcon(
+                        _AppBtn(
+                          variant: _BtnVariant.tonal,
                           onPressed:
                               loungeCost == null ||
                                   game.player.cashUSD < loungeCost
@@ -4200,11 +4282,11 @@ class _AirportPanel extends StatelessWidget {
                               : () =>
                                     game.upgradeFirstClassLounge(airport.iata),
                           icon: const Icon(Icons.airline_seat_recline_extra),
-                          label: Text(
+                          child: Text(
                             loungeCost == null
                                 ? 'Lounges maxed'
                                 : 'Upgrade lounges ${money(loungeCost, currency)}',
-                          ),
+                          )
                         ),
                       ],
                     ),
@@ -4261,15 +4343,16 @@ class _AirportPanel extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: FilledButton.icon(
+                  child: _AppBtn(
                     onPressed: () => onCreateRoute(airport, null),
                     icon: const Icon(Icons.add),
-                    label: const Text('New Route'),
+                    child: const Text('New Route'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: _AppBtn(
+                    variant: _BtnVariant.ghost,
                     onPressed: isPlayerHub
                         ? game.player.hubIatas.length <= 1
                               ? null
@@ -4280,7 +4363,7 @@ class _AirportPanel extends StatelessWidget {
                           ? Icons.remove_circle_outline
                           : Icons.apartment,
                     ),
-                    label: Text(isPlayerHub ? 'Remove Hub' : 'Set Hub'),
+child: Text(isPlayerHub ? 'Remove Hub' : 'Set Hub')
                   ),
                 ),
               ],
@@ -4548,10 +4631,10 @@ class _RoutesView extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
+              child: _AppBtn(
                 onPressed: onCreateRoute,
                 icon: const Icon(Icons.add_road),
-                label: const Text('New Route'),
+                child: const Text('New Route'),
               ),
             ),
           ],
@@ -4626,12 +4709,12 @@ class _RoutesView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    FilledButton.icon(
+                    _AppBtn(
                       onPressed: canOptimiseAll
                           ? game.optimiseAllPlayerRoutes
                           : null,
                       icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('Optimise all'),
+                      child: const Text('Optimise all'),
                     ),
                   ],
                 ),
@@ -4787,14 +4870,16 @@ class _RouteCardState extends State<_RouteCard> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
+              _AppBtn(
+                variant: _BtnVariant.ghost,
                 onPressed: optimisation == null
                     ? null
                     : () => game.optimiseRoute(route.id),
                 icon: const Icon(Icons.auto_fix_high),
-                label: Text(optimisation == null ? 'Optimised' : 'Optimise'),
+                child: Text(optimisation == null ? 'Optimised' : 'Optimise'),
               ),
-              OutlinedButton.icon(
+              _AppBtn(
+                variant: _BtnVariant.ghost,
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (context) => _RouteEditDialog(
@@ -4804,21 +4889,23 @@ class _RouteCardState extends State<_RouteCard> {
                   ),
                 ),
                 icon: const Icon(Icons.tune),
-                label: const Text('Details'),
+                child: const Text('Details'),
               ),
               confirmingDelete
-                  ? FilledButton.tonalIcon(
+                  ? _AppBtn(
+                      variant: _BtnVariant.tonal,
                       onPressed: () {
                         game.deleteRoute(route.id);
                         setState(() => confirmingDelete = false);
                       },
                       icon: const Icon(Icons.delete_forever),
-                      label: const Text('Confirm delete'),
+                      child: const Text('Confirm delete')
                     )
-                  : OutlinedButton.icon(
+                  : _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: () => setState(() => confirmingDelete = true),
                       icon: const Icon(Icons.delete_outline),
-                      label: const Text('Delete'),
+                      child: const Text('Delete'),
                     ),
               if (confirmingDelete)
                 IconButton(
@@ -5169,12 +5256,13 @@ class _HubsView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    OutlinedButton.icon(
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: hubs.length <= 1
                           ? null
                           : () => game.removePlayerHub(airport.iata),
                       icon: const Icon(Icons.remove_circle_outline),
-                      label: const Text('Remove'),
+                      child: const Text('Remove'),
                     ),
                   ],
                 ),
@@ -5265,7 +5353,8 @@ class _HubUpgradeRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          OutlinedButton(
+          _AppBtn(
+            variant: _BtnVariant.ghost,
             onPressed: canAfford ? onPressed : null,
             child: Text(cost == null ? 'Max' : money(cost!, currency)),
           ),
@@ -5318,14 +5407,14 @@ class _FleetViewState extends State<_FleetView> {
                   ),
                 ),
               ),
-              FilledButton.icon(
+              _AppBtn(
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (context) =>
                       _BuyAircraftDialog(game: game, currency: currency),
                 ),
                 icon: const Icon(Icons.add),
-                label: const Text('Buy Aircraft'),
+                child: const Text('Buy Aircraft'),
               ),
             ],
           ),
@@ -5679,7 +5768,8 @@ class _FleetViewState extends State<_FleetView> {
                     children: [
                       if (route != null)
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _AppBtn(
+                            variant: _BtnVariant.ghost,
                             onPressed: () => showDialog<void>(
                               context: context,
                               builder: (context) => _RouteEditDialog(
@@ -5689,7 +5779,7 @@ class _FleetViewState extends State<_FleetView> {
                               ),
                             ),
                             icon: const Icon(Icons.alt_route),
-                            label: const Text('View Route'),
+                            child: const Text('View Route'),
                           ),
                         ),
                       if (route != null) const SizedBox(width: 8),
@@ -5698,7 +5788,8 @@ class _FleetViewState extends State<_FleetView> {
                             ? Row(
                                 children: [
                                   Expanded(
-                                    child: FilledButton.tonalIcon(
+                                    child: _AppBtn(
+                                      variant: _BtnVariant.tonal,
                                       onPressed: canSell
                                           ? () {
                                               game.sellAircraft(ac.id);
@@ -5708,9 +5799,9 @@ class _FleetViewState extends State<_FleetView> {
                                             }
                                           : null,
                                       icon: const Icon(Icons.check),
-                                      label: Text(
+                                      child: Text(
                                         isCrashed ? 'Write off' : 'Confirm',
-                                      ),
+                                      )
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -5722,7 +5813,8 @@ class _FleetViewState extends State<_FleetView> {
                                   ),
                                 ],
                               )
-                            : OutlinedButton.icon(
+                            : _AppBtn(
+                                variant: _BtnVariant.ghost,
                                 onPressed: canSell
                                     ? () => setState(
                                         () => confirmingSaleId = ac.id,
@@ -5731,9 +5823,9 @@ class _FleetViewState extends State<_FleetView> {
                                 icon: Icon(
                                   isCrashed ? Icons.delete_forever : Icons.sell,
                                 ),
-                                label: Text(
+                                child: Text(
                                   isCrashed ? 'Write Off' : 'Sell Aircraft',
-                                ),
+                                )
                               ),
                       ),
                     ],
@@ -5752,7 +5844,8 @@ class _FleetViewState extends State<_FleetView> {
                         final costPerPoint = conditionGain <= 0
                             ? cost
                             : (cost / conditionGain).round();
-                        return OutlinedButton(
+                        return _AppBtn(
+                          variant: _BtnVariant.ghost,
                           onPressed: ac.status == AircraftStatus.maintenance
                               ? null
                               : () => game.startMaintenance(ac.id, tier),
@@ -5896,10 +5989,11 @@ class _FleetViewState extends State<_FleetView> {
                   if (ac.status == AircraftStatus.maintenance)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: OutlinedButton.icon(
+                      child: _AppBtn(
+                        variant: _BtnVariant.ghost,
                         onPressed: () => game.completeMaintenance(ac.id),
                         icon: const Icon(Icons.build_circle),
-                        label: const Text('Complete now'),
+                        child: const Text('Complete now'),
                       ),
                     ),
                 ],
@@ -6314,7 +6408,7 @@ class _AircraftPurchaseCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           if (!unavailable)
-                            FilledButton(
+                            _AppBtn(
                               onPressed: canAfford ? onBuy : null,
                               child: Text(canAfford ? 'Buy' : 'No funds'),
                             ),
@@ -6646,7 +6740,9 @@ class _FinanceView extends StatelessWidget {
                   if (player.reputationScore < 100)
                     Tooltip(
                       message: 'Spend \$5M to gain +10 reputation',
-                      child: TextButton.icon(
+                      child: _AppBtn(
+                        small: true,
+                        variant: _BtnVariant.tonal,
                         onPressed: player.cashUSD >= 5000000
                             ? () {
                                 final ok = game.launchPRCampaign();
@@ -6661,16 +6757,8 @@ class _FinanceView extends StatelessWidget {
                                 );
                               }
                             : null,
-                        icon: const Icon(Icons.campaign, size: 14),
-                        label: const Text('PR Campaign'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xff77c9ff),
-                          textStyle: const TextStyle(fontSize: 11),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                        ),
+                        icon: const Icon(Icons.campaign),
+                        child: const Text('PR Campaign'),
                       ),
                     ),
                 ],
@@ -7048,7 +7136,8 @@ class _FinanceView extends StatelessWidget {
                   );
                   return SizedBox(
                     width: 190,
-                    child: OutlinedButton(
+                    child: _AppBtn(
+                      variant: _BtnVariant.ghost,
                       onPressed: available
                           ? () => showDialog<void>(
                               context: context,
@@ -7058,11 +7147,12 @@ class _FinanceView extends StatelessWidget {
                                   'Apply for a ${money(offer.amountUSD, currency)} loan at ${formatInterestRate(offer.annualInterestRate)} over ${offer.termYears} ${offer.termYears == 1 ? "year" : "years"}?\n\nDaily repayment: ${money(dailyPayment, currency)}/day',
                                 ),
                                 actions: [
-                                  TextButton(
+                                  _AppBtn(
+                                    variant: _BtnVariant.plain,
                                     onPressed: () => Navigator.of(ctx).pop(),
                                     child: const Text('Cancel'),
                                   ),
-                                  FilledButton(
+                                  _AppBtn(
                                     onPressed: () {
                                       Navigator.of(ctx).pop();
                                       game.applyForLoan(offer);
@@ -7161,7 +7251,8 @@ class _LoanAccordionTile extends StatelessWidget {
                   message: canPay
                       ? ''
                       : 'Need ${money(shortfall, currency)} more',
-                  child: OutlinedButton(
+                  child: _AppBtn(
+                    variant: _BtnVariant.ghost,
                     onPressed: canPay
                         ? () => game.repayLoan(loan.id, option.amount)
                         : null,
@@ -7171,7 +7262,8 @@ class _LoanAccordionTile extends StatelessWidget {
                   ),
                 );
               }),
-              FilledButton.tonal(
+              _AppBtn(
+                variant: _BtnVariant.tonal,
                 onPressed: affordable <= 0
                     ? null
                     : () => game.repayLoan(loan.id, affordable),
@@ -7554,10 +7646,11 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+            child: _AppBtn(
+              variant: _BtnVariant.plain,
               onPressed: () => setState(() => selected = null),
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Back'),
+              child: const Text('Back'),
             ),
           ),
           _Card(
@@ -7781,7 +7874,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      FilledButton.icon(
+                      _AppBtn(
                         onPressed: marketFloat < 1 && aiShareholders.isEmpty
                             ? null
                             : () => _showShareTradeDialog(
@@ -7791,9 +7884,10 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                                 widget.currency,
                               ),
                         icon: const Icon(Icons.pie_chart),
-                        label: const Text('Buy / sell shares'),
+                        child: const Text('Buy / sell shares'),
                       ),
-                      FilledButton.tonalIcon(
+                      _AppBtn(
+                        variant: _BtnVariant.tonal,
                         onPressed:
                             playerStake < 50 ||
                                 widget.game.player.cashUSD < takeoverCost
@@ -7807,9 +7901,9 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                                     setState(() => selected = null),
                               ),
                         icon: const Icon(Icons.handshake),
-                        label: Text(
+                        child: Text(
                           'Takeover ${money(takeoverCost, widget.currency)}',
-                        ),
+                        )
                       ),
                     ],
                   ),
@@ -8286,11 +8380,12 @@ void _showShareTradeDialog(
             ),
           ),
           actions: [
-            TextButton(
+            _AppBtn(
+              variant: _BtnVariant.plain,
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            FilledButton(
+            _AppBtn(
               onPressed:
                   clampedPercent <= 0 ||
                       (!selling && game.player.cashUSD < price)
@@ -8464,11 +8559,12 @@ void _showTakeoverDialog(
             ),
           ),
           actions: [
-            TextButton(
+            _AppBtn(
+              variant: _BtnVariant.plain,
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            FilledButton.icon(
+            _AppBtn(
               onPressed: stake < 50 || game.player.cashUSD < price
                   ? null
                   : () {
@@ -8481,7 +8577,7 @@ void _showTakeoverDialog(
                       }
                     },
               icon: const Icon(Icons.handshake),
-              label: const Text('Acquire'),
+              child: const Text('Acquire'),
             ),
           ],
         );
@@ -8696,7 +8792,8 @@ class _RouteSummaryDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
+        _AppBtn(
+          variant: _BtnVariant.plain,
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
@@ -9035,15 +9132,17 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          OutlinedButton.icon(
+                          _AppBtn(
+                            variant: _BtnVariant.ghost,
                             onPressed: () {
                               widget.game.assignAircraftToRoute(ac.id, null);
                               setState(() => aircraftError = null);
                             },
                             icon: const Icon(Icons.link_off),
-                            label: const Text('Unassign'),
+                            child: const Text('Unassign'),
                           ),
-                          OutlinedButton.icon(
+                          _AppBtn(
+                            variant: _BtnVariant.ghost,
                             onPressed: () {
                               try {
                                 widget.game.sellAircraft(ac.id);
@@ -9053,7 +9152,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                               }
                             },
                             icon: const Icon(Icons.sell),
-                            label: const Text('Sell aircraft'),
+                            child: const Text('Sell aircraft'),
                           ),
                         ],
                       ),
@@ -9164,10 +9263,9 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
+                      _AppBtn(
+                        small: true,
+                        variant: _BtnVariant.plain,
                         onPressed: () => setState(() {
                           ecoController.text =
                               fareGuide.suggestedEconomy.toString();
@@ -9176,20 +9274,13 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                                 fareGuide.suggestedBusiness.toString();
                           }
                         }),
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text(
-                          'Reset',
-                          style: TextStyle(fontSize: 12),
-                        ),
+                        icon: const Icon(Icons.refresh),
+                        child: const Text('Reset'),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                        ),
+                      const SizedBox(width: 6),
+                      _AppBtn(
+                        small: true,
+                        variant: _BtnVariant.ghost,
                         onPressed: optimisationPreview == null
                             ? null
                             : () {
@@ -9204,10 +9295,9 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                                       result.priceBusiness.toString();
                                 });
                               },
-                        icon: const Icon(Icons.auto_fix_high, size: 16),
-                        label: Text(
+                        icon: const Icon(Icons.auto_fix_high),
+                        child: Text(
                           optimisationPreview == null ? 'Optimised' : 'Optimise',
-                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ],
@@ -9265,7 +9355,8 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
               const Divider(height: 20),
 
               // ── Route actions ──
-              OutlinedButton.icon(
+              _AppBtn(
+                variant: _BtnVariant.ghost,
                 onPressed: () => widget.game.updateRouteSettings(
                   route.id,
                   isActive: !route.isActive,
@@ -9273,10 +9364,11 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                 icon: Icon(
                   route.isActive ? Icons.pause_circle : Icons.play_circle,
                 ),
-                label: Text(route.isActive ? 'Suspend' : 'Resume'),
+                child: Text(route.isActive ? 'Suspend' : 'Resume'),
               ),
               const SizedBox(height: 8),
-              OutlinedButton.icon(
+              _AppBtn(
+                variant: _BtnVariant.danger,
                 onPressed: () {
                   if (!confirmDelete) {
                     setState(() => confirmDelete = true);
@@ -9286,11 +9378,8 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.delete_outline),
-                label: Text(
+                child: Text(
                   confirmDelete ? 'Confirm delete route' : 'Delete route',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xffff6b6b),
                 ),
               ),
               if (confirmDelete)
@@ -9307,11 +9396,12 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        _AppBtn(
+          variant: _BtnVariant.plain,
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        _AppBtn(
           onPressed: () {
             widget.game.updateRouteSettings(
               route.id,
@@ -9788,7 +9878,8 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               ),
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton.icon(
+                child: _AppBtn(
+                  variant: _BtnVariant.plain,
                   onPressed: () =>
                       setState(() => showAircraftShop = !showAircraftShop),
                   icon: Icon(
@@ -9796,9 +9887,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                         ? Icons.expand_less
                         : Icons.add_circle_outline,
                   ),
-                  label: Text(
+child: Text(
                     showAircraftShop ? 'Hide aircraft shop' : 'Buy new aircraft',
-                  ),
+                  )
                 ),
               ),
               if (showAircraftShop)
@@ -9843,10 +9934,10 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                         ],
                       ),
                     ),
-                    FilledButton.icon(
+                    _AppBtn(
                       onPressed: canOptimise ? _optimiseSetup : null,
                       icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('Optimise'),
+                      child: const Text('Optimise'),
                     ),
                   ],
                 ),
@@ -9864,10 +9955,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                       fontSize: 14,
                     ),
                   ),
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
+                  _AppBtn(
+                    small: true,
+                    variant: _BtnVariant.plain,
                     onPressed: () => setState(() {
                       ecoController.text =
                           fareGuide.suggestedEconomy.toString();
@@ -9876,10 +9966,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                             fareGuide.suggestedBusiness.toString();
                       }
                     }),
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: Text(
+                    icon: const Icon(Icons.refresh),
+                    child: Text(
                       'Reset  ${money(fareGuide.suggestedEconomy.toDouble(), widget.currency)} / ${guideType.seatsBusiness > 0 ? money(fareGuide.suggestedBusiness.toDouble(), widget.currency) : 'n/a'}',
-                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
@@ -9963,11 +10052,12 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        _AppBtn(
+          variant: _BtnVariant.plain,
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        _AppBtn(
           onPressed: canCreate ? _create : null,
           child: Text(
             !hasAircraftForRoute
@@ -11157,7 +11247,7 @@ void _showHeraldArticle(
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              FilledButton.icon(
+                              _AppBtn(
                                 onPressed: () {
                                   game.startMaintenance(
                                     article.actionAircraftId!,
@@ -11166,12 +11256,13 @@ void _showHeraldArticle(
                                   dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.build),
-                                label: Text(
+                                child: Text(
                                   'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
-                                ),
+                                )
                               ),
                               const SizedBox(height: 8),
-                              OutlinedButton.icon(
+                              _AppBtn(
+                                variant: _BtnVariant.ghost,
                                 onPressed: () {
                                   game.updateMaintenancePolicy(
                                     game.player.maintenancePolicy.copyWith(
@@ -11186,12 +11277,13 @@ void _showHeraldArticle(
                                   dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.engineering),
-                                label: const Text(
+                                child: const Text(
                                   'Always maintain aircraft with issues',
-                                ),
+                                )
                               ),
                               const SizedBox(height: 8),
-                              OutlinedButton.icon(
+                              _AppBtn(
+                                variant: _BtnVariant.danger,
                                 onPressed: () {
                                   game.keepIssueAircraftFlying(
                                     article.actionAircraftId!,
@@ -11199,10 +11291,7 @@ void _showHeraldArticle(
                                   dismiss(dialogContext);
                                 },
                                 icon: const Icon(Icons.warning_amber),
-                                label: const Text('Keep flying'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xffb91c1c),
-                                ),
+                                child: const Text('Keep flying'),
                               ),
                             ],
                           ),
@@ -11216,7 +11305,8 @@ void _showHeraldArticle(
         ),
       ),
       actions: [
-        TextButton(
+        _AppBtn(
+          variant: _BtnVariant.plain,
           onPressed: () => dismiss(dialogContext),
           child: const Text('Close'),
         ),
@@ -11227,4 +11317,193 @@ void _showHeraldArticle(
 
 extension _LastOrNull<T> on List<T> {
   T? get lastOrNull => isEmpty ? null : last;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Design system
+// ════════════════════════════════════════════════════════════
+
+enum _BtnVariant { primary, ghost, tonal, plain, danger }
+
+/// Fully custom button — no Material ripple, Apple-style press animation.
+class _AppBtn extends StatefulWidget {
+  const _AppBtn({
+    required this.child,
+    required this.onPressed,
+    this.icon,
+    this.variant = _BtnVariant.primary,
+    this.small = false,
+  });
+
+  final Widget child;
+  final Widget? icon;
+  final VoidCallback? onPressed;
+  final _BtnVariant variant;
+  final bool small;
+
+  @override
+  State<_AppBtn> createState() => _AppBtnState();
+}
+
+class _AppBtnState extends State<_AppBtn> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = !_isLight(context);
+    final disabled = widget.onPressed == null;
+    final small = widget.small;
+
+    Color bg;
+    Color fg;
+    List<BoxShadow> shadows = const [];
+    BoxBorder? border;
+
+    switch (widget.variant) {
+      case _BtnVariant.primary:
+        const base = Color(0xff0a84ff);
+        bg = disabled
+            ? (dark ? const Color(0xff1c2d48) : const Color(0xffb8d0f0))
+            : _pressed
+            ? const Color(0xff006ed6)
+            : base;
+        fg = disabled
+            ? (dark ? const Color(0xff3d5272) : const Color(0xff7096c8))
+            : Colors.white;
+        if (!disabled)
+          shadows = [
+            BoxShadow(
+              color: const Color(0xff0a84ff).withValues(alpha: 0.32),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ];
+
+      case _BtnVariant.ghost:
+        bg = _pressed
+            ? (dark
+                  ? Colors.white.withValues(alpha: 0.11)
+                  : Colors.black.withValues(alpha: 0.07))
+            : (dark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.04));
+        fg = disabled
+            ? _mutedText(context)
+            : (dark ? Colors.white : const Color(0xff1c1c1e));
+        border = Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: disabled ? 0.07 : 0.14)
+              : Colors.black.withValues(alpha: disabled ? 0.06 : 0.11),
+        );
+
+      case _BtnVariant.tonal:
+        const accent = Color(0xff0a84ff);
+        bg = _pressed
+            ? accent.withValues(alpha: 0.22)
+            : accent.withValues(alpha: 0.14);
+        fg = disabled ? _mutedText(context) : accent;
+
+      case _BtnVariant.plain:
+        bg = _pressed
+            ? (dark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.04))
+            : Colors.transparent;
+        fg = disabled ? _mutedText(context) : const Color(0xff0a84ff);
+
+      case _BtnVariant.danger:
+        const base = Color(0xffff453a);
+        bg = disabled
+            ? (dark ? const Color(0xff3a1a1a) : const Color(0xfff0c0bc))
+            : _pressed
+            ? const Color(0xffdc2626)
+            : base;
+        fg = disabled
+            ? (dark ? const Color(0xff5a2828) : const Color(0xffb07070))
+            : Colors.white;
+        if (!disabled)
+          shadows = [
+            BoxShadow(
+              color: const Color(0xffff453a).withValues(alpha: 0.30),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ];
+    }
+
+    final hPad = small ? 13.0 : 20.0;
+    final vPad = small ? 8.0 : 12.0;
+    final textSize = small ? 13.0 : 15.0;
+    final iconSize = small ? 15.0 : 17.0;
+    final gap = small ? 5.0 : 7.0;
+
+    Widget content = DefaultTextStyle.merge(
+      style: TextStyle(
+        color: fg,
+        fontSize: textSize,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.2,
+      ),
+      child: widget.child,
+    );
+
+    if (widget.icon != null) {
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconTheme(
+            data: IconThemeData(color: fg, size: iconSize),
+            child: widget.icon!,
+          ),
+          SizedBox(width: gap),
+          content,
+        ],
+      );
+    }
+
+    return MouseRegion(
+      cursor: disabled
+          ? SystemMouseCursors.forbidden
+          : SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: disabled ? null : (_) => setState(() => _pressed = true),
+        onTapUp: disabled
+            ? null
+            : (_) {
+                setState(() => _pressed = false);
+                widget.onPressed!();
+              },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: (_pressed && !disabled) ? 0.965 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 130),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(999),
+              border: border,
+              boxShadow: _pressed ? const [] : shadows,
+            ),
+            child: content,
+          ),
+        ),
+      ),
+    );
+  }
 }
