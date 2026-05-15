@@ -4026,13 +4026,23 @@ class _AirportDestinationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final valueText =
-        '${money(value, currency)}/d ${isLiveRoute ? 'live' : 'potential'}';
-    final valueColor = isLiveRoute
-        ? value >= 0
-              ? const Color(0xff3af083)
-              : const Color(0xffff6b6b)
-        : const Color(0xff8b95a8);
+    final Color valueColor;
+    final String valueLabel;
+    if (isLiveRoute) {
+      valueColor = value >= 0
+          ? const Color(0xff3af083)
+          : const Color(0xffff6b6b);
+      valueLabel = '${money(value, currency)}/d live';
+    } else {
+      // potential revenue tier: green > $8k, yellow > $2k, gray otherwise
+      valueColor = value >= 8000
+          ? const Color(0xff3af083)
+          : value >= 2000
+          ? const Color(0xffffd166)
+          : const Color(0xff8b95a8);
+      valueLabel = '~${money(value, currency)}/d est.';
+    }
+    final valueText = valueLabel;
     return Material(
       color: const Color(0xff151b2b),
       borderRadius: BorderRadius.circular(10),
@@ -6478,6 +6488,91 @@ class _FinanceView extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
+              Builder(
+                builder: (context) {
+                  final totalCost = fuelCost +
+                      maintenanceCost +
+                      crewCost +
+                      airportFees +
+                      debtService;
+                  final segments = [
+                    (
+                      label: 'Fuel',
+                      value: fuelCost,
+                      color: const Color(0xffff6b6b),
+                    ),
+                    (
+                      label: 'Maint',
+                      value: maintenanceCost,
+                      color: const Color(0xffffa94d),
+                    ),
+                    (
+                      label: 'Crew',
+                      value: crewCost,
+                      color: const Color(0xffffd166),
+                    ),
+                    (
+                      label: 'Airport',
+                      value: airportFees,
+                      color: const Color(0xff77c9ff),
+                    ),
+                    (
+                      label: 'Debt',
+                      value: debtService,
+                      color: const Color(0xffff8fab),
+                    ),
+                  ].where((s) => s.value > 0).toList();
+                  if (totalCost <= 0) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          height: 14,
+                          child: Row(
+                            children: segments.map((seg) {
+                              return Flexible(
+                                flex: (seg.value / totalCost * 1000).round(),
+                                child: Container(color: seg.color),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 4,
+                        children: segments.map((seg) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: seg.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${seg.label} ${(seg.value / totalCost * 100).toStringAsFixed(0)}%',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xff9aa4b5),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  );
+                },
+              ),
               _FinanceBreakdownRow(
                 label: 'Revenue',
                 value: totalDailyRevenue,
@@ -7460,55 +7555,108 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
   }
 
   Widget _airlineListTile(Airline airline) {
-    final playerStake =
-        airline.shareholders['player'] ?? 0.0;
+    final playerStake = airline.shareholders['player'] ?? 0.0;
+    final hubLabel = airline.hubIatas.isEmpty
+        ? null
+        : airline.hubIatas.take(2).join(', ');
+    final shareColor = airline.isPlayer
+        ? const Color(0xff2dd4bf)
+        : const Color(0xffffd166);
     return Opacity(
       opacity: airline.isInsolvent ? 0.55 : 1.0,
       child: _Card(
         child: InkWell(
           onTap: () => setState(() => selected = airline),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _AirlineLogo(logo: airline.logoEmoji, size: 30),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      airline.name,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+              Row(
+                children: [
+                  _AirlineLogo(logo: airline.logoEmoji, size: 30),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          airline.name,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft'
+                          '${hubLabel != null ? ' · $hubLabel' : ''}',
+                          style: const TextStyle(
+                            color: Color(0xff9aa4b5),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft',
-                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                  ),
+                  if (playerStake > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FleetStatusChip(
+                        label: '${playerStake.toStringAsFixed(0)}%',
+                        color: const Color(0xff2dd4bf),
+                      ),
                     ),
-                  ],
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${airline.marketSharePercent.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          color: shareColor,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        money(airline.lastDailyProfit, widget.currency),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: airline.lastDailyProfit >= 0
+                              ? const Color(0xff3af083)
+                              : const Color(0xffff6b6b),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: (airline.marketSharePercent / 100).clamp(0, 1),
+                  minHeight: 4,
+                  color: shareColor,
+                  backgroundColor: shareColor.withValues(alpha: 0.15),
                 ),
               ),
-              if (playerStake > 0)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _FleetStatusChip(
-                    label: '${playerStake.toStringAsFixed(0)}%',
-                    color: const Color(0xff2dd4bf),
-                  ),
-                ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              const SizedBox(height: 4),
+              Row(
                 children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 11,
+                    color: Color(0xff9aa4b5),
+                  ),
+                  const SizedBox(width: 3),
                   Text(
-                    '${airline.marketSharePercent.toStringAsFixed(1)}%',
+                    'Rep ${airline.reputationScore.toStringAsFixed(0)}/100',
                     style: const TextStyle(
-                      color: Color(0xffffd166),
-                      fontWeight: FontWeight.w900,
+                      color: Color(0xff9aa4b5),
+                      fontSize: 11,
                     ),
                   ),
+                  const Spacer(),
                   Text(
-                    money(airline.lastDailyProfit, widget.currency),
+                    money(airline.cashUSD, widget.currency),
                     style: TextStyle(
-                      color: airline.lastDailyProfit >= 0
-                          ? const Color(0xff3af083)
+                      fontSize: 11,
+                      color: airline.cashUSD >= 0
+                          ? const Color(0xff9aa4b5)
                           : const Color(0xffff6b6b),
                     ),
                   ),
@@ -7700,12 +7848,96 @@ void _showShareTradeDialog(
                       ? null
                       : (value) => setState(() => percent = value),
                 ),
-                _InfoRow(selling ? 'Proceeds' : 'Cost', money(price, currency)),
-                if (!selling)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [1, 5, 10, 25, 50].map((pct) {
+                    final canSelect = pct <= max;
+                    return ActionChip(
+                      label: Text('$pct%'),
+                      onPressed: canSelect
+                          ? () => setState(() => percent = pct.toDouble())
+                          : null,
+                      backgroundColor: clampedPercent.round() == pct
+                          ? const Color(0xff2dd4bf).withValues(alpha: 0.2)
+                          : null,
+                      side: clampedPercent.round() == pct
+                          ? const BorderSide(color: Color(0xff2dd4bf))
+                          : null,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selling ? 'Proceeds' : 'Cost',
+                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                      ),
+                    ),
+                    Text(
+                      money(price, currency),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: !selling && game.player.cashUSD < price
+                            ? const Color(0xffff6b6b)
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+                if (!selling) ...[
                   _InfoRow(
                     'Rival cash after',
                     money(airline.cashUSD + price, currency),
                   ),
+                  Builder(
+                    builder: (context) {
+                      final dividendPerDay = airline.lastDailyProfit > 0
+                          ? airline.lastDailyProfit *
+                              (clampedPercent / 100) *
+                              0.3
+                          : 0.0;
+                      if (dividendPerDay <= 0) return const SizedBox.shrink();
+                      return _InfoRow(
+                        'Est. dividends',
+                        '${money(dividendPerDay, currency)}/day',
+                      );
+                    },
+                  ),
+                  if (owned + clampedPercent >= 50 && owned < 50)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff2dd4bf).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xff2dd4bf).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Color(0xff2dd4bf),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Majority stake — grants takeover eligibility',
+                              style: TextStyle(
+                                color: Color(0xff2dd4bf),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
