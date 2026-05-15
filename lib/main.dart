@@ -2403,8 +2403,8 @@ void _showNewGameDialog(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 130),
                               curve: Curves.easeOut,
+                              width: 108,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
@@ -2435,6 +2435,7 @@ void _showNewGameDialog(
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Text(
                                     option.year.toString(),
