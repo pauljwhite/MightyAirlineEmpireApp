@@ -4298,11 +4298,6 @@ class _RouteCardState extends State<_RouteCard> {
                 label: Text(optimisation == null ? 'Optimised' : 'Optimise'),
               ),
               OutlinedButton.icon(
-                onPressed: game.runDailyTick,
-                icon: const Icon(Icons.skip_next),
-                label: const Text('Run day'),
-              ),
-              OutlinedButton.icon(
                 onPressed: () => showDialog<void>(
                   context: context,
                   builder: (context) => _RouteEditDialog(
