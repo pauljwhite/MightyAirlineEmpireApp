@@ -6729,6 +6729,34 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
 
   @override
   Widget build(BuildContext context) {
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) => SlideTransition(
+          position: Tween<Offset>(
+            begin: child.key == const ValueKey('detail')
+                ? const Offset(1, 0)
+                : const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+          ),
+          child: child,
+        ),
+        child: selected != null
+            ? KeyedSubtree(
+                key: const ValueKey('detail'),
+                child: _buildDetail(),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('list'),
+                child: _buildList(),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildDetail() {
     if (selected != null) {
       final airline = widget.game.airlines[selected!.id] ?? selected!;
       final routes = widget.game.routesForAirline(airline.id);
@@ -7137,7 +7165,10 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
         ],
       );
     }
+    return const SizedBox.shrink();
+  }
 
+  Widget _buildList() {
     final airlines = [widget.game.player, ...widget.game.competitors]
       ..sort((a, b) => b.marketSharePercent.compareTo(a.marketSharePercent));
     return ListView(
