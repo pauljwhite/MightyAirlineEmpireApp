@@ -8695,33 +8695,55 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             globalFuelPrice: widget.game.globalFuelPrice,
             gameDay: widget.game.gameDay,
           );
+    final canOptimise =
+        hasAircraftForRoute &&
+        pendingPurchaseValid &&
+        !(buyableAircraft.isEmpty &&
+            selectedAircraft == null &&
+            buyNewAircraft) &&
+        !(selectedAircraft != null && !selectedAircraftUsable) &&
+        !sameAirport;
+
     return AlertDialog(
-      title: const Text('Create route'),
+      title: const Text('New Route'),
+      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       content: SizedBox(
-        width: 520,
+        width: 580,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _AirportDropdown(
-                label: 'Origin',
-                value: origin,
-                onChanged: (a) => setState(() {
-                  origin = a;
-                  if (destination.iata == a.iata) {
-                    destination = _fallbackRouteDestination(a, widget.game);
-                  }
-                  error = null;
-                }),
-              ),
-              const SizedBox(height: 10),
-              _AirportDropdown(
-                label: 'Destination',
-                value: destination,
-                onChanged: (a) => setState(() {
-                  destination = a;
-                  error = null;
-                }),
+              // ── Airport selection (side-by-side) ──
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _AirportDropdown(
+                      label: 'Origin',
+                      value: origin,
+                      onChanged: (a) => setState(() {
+                        origin = a;
+                        if (destination.iata == a.iata) {
+                          destination =
+                              _fallbackRouteDestination(a, widget.game);
+                        }
+                        error = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AirportDropdown(
+                      label: 'Destination',
+                      value: destination,
+                      onChanged: (a) => setState(() {
+                        destination = a;
+                        error = null;
+                      }),
+                    ),
+                  ),
+                ],
               ),
               if (sameAirport) ...[
                 const SizedBox(height: 8),
@@ -8729,7 +8751,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                   'Origin and destination must be different airports.',
                 ),
               ],
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+
+              // ── Route info card ──
               _RouteJourneyCard(
                 origin: origin,
                 destination: destination,
@@ -8743,7 +8767,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                 runwayLimited: runwayLimited,
                 currency: widget.currency,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+
+              // ── Aircraft selection ──
               _RouteAircraftPicker(
                 availableAircraft: availableAircraft,
                 selectedAircraftId: selectedAircraftId,
@@ -8768,19 +8794,18 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                   if (acType != null) type = acType;
                 }),
               ),
-              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () =>
                       setState(() => showAircraftShop = !showAircraftShop),
                   icon: Icon(
-                    showAircraftShop ? Icons.expand_less : Icons.add_circle,
+                    showAircraftShop
+                        ? Icons.expand_less
+                        : Icons.add_circle_outline,
                   ),
                   label: Text(
-                    showAircraftShop
-                        ? 'Hide aircraft shop'
-                        : 'Buy new aircraft',
+                    showAircraftShop ? 'Hide aircraft shop' : 'Buy new aircraft',
                   ),
                 ),
               ),
@@ -8804,44 +8829,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                     showAircraftShop = false;
                   }),
                 ),
-              const SizedBox(height: 10),
-              Text('Flights per week: $flights'),
-              Slider(
-                value: flights.toDouble(),
-                min: 1,
-                max: 21,
-                divisions: 20,
-                label: '$flights/week',
-                onChanged: (v) => setState(() => flights = v.round()),
-              ),
-              _FareSliderField(
-                controller: ecoController,
-                label: 'Economy fare (${widget.currency.code})',
-                suggested: fareGuide.suggestedEconomy,
-                maxFare: fareGuide.maxEconomy,
-                currency: widget.currency,
-                enabled: true,
-                onChanged: () => setState(() {}),
-              ),
-              const SizedBox(height: 10),
-              _FareSliderField(
-                controller: bizController,
-                label: guideType.seatsBusiness > 0
-                    ? 'Business fare (${widget.currency.code})'
-                    : 'No business cabin',
-                suggested: fareGuide.suggestedBusiness,
-                maxFare: fareGuide.maxBusiness,
-                currency: widget.currency,
-                enabled: guideType.seatsBusiness > 0,
-                onChanged: () => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-              _RoutePreviewCard(
-                current: previewRoute,
-                preview: previewEconomics?.route,
-                currency: widget.currency,
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // ── Route optimiser ──
               _Card(
                 child: Row(
                   children: [
@@ -8862,30 +8852,125 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
                       ),
                     ),
                     FilledButton.icon(
-                      onPressed:
-                          !hasAircraftForRoute ||
-                              !pendingPurchaseValid ||
-                              (buyableAircraft.isEmpty &&
-                                  selectedAircraft == null &&
-                                  buyNewAircraft) ||
-                              (selectedAircraft != null &&
-                                  !selectedAircraftUsable) ||
-                              sameAirport
-                          ? null
-                          : _optimiseSetup,
+                      onPressed: canOptimise ? _optimiseSetup : null,
                       icon: const Icon(Icons.auto_fix_high),
                       label: const Text('Optimise'),
                     ),
                   ],
                 ),
               ),
+
+              // ── Pricing section ──
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Pricing',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => setState(() {
+                      ecoController.text =
+                          fareGuide.suggestedEconomy.toString();
+                      if (guideType.seatsBusiness > 0) {
+                        bizController.text =
+                            fareGuide.suggestedBusiness.toString();
+                      }
+                    }),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(
+                      'Reset  ${money(fareGuide.suggestedEconomy.toDouble(), widget.currency)} / ${guideType.seatsBusiness > 0 ? money(fareGuide.suggestedBusiness.toDouble(), widget.currency) : 'n/a'}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Flights per week slider
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Flights per week: $flights',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    '${(flights / 7).toStringAsFixed(1)}/day',
+                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                  ),
+                ],
+              ),
+              Slider(
+                value: flights.toDouble(),
+                min: 1,
+                max: 21,
+                divisions: 20,
+                label: '$flights/week',
+                onChanged: (v) => setState(() => flights = v.round()),
+              ),
+              const SizedBox(height: 8),
+
+              // Economy + Business fares side-by-side
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _FareSliderField(
+                      controller: ecoController,
+                      label: 'Economy (${widget.currency.code})',
+                      suggested: fareGuide.suggestedEconomy,
+                      maxFare: fareGuide.maxEconomy,
+                      currency: widget.currency,
+                      enabled: true,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _FareSliderField(
+                      controller: bizController,
+                      label: guideType.seatsBusiness > 0
+                          ? 'Business (${widget.currency.code})'
+                          : 'No business cabin',
+                      suggested: fareGuide.suggestedBusiness,
+                      maxFare: fareGuide.maxBusiness,
+                      currency: widget.currency,
+                      enabled: guideType.seatsBusiness > 0,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // ── P&L preview ──
+              _RoutePreviewCard(
+                current: previewRoute,
+                preview: previewEconomics?.route,
+                currency: widget.currency,
+              ),
               CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
                 value: optimise,
                 onChanged: (v) => setState(() => optimise = v ?? true),
-                title: const Text('Optimise after creation'),
+                title: const Text('Auto-optimise after creation'),
               ),
               if (error != null)
-                Text(error!, style: const TextStyle(color: Color(0xffff6b6b))),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: Color(0xffff6b6b)),
+                  ),
+                ),
             ],
           ),
         ),
