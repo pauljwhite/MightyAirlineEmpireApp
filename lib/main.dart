@@ -6828,10 +6828,15 @@ class _FleetViewState extends State<_FleetView> {
 }
 
 class _BuyAircraftDialog extends StatefulWidget {
-  const _BuyAircraftDialog({required this.game, required this.currency});
+  const _BuyAircraftDialog({
+    required this.game,
+    required this.currency,
+    this.onPostBuy,
+  });
 
   final GameController game;
   final CurrencyOption currency;
+  final void Function(Aircraft aircraft)? onPostBuy;
 
   @override
   State<_BuyAircraftDialog> createState() => _BuyAircraftDialogState();
@@ -6994,7 +6999,8 @@ class _BuyAircraftDialogState extends State<_BuyAircraftDialog> {
     }
     if (widget.game.player.cashUSD < type.purchasePrice) return;
     try {
-      widget.game.buyAircraft(type.id);
+      final ac = widget.game.buyAircraft(type.id);
+      widget.onPostBuy?.call(ac);
       Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
       setState(
@@ -9818,7 +9824,6 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
   late final bizController = TextEditingController(
     text: widget.route.priceBusiness.toString(),
   );
-  var buyManufacturer = 'All';
   String? aircraftError;
   var confirmDelete = false;
 
@@ -9887,25 +9892,6 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
           canAirportHandleAircraft(origin, candidateType) &&
           canAirportHandleAircraft(destination, candidateType);
     }).toList();
-    final manufacturers = [
-      'All',
-      ...aircraftTypes.map((type) => type.manufacturer).toSet().toList()
-        ..sort(),
-    ];
-    final shopTypes = aircraftTypes.where((candidateType) {
-      final byManufacturer =
-          buyManufacturer == 'All' ||
-          candidateType.manufacturer == buyManufacturer;
-      final available = candidateType.yearIntroduced <= currentYear;
-      final fits =
-          origin != null &&
-          destination != null &&
-          candidateType.rangeKm >= route.distanceKm &&
-          canAirportHandleAircraft(origin, candidateType) &&
-          canAirportHandleAircraft(destination, candidateType);
-      return available && byManufacturer && fits;
-    }).toList();
-    shopTypes.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
     return _GlassDialog(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10021,58 +10007,25 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                             },
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: buyManufacturer,
-                      decoration: const InputDecoration(
-                        labelText: 'Manufacturer',
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => _BuyAircraftDialog(
+                          game: widget.game,
+                          currency: widget.currency,
+                          onPostBuy: (ac) {
+                            try {
+                              widget.game.assignAircraftToRoute(ac.id, route.id);
+                              setState(() => aircraftError = null);
+                            } catch (e) {
+                              setState(() => aircraftError = e.toString());
+                            }
+                          },
+                        ),
                       ),
-                      items: manufacturers
-                          .map(
-                            (manufacturer) => DropdownMenuItem(
-                              value: manufacturer,
-                              child: Text(manufacturer),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => buyManufacturer = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: null,
-                      decoration: const InputDecoration(
-                        labelText: 'Buy new and assign',
-                      ),
-                      items: shopTypes
-                          .map(
-                            (candidateType) => DropdownMenuItem(
-                              value: candidateType.id,
-                              enabled:
-                                  widget.game.player.cashUSD >=
-                                  candidateType.purchasePrice,
-                              child: Text(
-                                '${candidateType.displayName} · ${candidateType.seatsEconomy}Y/${candidateType.seatsBusiness}J · ${_formatCount(candidateType.rangeKm)} km · ${money(candidateType.purchasePrice, widget.currency)}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: shopTypes.isEmpty
-                          ? null
-                          : (typeId) {
-                              if (typeId == null) return;
-                              try {
-                                widget.game.buyAircraftForRoute(
-                                  typeId,
-                                  route.id,
-                                );
-                                setState(() => aircraftError = null);
-                              } catch (e) {
-                                setState(() => aircraftError = e.toString());
-                              }
-                            },
+                      icon: const Icon(Icons.add),
+                      child: const Text('Buy New Plane'),
                     ),
                     if (aircraftError != null)
                       Padding(
