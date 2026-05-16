@@ -1745,6 +1745,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
                                   game,
                                   currency,
                                   onCurrency,
+                                  cancellable: true,
                                   onGameStart: onGameStart,
                                 );
                               }
@@ -1755,6 +1756,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
                               game,
                               currency,
                               onCurrency,
+                              cancellable: true,
                               onGameStart: onGameStart,
                             );
                           }
@@ -2323,6 +2325,7 @@ void _showNewGameDialog(
   CurrencyOption currentCurrency,
   ValueChanged<CurrencyOption> onCurrency, {
   bool forceStart = false,
+  bool cancellable = false,
   VoidCallback? onGameStart,
 }) {
   final nameController = TextEditingController(
@@ -2359,7 +2362,7 @@ void _showNewGameDialog(
 
   showDialog<void>(
     context: context,
-    barrierDismissible: false,
+    barrierDismissible: cancellable,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
         final startingCash = startingCashByDifficulty[difficulty]!;
@@ -2374,7 +2377,7 @@ void _showNewGameDialog(
         final dark = Theme.of(context).brightness == Brightness.dark;
 
         return PopScope(
-          canPop: false,
+          canPop: cancellable,
           child: _GlassDialog(
             maxWidth: 920,
             title: const Text('Start new airline'),
@@ -2851,6 +2854,12 @@ void _showNewGameDialog(
               ),
             ),
             actions: [
+              if (cancellable)
+                _AppBtn(
+                  variant: _BtnVariant.plain,
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
               _AppBtn(
                 variant: _BtnVariant.ghost,
                 onPressed: importing
