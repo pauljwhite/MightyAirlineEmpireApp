@@ -11970,19 +11970,25 @@ class _TickerState extends State<_Ticker> {
                     translation: Offset(value, 0),
                     child: child,
                   ),
-                  child: Text(
-                    '  $tickerText     $tickerText',
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: article != null || isAlert
-                          ? const Color(0xffffd166)
-                          : const Color(0xffc7d2e5),
-                      fontWeight: article != null || isAlert
-                          ? FontWeight.w900
-                          : FontWeight.w700,
-                      decoration: article == null
-                          ? TextDecoration.none
-                          : TextDecoration.underline,
+                  child: OverflowBox(
+                    alignment: Alignment.centerLeft,
+                    maxWidth: double.infinity,
+                    child: Text(
+                      '  $tickerText     $tickerText',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
+                      style: TextStyle(
+                        color: article != null || isAlert
+                            ? const Color(0xffffd166)
+                            : const Color(0xffc7d2e5),
+                        fontWeight: article != null || isAlert
+                            ? FontWeight.w900
+                            : FontWeight.w700,
+                        decoration: article == null
+                            ? TextDecoration.none
+                            : TextDecoration.underline,
+                      ),
                     ),
                   ),
                 ),
