@@ -1697,7 +1697,24 @@ class GameController extends ChangeNotifier {
       final belowThreshold = ac.condition <= ac.autoMaintenanceThreshold;
       final groundedNeedsFix =
           ac.isGrounded && ac.status != AircraftStatus.maintenance;
-      if (!cooldownElapsed || (!belowThreshold && !groundedNeedsFix)) continue;
+
+      // Nothing to do — healthy and not grounded for any reason.
+      if (!belowThreshold && !groundedNeedsFix) continue;
+
+      // Flying plane below threshold: ground it to pause flights and revenue.
+      // Maintenance will formally start next tick once it's no longer flying.
+      if (belowThreshold && !ac.isGrounded && ac.status == AircraftStatus.flying) {
+        aircraft[aircraftId] = ac.copyWith(
+          isGrounded: true,
+          groundedReason: 'awaiting maintenance',
+        );
+        continue;
+      }
+
+      // Grounded planes (incident or awaiting maintenance) bypass the cooldown —
+      // they're already on the ground, no reason to delay further.
+      if (!groundedNeedsFix && !cooldownElapsed) continue;
+
       if (_startMaintenanceInternal(aircraftId, tier)) {
         final reason = groundedNeedsFix
             ? 'grounded (${ac.groundedReason ?? 'incident'})'
@@ -1758,12 +1775,19 @@ class GameController extends ChangeNotifier {
     for (final aircraftId in player.fleetIds) {
       final ac = aircraft[aircraftId];
       if (ac == null || ac.excludedFromPolicy) continue;
+      // If this plane is now below the new threshold (wasn't before), reset the
+      // cooldown so the next policy check isn't blocked by a recent maintenance.
+      final nowBelowThreshold = next.enabled && ac.condition <= next.threshold;
       aircraft[aircraftId] = ac.copyWith(
         autoMaintenanceEnabled: next.enabled,
         autoMaintenanceThreshold: next.threshold,
         autoMaintenanceTier: next.tier,
+        lastMaintenanceGameDay: nowBelowThreshold ? 0 : null,
       );
     }
+    // Immediately apply the updated policy so planes already below the new
+    // threshold get grounded/scheduled without waiting for the next tick.
+    _applyAutoMaintenancePolicy('player');
     notifyListeners();
   }
 
