@@ -592,7 +592,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final compact = constraints.maxWidth < 980;
-                        final topOffset = compact ? 92.0 : 72.0;
+                        final topOffset = compact ? 70.0 : 68.0;
                         _scheduleHeraldAutoOpen(context);
                         return Stack(
                           children: [
@@ -629,8 +629,8 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                             ),
                             Positioned(
                               top: topOffset,
-                              left: 12,
-                              right: 12,
+                              left: 8,
+                              right: 8,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -639,7 +639,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                     onChanged: game.setShowAiOnMap,
                                   ),
                                   if (compact) ...[
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 5),
                                     _FloatingSearchRow(
                                       searchOpen: mobileSearchOpen,
                                       onToggle: () => setState(
