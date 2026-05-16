@@ -2525,7 +2525,20 @@ class GameController extends ChangeNotifier {
           closedUntilGameDay: untilDay,
           closureReason: event.closureReason,
         );
-        pushNewsItem(message, severity: 'breaking');
+        pushNewsItem(
+          message,
+          severity: 'breaking',
+          article: generateAirportClosureArticle(
+            id: 'airport-${airport.iata}-$gameDay',
+            eventId: event.id,
+            airportIata: airport.iata,
+            cityName: airport.city,
+            closureReason: event.closureReason,
+            durationDays: durationDays,
+            gameDay: gameDay,
+            seed: airport.iata.hashCode ^ gameDay,
+          ),
+        );
         break;
       }
     }

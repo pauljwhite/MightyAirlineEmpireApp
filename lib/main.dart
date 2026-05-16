@@ -12187,6 +12187,15 @@ class _TickerState extends State<_Ticker> with SingleTickerProviderStateMixin {
                       fontSize: 11,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Color(0xff6b7280),
+                    ),
+                  ),
                 ],
               ),
             ),

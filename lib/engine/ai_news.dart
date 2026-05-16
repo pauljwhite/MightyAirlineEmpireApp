@@ -650,3 +650,244 @@ NewsArticle generateFleetEventArticle({
       );
   }
 }
+
+NewsArticle generateAirportClosureArticle({
+  required String id,
+  required String eventId,
+  required String airportIata,
+  required String cityName,
+  required String closureReason,
+  required int durationDays,
+  required int gameDay,
+  required int seed,
+}) {
+  final dur = durationDays == 1 ? '24 hours' : '$durationDays days';
+  final v = _v(seed, 3);
+
+  switch (eventId) {
+    case 'storm':
+    case 'blizzard':
+      final kind = eventId == 'blizzard' ? 'blizzard' : 'severe storm';
+      return NewsArticle(
+        id: id,
+        headline: 'Major $kind closes $cityName Airport',
+        subheadline:
+            'All flights suspended at $airportIata for $dur as extreme weather hits',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'A $kind has forced the complete closure of $cityName Airport ($airportIata), with all arriving and departing flights suspended for $dur. Airport authorities activated emergency procedures as conditions deteriorated rapidly, with ground crews unable to maintain safe airside operations.',
+            1 =>
+              'Operations at $cityName Airport ($airportIata) have been suspended for $dur after a $kind brought dangerous conditions to the airfield. Wind speeds exceeded safe operating limits and runway surface conditions were deemed unacceptable for continued flight operations.',
+            _ =>
+              '$cityName Airport ($airportIata) has been forced to close for $dur following the arrival of a $kind. The airport\'s meteorological team declared the closure after consulting with air traffic control and airline ground operations managers.',
+          },
+          'Airlines operating through $airportIata have been advised to implement contingency plans, with affected passengers being re-accommodated on the next available services. Ground handling and terminal staff have been stood down for the duration of the closure.',
+          'The airport authority has stated it will reassess conditions in $dur and provide an update to airlines and passengers at that time. Travellers are advised to contact their airline directly for the latest information on their flights.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'fog':
+      return NewsArticle(
+        id: id,
+        headline: 'Dense fog grounds flights at $cityName Airport',
+        subheadline:
+            'Visibility below minimums forces $dur closure at $airportIata',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'Thick fog has blanketed $cityName Airport ($airportIata), reducing visibility to well below the minimum required for safe flight operations. The airport declared a weather hold after the Met Office reported visibility of less than 100 metres across the airfield, with no improvement forecast for the next $dur.',
+            1 =>
+              '$cityName Airport ($airportIata) has suspended all flight movements for $dur after dense fog reduced runway visual range to levels incompatible with Category I instrument approaches. Instrument Landing System approaches were available but fog density exceeded even CAT III limits at the threshold sensors.',
+            _ =>
+              'Flight operations at $cityName Airport ($airportIata) have been suspended for $dur as dense fog descended over the airport and surrounding area. The closure was declared following consultation between air traffic control, the meteorological office, and airline operations centres.',
+          },
+          'Flights inbound to $airportIata have been diverted to alternate airports, while departures have been delayed indefinitely. Passengers already in the terminal were advised to remain airside and await further updates from their airlines.',
+          'Airport operations staff are monitoring conditions continuously and expect to provide an update on resuming operations within $dur.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'it_outage':
+      return NewsArticle(
+        id: id,
+        headline: 'IT systems failure grounds all flights at $cityName Airport',
+        subheadline:
+            'Check-in, boarding, and ATC systems offline at $airportIata',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'A major IT systems failure has brought operations at $cityName Airport ($airportIata) to a standstill. The outage has taken down check-in kiosks, boarding gate systems, baggage reconciliation, and — most critically — the airport\'s flight information display system, leaving passengers stranded in the terminal with no information on their flights.',
+            1 =>
+              'All flights at $cityName Airport ($airportIata) have been grounded following a catastrophic IT outage that has affected core airport management systems. Engineers from the airport\'s technology division, supported by third-party contractors, are working around the clock to restore systems, but no timeline for resolution has been given.',
+            _ =>
+              'A systems failure at $cityName Airport ($airportIata) has rendered the airport unable to process departing or arriving flights. The outage struck the airport\'s central passenger processing platform, disabling check-in, departure control, and the airfield movement management system simultaneously.',
+          },
+          'Airlines operating at $airportIata have been forced to implement manual check-in procedures where possible, but capacity is severely limited. Airport staff are manually processing priority passengers — those with mobility needs and families with young children — but the queue management situation is described as critical.',
+          'The airport authority has apologised for the disruption and confirmed that a cyber-security assessment is being conducted alongside the technical recovery effort. Airlines have been asked to advise passengers to check flight status before travelling to the airport.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'security_alert':
+      return NewsArticle(
+        id: id,
+        headline:
+            '$cityName Airport evacuated after security alert',
+        subheadline:
+            'Terminal buildings cleared and flights suspended at $airportIata',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              '$cityName Airport ($airportIata) has been evacuated and all flight operations suspended following a security alert. Armed police and specialist counter-terrorism units responded to the airport after a security threat was reported. All terminal buildings were cleared of passengers and staff within 30 minutes of the alert being raised.',
+            1 =>
+              'A security alert at $cityName Airport ($airportIata) has led to the evacuation of all terminal buildings and the suspension of flight operations. Police confirmed that a security sweep of the entire airport complex is under way, and that no flights will be permitted to operate until the all-clear is given.',
+            _ =>
+              'Operations at $cityName Airport ($airportIata) were brought to an immediate halt after a security alert prompted the evacuation of all terminal and airside areas. The nature of the threat has not been disclosed, but authorities confirmed the response involved multiple law enforcement agencies.',
+          },
+          'Inbound flights to $airportIata have been diverted to neighbouring airports, and passengers who had already boarded aircraft were asked to disembark and return to the terminal for security re-screening. Airlines reported scenes of confusion as travellers sought information on their flights.',
+          'The airport authority said it is cooperating fully with police and security services and will only reopen once the all-clear has been issued by the relevant authorities. Passengers are asked not to travel to the airport until further notice.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'runway_incident':
+      return NewsArticle(
+        id: id,
+        headline: 'Runway closure after aircraft incident at $cityName Airport',
+        subheadline:
+            'All departures and arrivals suspended at $airportIata for $dur',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'An aircraft incident on the main runway at $cityName Airport ($airportIata) has led to the closure of all runway operations for $dur. Emergency services attended the scene and the runway was sealed for forensic and engineering inspection. All arriving flights have been diverted and departures are suspended pending clearance from the accident investigation authority.',
+            1 =>
+              '$cityName Airport ($airportIata) has closed its primary runway for $dur following an aircraft incident that left debris on the runway surface. The runway excursion was reported to the national accident investigation bureau, which dispatched a team to the airport within hours of the incident.',
+            _ =>
+              'An aircraft incident at $cityName Airport ($airportIata) has resulted in a $dur suspension of all runway operations. Airport fire and rescue services responded immediately. An investigation has been launched and the runway will remain closed until inspectors confirm the surface is clear and safe for resumption of operations.',
+          },
+          'Airlines operating at $airportIata were notified of the closure and instructed to divert inbound aircraft or hold off-track pending further information. Ground handling staff have been managing the re-accommodation of affected passengers throughout the disruption.',
+          'The airport authority said it expects to provide a further update within $dur, at which point it will assess whether runway operations can resume. Passengers are urged to contact their airline for rebooking options.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'ash_cloud':
+      return NewsArticle(
+        id: id,
+        headline: 'Volcanic ash cloud forces closure of $cityName Airport',
+        subheadline:
+            'Flights suspended for $dur as ash advisory issued for $airportIata airspace',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'A volcanic ash cloud has drifted into the airspace surrounding $cityName Airport ($airportIata), prompting an immediate suspension of all flight operations for $dur. The Volcanic Ash Advisory Centre issued an alert covering the full flight information region, and airlines were instructed to ground all departures and divert arriving aircraft away from the affected zone.',
+            1 =>
+              '$cityName Airport ($airportIata) has been closed for $dur after meteorological authorities confirmed that volcanic ash reached concentration levels deemed unsafe for jet engine operation. Engine manufacturers have strict limits on permissible ash exposure, and all operations ceased immediately upon confirmation of the advisory.',
+            _ =>
+              'Airspace restrictions triggered by a volcanic ash cloud have shut down operations at $cityName Airport ($airportIata) for $dur. The ash — originating from a volcanic eruption — was detected by atmospheric monitoring systems and its trajectory was confirmed to pass directly over the airport\'s arrival and departure corridors.',
+          },
+          'Airlines operating to and from $airportIata have been placed on ash-cloud contingency procedures, which include holding aircraft at their originating airports and issuing refund or rebooking options to affected passengers. A significant backlog of flights is expected once the ash advisory is lifted.',
+          'The airport authority is monitoring ash concentration levels in real time and will coordinate with the relevant aviation regulator to establish a safe return-to-operations timeline. Updates will be issued at regular intervals.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'flood':
+      return NewsArticle(
+        id: id,
+        headline: 'Flash flooding suspends operations at $cityName Airport',
+        subheadline:
+            'Airside areas inundated; all flights grounded at $airportIata for $dur',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'Unprecedented flash flooding has inundated the airside areas of $cityName Airport ($airportIata), forcing a complete suspension of flight operations for $dur. The flooding struck rapidly after a prolonged period of heavy rainfall overwhelmed the airport\'s drainage systems. Several ground vehicles became stranded on the taxiways and apron areas before the closure was declared.',
+            1 =>
+              'Flash flooding has caused severe disruption at $cityName Airport ($airportIata), with water levels rising to the point where taxiways and portions of the runway were rendered unsafe. The airport authority declared a full operational closure and initiated emergency water management procedures.',
+            _ =>
+              'Operations at $cityName Airport ($airportIata) have been suspended for $dur after flash flooding affected critical airside infrastructure. The airport declared the closure after water ingress was detected in the terminal basement — which houses baggage handling equipment — and standing water was reported on the main taxiway network.',
+          },
+          'Airlines have been asked to suspend all operations to $airportIata for the duration of the closure and to activate passenger disruption protocols. Airport engineering teams and civil emergency contractors have been deployed to accelerate the clearance of flood water from operational areas.',
+          'The airport authority said it is working with local government emergency services to manage the situation and expects to provide a revised operational timeline within $dur.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'power_failure':
+      return NewsArticle(
+        id: id,
+        headline: 'Power failure halts all operations at $cityName Airport',
+        subheadline:
+            'Major blackout affects terminal and airside systems at $airportIata',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'A major power failure has plunged $cityName Airport ($airportIata) into darkness and brought all operations to an immediate halt. The blackout struck the airport\'s main power distribution systems, taking down terminal lighting, passenger processing systems, and critically, parts of the airfield ground lighting network. Backup generators provided partial power to essential safety systems only.',
+            1 =>
+              '$cityName Airport ($airportIata) has suspended all flight operations following a total loss of mains power. The failure originated in the airport\'s primary substation and backup power systems proved insufficient to sustain full operations. Runway and taxiway lighting systems are operating at reduced capacity, rendering the airfield unsafe for normal traffic.',
+            _ =>
+              'All flights at $cityName Airport ($airportIata) have been grounded after a widespread power outage disrupted airport operations. The failure knocked out check-in systems, departure gate readers, runway lighting control, and the airport\'s telecommunications infrastructure, leaving controllers unable to safely manage aircraft movements.',
+          },
+          'Airlines have been notified of the closure and are implementing contingency procedures. Passengers already in the terminal reported scenes of confusion as emergency lighting systems struggled to maintain adequate illumination in public areas. Airport staff provided manual assistance to passengers in need.',
+          'The airport\'s engineering team, supported by the regional power grid operator, is working to restore full power. The airport authority has not given a timeline for restoration but confirmed it will provide updates every two hours.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    case 'bird_flock':
+      return NewsArticle(
+        id: id,
+        headline: 'Bird strike risk grounds traffic at $cityName Airport',
+        subheadline:
+            'Large flock triggers flight suspension at $airportIata for $dur',
+        paragraphs: [
+          switch (v) {
+            0 =>
+              'A large flock of birds has prompted the temporary closure of $cityName Airport ($airportIata) for $dur. The flock was detected on the airfield\'s bird-radar system as aircraft were preparing for departure, and the airport\'s wildlife management team immediately requested a ground stop from air traffic control. Aircraft on final approach were instructed to go around and hold.',
+            1 =>
+              'Flight operations at $cityName Airport ($airportIata) have been suspended for $dur after wildlife management staff identified a large bird congregation on and around the runway environment. The risk of multiple simultaneous bird strikes was assessed as unacceptably high, and a closure was declared until the flock could be safely dispersed.',
+            _ =>
+              '$cityName Airport ($airportIata) declared a $dur ground stop after a large flock was identified in the runway safety zone. The airport\'s wildlife hazard working group invoked standard dispersal protocols, but the flock\'s size and behaviour required an extended closure to ensure thorough clearance before flight operations could resume.',
+          },
+          'Airlines were notified immediately and aircraft in holding patterns were diverted to alternate airports. Ground crews worked alongside bird-scaring specialists to clear the airfield, with audio deterrent systems and trained falconers deployed.',
+          'The airport authority confirmed that a post-incident bird strike risk assessment will be completed before flights resume. Airlines have been asked to hold departures until the all-clear is issued.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+
+    default:
+      return NewsArticle(
+        id: id,
+        headline: '$cityName Airport ($airportIata) closed',
+        subheadline: '$closureReason forces $dur suspension of operations',
+        paragraphs: [
+          '$cityName Airport ($airportIata) has suspended all operations for $dur following a $closureReason event. Airport authorities have activated their contingency plans and are working to resolve the situation as quickly as possible.',
+          'Airlines operating through $airportIata have been asked to implement passenger disruption procedures and to contact affected customers with rebooking options.',
+          'The airport will issue further updates as the situation develops.',
+        ],
+        severity: 'breaking',
+        gameDay: gameDay,
+        suppressAutoOpen: false,
+      );
+  }
+}
