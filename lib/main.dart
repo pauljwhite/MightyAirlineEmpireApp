@@ -9889,10 +9889,9 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         !sameAirport;
 
     return _GlassDialog(
+      maxWidth: 920,
       title: const Text('New Route'),
-      content: SizedBox(
-        width: 580,
-        child: SingleChildScrollView(
+      content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -10145,7 +10144,6 @@ child: Text(
             ],
           ),
         ),
-      ),
       actions: [
         _AppBtn(
           variant: _BtnVariant.plain,
@@ -10965,10 +10963,11 @@ Color _mutedText(BuildContext context) =>
 /// Use instead of [AlertDialog] directly. Adds BackdropFilter blur and
 /// frosted-glass surface decoration.
 class _GlassDialog extends StatelessWidget {
-  const _GlassDialog({this.title, this.content, this.actions});
+  const _GlassDialog({this.title, this.content, this.actions, this.maxWidth});
   final Widget? title;
   final Widget? content;
   final List<Widget>? actions;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -10978,7 +10977,9 @@ class _GlassDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: ClipRRect(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+        child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 32, sigmaY: 32),
@@ -11037,6 +11038,7 @@ class _GlassDialog extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
