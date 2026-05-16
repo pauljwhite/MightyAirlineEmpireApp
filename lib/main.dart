@@ -9,6 +9,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -12088,8 +12089,56 @@ class _Ticker extends StatefulWidget {
   State<_Ticker> createState() => _TickerState();
 }
 
-class _TickerState extends State<_Ticker> {
-  var _animationCycle = 0;
+class _TickerState extends State<_Ticker> with SingleTickerProviderStateMixin {
+  // Frame-driven approach: a Ticker fires every vsync, moves _xOffset by
+  // (pxPerSec × dt) pixels.  Speed changes take effect on the very next frame.
+  late final Ticker _frameTicker;
+  late final ValueNotifier<double> _xNotifier;
+
+  double _xOffset = double.nan; // nan = not yet laid out
+  double _viewWidth = 0;
+  double _textWidth = 0;
+  Duration _lastElapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _xNotifier = ValueNotifier(9999); // start off-screen until layout fires
+    _frameTicker = createTicker(_onFrameTick)..start();
+  }
+
+  @override
+  void dispose() {
+    _frameTicker.dispose();
+    _xNotifier.dispose();
+    super.dispose();
+  }
+
+  void _onFrameTick(Duration elapsed) {
+    if (!mounted || _viewWidth == 0) return;
+
+    final dt = _lastElapsed == Duration.zero
+        ? 0.0
+        : math.min(0.1, (elapsed - _lastElapsed).inMicroseconds / 1e6);
+    _lastElapsed = elapsed;
+
+    // First tick after layout: position text just off the right edge
+    if (_xOffset.isNaN) {
+      _xOffset = _viewWidth;
+      _xNotifier.value = _xOffset;
+      return;
+    }
+
+    final pxPerSec = _tickerPixelsPerSecond(widget.game.speed);
+    _xOffset -= pxPerSec * dt;
+
+    // Seamless loop: when the last character exits left, wrap back to right
+    if (_textWidth > 0 && _xOffset < -_textWidth) {
+      _xOffset += _viewWidth + _textWidth;
+    }
+
+    _xNotifier.value = _xOffset;
+  }
 
   List<NewsTickerItem> get _items => widget.game.newsTicker.isEmpty
       ? const [
@@ -12099,11 +12148,6 @@ class _TickerState extends State<_Ticker> {
           ),
         ]
       : widget.game.newsTicker.take(10).toList(growable: false);
-
-  void _restartScroll() {
-    if (!mounted) return;
-    setState(() => _animationCycle++);
-  }
 
   void _openFeed() {
     final items = _items;
@@ -12231,7 +12275,6 @@ class _TickerState extends State<_Ticker> {
   @override
   Widget build(BuildContext context) {
     final items = _items;
-    final speed = widget.game.speed;
 
     // Determine badge severity from the most urgent item
     final hasBreaking = items.any((i) => i.severity == 'breaking');
@@ -12347,16 +12390,14 @@ class _TickerState extends State<_Ticker> {
                     )..layout();
                     final textWidth = tp.width;
                     tp.dispose();
-                    final pxPerSec = _tickerPixelsPerSecond(speed);
-                    final durationMs =
-                        ((viewWidth + textWidth) / pxPerSec * 1000).round();
-                    return TweenAnimationBuilder<double>(
-                      key: ValueKey('ticker-$_animationCycle'),
-                      tween: Tween(begin: viewWidth, end: -textWidth),
-                      duration: Duration(milliseconds: durationMs),
-                      onEnd: _restartScroll,
-                      builder: (context, value, child) => Transform.translate(
-                        offset: Offset(value, 0),
+                    // Update frame-ticker dimensions (safe to mutate in build —
+                    // no setState, just feeding numbers to the ticker loop).
+                    _viewWidth = viewWidth;
+                    _textWidth = textWidth;
+                    return AnimatedBuilder(
+                      animation: _xNotifier,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(_xNotifier.value, 0),
                         child: child,
                       ),
                       child: OverflowBox(
