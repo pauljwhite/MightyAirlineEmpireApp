@@ -2449,6 +2449,23 @@ const aircraftTypes = <AircraftType>[
     yearIntroduced: 1988,
     profileId: "narrow-rear-twin",
   ),
+  AircraftType(
+    id: "ssj-100",
+    manufacturer: "Sukhoi",
+    model: "SSJ-100",
+    familyName: "Superjet 100",
+    seatsEconomy: 98,
+    seatsBusiness: 0,
+    rangeKm: 3048,
+    minRunwayM: 1800,
+    cruiseSpeedKmh: 828,
+    fuelBurnLPer100Km: 1760,
+    purchasePrice: 35000000,
+    maintenanceCostPerHourUSD: 1600,
+    category: AircraftCategory.regional,
+    yearIntroduced: 2011,
+    profileId: "narrow-rear-twin",
+  ),
 ];
 
 final aircraftTypesById = <String, AircraftType>{

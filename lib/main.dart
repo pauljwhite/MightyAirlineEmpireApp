@@ -592,9 +592,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final compact = constraints.maxWidth < 980;
-                        final topOffset = compact
-                            ? (mobileSearchOpen ? 132.0 : 92.0)
-                            : 72.0;
+                        final topOffset = compact ? 92.0 : 72.0;
                         _scheduleHeraldAutoOpen(context);
                         return Stack(
                           children: [
@@ -616,11 +614,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                 game: game,
                                 compact: compact,
                                 currency: currency,
-                                searchOpen: mobileSearchOpen,
                                 selectedPanel: panel,
-                                onToggleSearch: () => setState(
-                                  () => mobileSearchOpen = !mobileSearchOpen,
-                                ),
                                 onPanel: (p) => setState(
                                   () => panel = panel == p ? null : p,
                                 ),
@@ -636,6 +630,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                             Positioned(
                               top: topOffset,
                               left: 12,
+                              right: 12,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -645,11 +640,15 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                   ),
                                   if (compact) ...[
                                     const SizedBox(height: 8),
-                                    _FloatingSearchButton(
+                                    _FloatingSearchRow(
                                       searchOpen: mobileSearchOpen,
-                                      onTap: () => setState(
+                                      onToggle: () => setState(
                                         () => mobileSearchOpen = !mobileSearchOpen,
                                       ),
+                                      onAirport: (a) => setState(() {
+                                        selectedAirport = a;
+                                        mobileSearchOpen = false;
+                                      }),
                                     ),
                                   ],
                                 ],
@@ -981,9 +980,7 @@ class _TopBar extends StatelessWidget {
     required this.game,
     required this.compact,
     required this.currency,
-    required this.searchOpen,
     required this.selectedPanel,
-    required this.onToggleSearch,
     required this.onPanel,
     required this.onCurrency,
     required this.onSpeed,
@@ -993,9 +990,7 @@ class _TopBar extends StatelessWidget {
   final GameController game;
   final bool compact;
   final CurrencyOption currency;
-  final bool searchOpen;
   final _Panel? selectedPanel;
-  final VoidCallback onToggleSearch;
   final ValueChanged<_Panel> onPanel;
   final ValueChanged<CurrencyOption> onCurrency;
   final ValueChanged<int> onSpeed;
@@ -1017,66 +1012,51 @@ class _TopBar extends StatelessWidget {
         border: Border(bottom: BorderSide(color: _hairline(context))),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 54,
-            child: Stack(
-              alignment: Alignment.center,
+      child: SizedBox(
+        height: 54,
+        child: Row(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Search centred absolutely so it stays in the middle of the bar
-                if (!compact)
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 340),
-                      child: search,
-                    ),
-                  ),
-                // Left controls and right nav on top, non-opaque so search shows between
-                Row(
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _AirlineBadge(
-                          game: game,
-                          currency: currency,
-                          onCurrency: onCurrency,
-                          compact: compact,
-                          onGameStart: onGameStart,
-                        ),
-                        const SizedBox(width: 6),
-                        _DateBadge(game: game, compact: compact),
-                        const SizedBox(width: 6),
-                        _SpeedControl(
-                          compact: compact,
-                          speedValue: speedValue,
-                          onSpeed: onSpeed,
-                        ),
-                        if (!compact)
-                          IconButton(
-                            tooltip: 'Advance day',
-                            onPressed: game.runDailyTick,
-                            icon: const Icon(Icons.skip_next),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                      ],
-                    ),
-                    const Spacer(),
-                    nav,
-                  ],
+                _AirlineBadge(
+                  game: game,
+                  currency: currency,
+                  onCurrency: onCurrency,
+                  compact: compact,
+                  onGameStart: onGameStart,
                 ),
+                const SizedBox(width: 6),
+                _DateBadge(game: game, compact: compact),
+                const SizedBox(width: 6),
+                _SpeedControl(
+                  compact: compact,
+                  speedValue: speedValue,
+                  onSpeed: onSpeed,
+                ),
+                if (!compact)
+                  IconButton(
+                    tooltip: 'Advance day',
+                    onPressed: game.runDailyTick,
+                    icon: const Icon(Icons.skip_next),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeInOut,
-            child: compact && searchOpen
-                ? Padding(padding: const EdgeInsets.only(top: 8), child: search)
-                : const SizedBox.shrink(),
-          ),
-        ],
+            if (!compact)
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    child: search,
+                  ),
+                ),
+              )
+            else
+              const Spacer(),
+            nav,
+          ],
+        ),
       ),
     );
   }
@@ -3508,59 +3488,69 @@ class _SearchBox extends StatelessWidget {
   );
 }
 
-class _FloatingSearchButton extends StatelessWidget {
-  const _FloatingSearchButton({required this.searchOpen, required this.onTap});
+class _FloatingSearchRow extends StatelessWidget {
+  const _FloatingSearchRow({
+    required this.searchOpen,
+    required this.onToggle,
+    required this.onAirport,
+  });
   final bool searchOpen;
-  final VoidCallback onTap;
+  final VoidCallback onToggle;
+  final ValueChanged<Airport> onAirport;
 
   @override
   Widget build(BuildContext context) {
     final dark = !_isLight(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xf0121212) : const Color(0xf2ffffff),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: dark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.07),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.4 : 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    final decoration = BoxDecoration(
+      shape: BoxShape.circle,
+      color: dark ? const Color(0xf0121212) : const Color(0xf2ffffff),
+      border: Border.all(
+        color: dark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.07),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  searchOpen ? Icons.close : Icons.search,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  searchOpen ? 'Close' : 'Search',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: dark ? 0.4 : 0.1),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        DecoratedBox(
+          decoration: decoration,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(100),
+            onTap: onToggle,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: Icon(
+                searchOpen ? Icons.close : Icons.search,
+                size: 18,
+              ),
             ),
           ),
         ),
-      ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          width: searchOpen ? 252 : 0,
+          clipBehavior: Clip.hardEdge,
+          decoration: const BoxDecoration(),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: SizedBox(
+              width: 244,
+              child: _SearchBox(onAirport: onAirport),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
