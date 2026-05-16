@@ -7199,17 +7199,33 @@ class _AircraftPurchaseCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Wrap(
-                          spacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              type.model,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    type.model,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                if (unavailable)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: _FleetStatusChip(
+                                      label: 'AVAIL. ${type.yearIntroduced}',
+                                      color: const Color(0xffffd166),
+                                    ),
+                                  ),
+                              ],
                             ),
+                            const SizedBox(height: 2),
                             Text(
                               _aircraftCategoryLabel(type.category),
                               style: const TextStyle(
@@ -7217,11 +7233,6 @@ class _AircraftPurchaseCard extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
-                            if (unavailable)
-                              _FleetStatusChip(
-                                label: 'AVAIL. ${type.yearIntroduced}',
-                                color: const Color(0xffffd166),
-                              ),
                           ],
                         ),
                       ),
