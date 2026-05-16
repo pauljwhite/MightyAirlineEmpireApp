@@ -12261,7 +12261,7 @@ class _TickerState extends State<_Ticker> {
                     final durationMs =
                         ((viewWidth + textWidth) / pxPerSec * 1000).round();
                     return TweenAnimationBuilder<double>(
-                      key: ValueKey('ticker-$_animationCycle-$speed'),
+                      key: ValueKey('ticker-$_animationCycle'),
                       tween: Tween(begin: viewWidth, end: -textWidth),
                       duration: Duration(milliseconds: durationMs),
                       onEnd: _restartScroll,
