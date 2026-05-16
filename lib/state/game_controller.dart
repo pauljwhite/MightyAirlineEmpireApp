@@ -543,6 +543,7 @@ class GameController extends ChangeNotifier {
   int _nextTicker = 1;
   int _nextAirline = 1;
   int _lastClockNotifyGameMs = 0;
+  int _animFrameSkip = 0;
 
   static const _aiExpansionReserveUSD = 5000000.0;
 
@@ -744,7 +745,8 @@ class GameController extends ChangeNotifier {
       runDailyTick();
       daysProcessed += 1;
     }
-    mapAnimationTick.value += 1;
+    _animFrameSkip = (_animFrameSkip + 1) % 2;
+    if (_animFrameSkip == 0) mapAnimationTick.value += 1;
     if (daysProcessed == 0 &&
         gameTimeMs - _lastClockNotifyGameMs >= 15 * 60 * 1000) {
       _lastClockNotifyGameMs = gameTimeMs;

@@ -1063,7 +1063,7 @@ class _PanelNav extends StatelessWidget {
         onSelected: onPanel,
         icon: Icon(
           selectedPanel == null
-              ? Icons.dashboard_customize
+              ? Icons.menu
               : _panelIcon(selectedPanel!),
         ),
         itemBuilder: (context) => _Panel.values
@@ -3615,10 +3615,12 @@ class _WorldMapState extends State<_WorldMap> {
               ),
             ),
           ),
-          ValueListenableBuilder<int>(
-            valueListenable: widget.game.mapAnimationTick,
-            builder: (context, _, _) =>
-                MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+          RepaintBoundary(
+            child: ValueListenableBuilder<int>(
+              valueListenable: widget.game.mapAnimationTick,
+              builder: (context, _, _) =>
+                  MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+            ),
           ),
           MarkerLayer(markers: _airportMarkers()),
           RichAttributionWidget(
@@ -3681,12 +3683,15 @@ class _WorldMapState extends State<_WorldMap> {
           AirportSize.large => 4.0,
           AirportSize.major => 5.3,
         };
+        final playerColor = _MapPainter._colorFromHex(
+          widget.game.player.color,
+        );
         final color = selected
             ? const Color(0xffffd166)
             : isClosed
             ? const Color(0xffff6b6b)
             : playerHub
-            ? const Color(0xffffc857)
+            ? playerColor
             : aiHub
             ? const Color(0xff2dd4bf)
             : const Color(0xff58a6ff);
@@ -3780,13 +3785,7 @@ class _WorldMapState extends State<_WorldMap> {
                 height: sizePx * 0.68,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.18),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  color: color.withValues(alpha: 0.20),
                 ),
               ),
               SvgPicture.asset(
@@ -3795,16 +3794,6 @@ class _WorldMapState extends State<_WorldMap> {
                 height: sizePx,
                 fit: BoxFit.contain,
                 colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-              ),
-              SvgPicture.asset(
-                _planeAssetForCategory(type?.category),
-                width: sizePx,
-                height: sizePx,
-                fit: BoxFit.contain,
-                colorFilter: ColorFilter.mode(
-                  Colors.white.withValues(alpha: 0.16),
-                  BlendMode.srcIn,
-                ),
               ),
             ],
           ),
