@@ -3861,15 +3861,17 @@ class _WorldMapState extends State<_WorldMap> {
       .toList(growable: false);
 
   List<Marker> _planeMarkers(List<RoutePlan> drawableRoutes) {
+    final zoom = _mapController.camera.zoom;
+    final zoomScale = (zoom / 6.0).clamp(0.35, 2.0);
     final markers = <Marker>[];
     for (final route in drawableRoutes) {
-      final marker = _planeMarker(route);
+      final marker = _planeMarker(route, zoomScale);
       if (marker != null) markers.add(marker);
     }
     return markers;
   }
 
-  Marker? _planeMarker(RoutePlan route) {
+  Marker? _planeMarker(RoutePlan route, double zoomScale) {
     final ac = widget.game.aircraft[route.aircraftId];
     if (ac == null ||
         ac.isGrounded ||
@@ -3891,13 +3893,14 @@ class _WorldMapState extends State<_WorldMap> {
     final airline = widget.game.airlines[route.airlineId];
     final color = _colorFromHex(airline?.color ?? '#ffffff');
     final type = aircraftTypesById[ac.typeId];
-    final sizePx = switch (type?.category) {
+    final basePx = switch (type?.category) {
       AircraftCategory.regional => 22.0,
       AircraftCategory.narrowbody => 25.0,
       AircraftCategory.widebody => 30.0,
       AircraftCategory.sst => 29.0,
       null => 25.0,
     };
+    final sizePx = basePx * zoomScale;
 
     return Marker(
       point: LatLng(visualPoint.lat, visualPoint.lon),
