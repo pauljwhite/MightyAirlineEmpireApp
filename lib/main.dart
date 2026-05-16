@@ -2838,7 +2838,7 @@ void _showNewGameDialog(
                   child: const Text('Cancel'),
                 ),
               _AppBtn(
-                onPressed: () {
+                onPressed: activeSection < 2 ? null : () {
                   final name = nameController.text.trim();
                   final emoji = emojiController.text.trim();
                   GameController.clearAutoSave();
@@ -2991,7 +2991,7 @@ class _NewGameSection extends StatelessWidget {
                           child: _AppBtn(
                             small: true,
                             onPressed: onContinue,
-                            child: const Text('Continue'),
+                            child: const Text('Next'),
                           ),
                         ),
                       ],
