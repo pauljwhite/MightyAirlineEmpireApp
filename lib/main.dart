@@ -10165,7 +10165,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         canAirportHandleAircraft(origin, selectedAircraftType) &&
         canAirportHandleAircraft(destination, selectedAircraftType);
     final sameAirport = origin.iata == destination.iata;
-    final buyableAircraft = aircraftTypes
+    final routeCompatibleAircraft = aircraftTypes
         .where(
           (t) =>
               t.yearIntroduced <= gameYear &&
@@ -10174,15 +10174,23 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
               canAirportHandleAircraft(destination, t),
         )
         .toList();
-    buyableAircraft.sort((a, b) => a.purchasePrice.compareTo(b.purchasePrice));
-    if (type != null && !buyableAircraft.contains(type)) {
+    final allShopAircraft = aircraftTypes
+        .where((t) => t.yearIntroduced <= gameYear)
+        .toList();
+    allShopAircraft.sort((a, b) {
+      final aCompatible = routeCompatibleAircraft.contains(a);
+      final bCompatible = routeCompatibleAircraft.contains(b);
+      if (aCompatible != bCompatible) return aCompatible ? -1 : 1;
+      return a.purchasePrice.compareTo(b.purchasePrice);
+    });
+    if (type != null && !routeCompatibleAircraft.contains(type)) {
       type = null;
       buyNewAircraft = false;
     }
     final effectiveType =
         selectedAircraftType ?? (buyNewAircraft ? type : null);
     final guideType =
-        effectiveType ?? buyableAircraft.firstOrNull ?? aircraftTypes.first;
+        effectiveType ?? routeCompatibleAircraft.firstOrNull ?? aircraftTypes.first;
     final runwayLimited =
         effectiveType != null &&
         (!canAirportHandleAircraft(origin, effectiveType) ||
@@ -10208,7 +10216,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         !buyNewAircraft ||
         selectedAircraft != null ||
         (type != null &&
-            buyableAircraft.contains(type) &&
+            routeCompatibleAircraft.contains(type) &&
             canAffordPendingAircraft);
     final canCreate =
         !sameAirport &&
@@ -10225,15 +10233,15 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
         )
         .toList();
     final manufacturers =
-        <String>{'All', ...buyableAircraft.map((t) => t.manufacturer)}.toList()
+        <String>{'All', ...allShopAircraft.map((t) => t.manufacturer)}.toList()
           ..sort((a, b) {
             if (a == 'All') return -1;
             if (b == 'All') return 1;
             return a.toLowerCase().compareTo(b.toLowerCase());
           });
     final shopAircraft = buyManufacturer == 'All'
-        ? buyableAircraft
-        : buyableAircraft
+        ? allShopAircraft
+        : allShopAircraft
               .where((t) => t.manufacturer == buyManufacturer)
               .toList(growable: false);
     final fareGuide = _currentFareGuide(distance, guideType);
@@ -10265,7 +10273,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
     final canOptimise =
         hasAircraftForRoute &&
         pendingPurchaseValid &&
-        !(buyableAircraft.isEmpty &&
+        !(routeCompatibleAircraft.isEmpty &&
             selectedAircraft == null &&
             buyNewAircraft) &&
         !(selectedAircraft != null && !selectedAircraftUsable) &&
@@ -10962,17 +10970,29 @@ class _InlineAircraftShop extends StatelessWidget {
               itemBuilder: (context, index) {
                 final type = types[index];
                 final canAfford = cash >= type.purchasePrice;
-                final runwayLimited =
-                    !canAirportHandleAircraft(origin, type) ||
-                    !canAirportHandleAircraft(destination, type);
-                final enabled = canAfford && !runwayLimited;
-                final trailing = !canAfford
-                    ? 'too expensive'
-                    : runwayLimited
-                    ? 'runway too short'
-                    : selectedTypeId == type.id
-                    ? 'selected'
-                    : null;
+                final hasRange = type.rangeKm >= distanceKm;
+                final runwayOk =
+                    canAirportHandleAircraft(origin, type) &&
+                    canAirportHandleAircraft(destination, type);
+                final enabled = canAfford && hasRange && runwayOk;
+                final String? trailing;
+                final Color? trailingColor;
+                if (!hasRange) {
+                  trailing = 'Short range';
+                  trailingColor = const Color(0xffff9944);
+                } else if (!runwayOk) {
+                  trailing = 'Runway too short';
+                  trailingColor = const Color(0xffff9944);
+                } else if (!canAfford) {
+                  trailing = "Can't afford";
+                  trailingColor = const Color(0xffff7a7a);
+                } else if (selectedTypeId == type.id) {
+                  trailing = 'selected';
+                  trailingColor = const Color(0xff7dd3fc);
+                } else {
+                  trailing = null;
+                  trailingColor = null;
+                }
                 return _SelectableInfoRow(
                   selected: selectedTypeId == type.id,
                   enabled: enabled,
@@ -10986,6 +11006,7 @@ class _InlineAircraftShop extends StatelessWidget {
                       '${type.cruiseSpeedKmh} km/h · '
                       '${money(type.purchasePrice, currency)}',
                   trailing: trailing,
+                  trailingColor: trailingColor,
                   onTap: () => onSelected(type),
                 );
               },
@@ -11005,6 +11026,7 @@ class _SelectableInfoRow extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.trailing,
+    this.trailingColor,
   });
 
   final bool selected;
@@ -11012,6 +11034,7 @@ class _SelectableInfoRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? trailing;
+  final Color? trailingColor;
   final VoidCallback onTap;
 
   @override
@@ -11073,9 +11096,10 @@ class _SelectableInfoRow extends StatelessWidget {
               Text(
                 trailing!,
                 style: TextStyle(
-                  color: enabled
-                      ? const Color(0xff7dd3fc)
-                      : const Color(0xffff7a7a),
+                  color: trailingColor ??
+                      (enabled
+                          ? const Color(0xff7dd3fc)
+                          : const Color(0xffff7a7a)),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
