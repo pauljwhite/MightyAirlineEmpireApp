@@ -1692,52 +1692,59 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
+                        // Close the menu first, then show dialogs in a
+                        // post-frame callback so the menu context is still
+                        // mounted when showDialog is called.
+                        final capturedContext = context;
                         closeMenu();
-                        if (game.gameDay > 0) {
-                          showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => _GlassDialog(
-                              maxWidth: 420,
-                              title: const Text('Abandon current game?'),
-                              content: const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Your current progress will be lost and cannot be recovered.',
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!capturedContext.mounted) return;
+                          if (game.gameDay > 0) {
+                            showDialog<bool>(
+                              context: capturedContext,
+                              builder: (ctx) => _GlassDialog(
+                                maxWidth: 420,
+                                title: const Text('Abandon current game?'),
+                                content: const Padding(
+                                  padding: EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'Your current progress will be lost and cannot be recovered.',
+                                  ),
                                 ),
+                                actions: [
+                                  _AppBtn(
+                                    variant: _BtnVariant.plain,
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  _AppBtn(
+                                    variant: _BtnVariant.danger,
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Abandon & restart'),
+                                  ),
+                                ],
                               ),
-                              actions: [
-                                _AppBtn(
-                                  variant: _BtnVariant.plain,
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                _AppBtn(
-                                  variant: _BtnVariant.danger,
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Abandon & restart'),
-                                ),
-                              ],
-                            ),
-                          ).then((confirmed) {
-                            if (confirmed == true && context.mounted) {
-                              _showNewGameDialog(
-                                context,
-                                game,
-                                currency,
-                                onCurrency,
-                                onGameStart: onGameStart,
-                              );
-                            }
-                          });
-                        } else {
-                          _showNewGameDialog(
-                            context,
-                            game,
-                            currency,
-                            onCurrency,
-                            onGameStart: onGameStart,
-                          );
-                        }
+                            ).then((confirmed) {
+                              if (confirmed == true && capturedContext.mounted) {
+                                _showNewGameDialog(
+                                  capturedContext,
+                                  game,
+                                  currency,
+                                  onCurrency,
+                                  onGameStart: onGameStart,
+                                );
+                              }
+                            });
+                          } else {
+                            _showNewGameDialog(
+                              capturedContext,
+                              game,
+                              currency,
+                              onCurrency,
+                              onGameStart: onGameStart,
+                            );
+                          }
+                        });
                       },
                       icon: const Icon(Icons.restart_alt),
                       child: const Text('Start again'),
@@ -2339,7 +2346,7 @@ void _showNewGameDialog(
 
   showDialog<void>(
     context: context,
-    barrierDismissible: !forceStart,
+    barrierDismissible: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
         final startingCash = startingCashByDifficulty[difficulty]!;
@@ -2354,7 +2361,7 @@ void _showNewGameDialog(
         final dark = Theme.of(context).brightness == Brightness.dark;
 
         return PopScope(
-          canPop: !forceStart,
+          canPop: false,
           child: _GlassDialog(
             maxWidth: 920,
             title: const Text('Start new airline'),
