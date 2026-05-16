@@ -11961,36 +11961,52 @@ class _TickerState extends State<_Ticker> {
             const SizedBox(width: 10),
             Expanded(
               child: ClipRect(
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey('${item.id}-$animationCycle-$speed'),
-                  tween: Tween(begin: 1, end: -1),
-                  duration: Duration(seconds: _tickerDurationSeconds(speed)),
-                  onEnd: _advanceTicker,
-                  builder: (context, value, child) => FractionalTranslation(
-                    translation: Offset(value, 0),
-                    child: child,
-                  ),
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    maxWidth: double.infinity,
-                    child: Text(
-                      '  $tickerText     $tickerText',
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewWidth = constraints.maxWidth;
+                    final textStyle = TextStyle(
+                      color: article != null || isAlert
+                          ? const Color(0xffffd166)
+                          : const Color(0xffc7d2e5),
+                      fontWeight: article != null || isAlert
+                          ? FontWeight.w900
+                          : FontWeight.w700,
+                      decoration: article == null
+                          ? TextDecoration.none
+                          : TextDecoration.underline,
+                    );
+                    final tp = TextPainter(
+                      text: TextSpan(text: '  $tickerText  ', style: textStyle),
                       maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.visible,
-                      style: TextStyle(
-                        color: article != null || isAlert
-                            ? const Color(0xffffd166)
-                            : const Color(0xffc7d2e5),
-                        fontWeight: article != null || isAlert
-                            ? FontWeight.w900
-                            : FontWeight.w700,
-                        decoration: article == null
-                            ? TextDecoration.none
-                            : TextDecoration.underline,
+                      textDirection: TextDirection.ltr,
+                    )..layout();
+                    final textWidth = tp.width;
+                    tp.dispose();
+                    final pixelDistance = viewWidth + textWidth;
+                    final pxPerSec = _tickerPixelsPerSecond(speed);
+                    final durationMs = (pixelDistance / pxPerSec * 1000).round();
+                    return TweenAnimationBuilder<double>(
+                      key: ValueKey('${item.id}-$animationCycle-$speed'),
+                      tween: Tween(begin: viewWidth, end: -textWidth),
+                      duration: Duration(milliseconds: durationMs),
+                      onEnd: _advanceTicker,
+                      builder: (context, value, child) => Transform.translate(
+                        offset: Offset(value, 0),
+                        child: child,
                       ),
-                    ),
-                  ),
+                      child: OverflowBox(
+                        alignment: Alignment.centerLeft,
+                        maxWidth: double.infinity,
+                        child: Text(
+                          '  $tickerText  ',
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.visible,
+                          style: textStyle,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -12000,12 +12016,12 @@ class _TickerState extends State<_Ticker> {
     );
   }
 
-  int _tickerDurationSeconds(int speed) {
-    if (speed >= 14400) return 5;
-    if (speed >= 3600) return 7;
-    if (speed >= 1200) return 10;
-    if (speed >= 300) return 15;
-    return 22;
+  double _tickerPixelsPerSecond(int speed) {
+    if (speed >= 14400) return 1200;
+    if (speed >= 3600) return 700;
+    if (speed >= 1200) return 400;
+    if (speed >= 300) return 250;
+    return 160;
   }
 }
 
