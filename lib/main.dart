@@ -3582,13 +3582,20 @@ class _WorldMapState extends State<_WorldMap> {
   String? _lastFocusedAirportIata;
   double? _trackpadZoomStart;
   var _mapReady = false;
-
+  var _gameHasStarted = false;
 
   @override
   void didUpdateWidget(covariant _WorldMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedAirport?.iata != widget.selectedAirport?.iata) {
       _focusSelectedAirport();
+    }
+    final nowStarted = widget.game.hasStarted;
+    if (!_gameHasStarted && nowStarted) {
+      _gameHasStarted = true;
+      _focusHub();
+    } else if (_gameHasStarted && !nowStarted) {
+      _gameHasStarted = false;
     }
   }
 
@@ -3615,6 +3622,16 @@ class _WorldMapState extends State<_WorldMap> {
         math.max(currentZoom, 4.1),
         id: 'selected-airport-${airport.iata}',
       );
+    });
+  }
+
+  void _focusHub() {
+    final hubIata = widget.game.settings.startingHubIata;
+    final hub = airportsByIata[hubIata];
+    if (hub == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(LatLng(hub.lat, hub.lon), 5.5);
     });
   }
 
@@ -11072,10 +11089,10 @@ class _InlineAircraftShop extends StatelessWidget {
                       '${_aircraftCategoryLabel(type.category)} · '
                       '${type.seatsEconomy}Y'
                       '${type.seatsBusiness > 0 ? '/${type.seatsBusiness}J' : ''}'
-                      ' · ${type.rangeKm.toStringAsFixed(0)} km range · '
-                      '${type.minRunwayM} m runway · '
-                      '${type.cruiseSpeedKmh} km/h · '
-                      '${money(type.purchasePrice, currency)}',
+                      ' · ${type.rangeKm.toStringAsFixed(0)} km'
+                      ' · ${type.minRunwayM} m rwy'
+                      ' · ${type.cruiseSpeedKmh} km/h',
+                  priceLabel: money(type.purchasePrice, currency),
                   trailing: trailing,
                   trailingColor: trailingColor,
                   onTap: () => onSelected(type),
@@ -11096,6 +11113,7 @@ class _SelectableInfoRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.priceLabel,
     this.trailing,
     this.trailingColor,
   });
@@ -11104,6 +11122,7 @@ class _SelectableInfoRow extends StatelessWidget {
   final bool enabled;
   final String title;
   final String subtitle;
+  final String? priceLabel;
   final String? trailing;
   final Color? trailingColor;
   final VoidCallback onTap;
@@ -11162,18 +11181,36 @@ class _SelectableInfoRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null) ...[
+            if (priceLabel != null || trailing != null) ...[
               const SizedBox(width: 8),
-              Text(
-                trailing!,
-                style: TextStyle(
-                  color: trailingColor ??
-                      (enabled
-                          ? const Color(0xff7dd3fc)
-                          : const Color(0xffff7a7a)),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (priceLabel != null)
+                    Text(
+                      priceLabel!,
+                      style: TextStyle(
+                        color: enabled
+                            ? Colors.white
+                            : const Color(0xff5d6678),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  if (trailing != null)
+                    Text(
+                      trailing!,
+                      style: TextStyle(
+                        color: trailingColor ??
+                            (enabled
+                                ? const Color(0xff7dd3fc)
+                                : const Color(0xffff7a7a)),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
               ),
             ],
           ],
