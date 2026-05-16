@@ -3588,7 +3588,7 @@ class _MapToggle extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.only(left: 12, right: 4, top: 2, bottom: 2),
+        padding: const EdgeInsets.only(left: 10, right: 2, top: 0, bottom: 0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3596,12 +3596,15 @@ class _MapToggle extends StatelessWidget {
               'Show AI on map',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                fontSize: 13,
+                fontSize: 12,
                 letterSpacing: -0.2,
                 color: dark ? Colors.white70 : const Color(0xff3c3c43),
               ),
             ),
-            Switch(value: showAi, onChanged: onChanged),
+            Transform.scale(
+              scale: 0.72,
+              child: Switch(value: showAi, onChanged: onChanged),
+            ),
           ],
         ),
       ),
