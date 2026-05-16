@@ -636,9 +636,23 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                             Positioned(
                               top: topOffset,
                               left: 12,
-                              child: _MapToggle(
-                                showAi: game.showAiOnMap,
-                                onChanged: game.setShowAiOnMap,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _MapToggle(
+                                    showAi: game.showAiOnMap,
+                                    onChanged: game.setShowAiOnMap,
+                                  ),
+                                  if (compact) ...[
+                                    const SizedBox(height: 8),
+                                    _FloatingSearchButton(
+                                      searchOpen: mobileSearchOpen,
+                                      onTap: () => setState(
+                                        () => mobileSearchOpen = !mobileSearchOpen,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             AnimatedPositioned(
@@ -1051,19 +1065,7 @@ class _TopBar extends StatelessWidget {
                       ],
                     ),
                     const Spacer(),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (compact)
-                          IconButton(
-                            tooltip: 'Search airports',
-                            onPressed: onToggleSearch,
-                            icon: Icon(searchOpen ? Icons.close : Icons.search),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        nav,
-                      ],
-                    ),
+                    nav,
                   ],
                 ),
               ],
@@ -3511,6 +3513,59 @@ class _SearchBox extends StatelessWidget {
       );
     },
   );
+}
+
+class _FloatingSearchButton extends StatelessWidget {
+  const _FloatingSearchButton({required this.searchOpen, required this.onTap});
+  final bool searchOpen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = !_isLight(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xcc141414) : const Color(0xddffffff),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: dark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    searchOpen ? Icons.close : Icons.search,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    searchOpen ? 'Close' : 'Search',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _MapToggle extends StatelessWidget {
