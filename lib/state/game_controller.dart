@@ -891,6 +891,22 @@ class GameController extends ChangeNotifier {
     return true;
   }
 
+  /// Resets to a clean pre-game state so the game map doesn't show behind
+  /// the new-game dialog when restarting. Call before showing the modal.
+  void resetToPreStart() {
+    hasStarted = false;
+    airlines.clear();
+    aircraft.clear();
+    routes.clear();
+    airportUpgrades.clear();
+    airportDailyPax.clear();
+    newsTicker.clear();
+    newsArticles.clear();
+    newspaperQueue.clear();
+    latestArticleId = null;
+    notifyListeners();
+  }
+
   void startNewGame([GameSettings? nextSettings]) {
     hasStarted = true;
     settings = nextSettings ?? settings;

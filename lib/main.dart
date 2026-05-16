@@ -53,7 +53,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   DateTime? _lastTickAt;
   var _initialNewGameDialogShown = false;
   var currency = currencyOptions.first;
-  Airport? selectedAirport = airportsByIata['LHR'];
+  Airport? selectedAirport;
   _Panel? panel;
   var mobileSearchOpen = false;
   final _autoOpenedArticleIds = <String>{};
@@ -109,6 +109,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
         currency,
         (v) => setState(() => currency = v),
         forceStart: true,
+        onGameStart: () => setState(() => selectedAirport = null),
       );
     });
   }
@@ -619,6 +620,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                   selectedAirport = a;
                                   mobileSearchOpen = false;
                                 }),
+                                onGameStart: () => setState(() => selectedAirport = null),
                               ),
                             ),
                             Positioned(
@@ -688,6 +690,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                     game,
                                     currency,
                                     (v) => setState(() => currency = v),
+                                    onGameStart: () => setState(() => selectedAirport = null),
                                   ),
                                 ),
                               ),
@@ -961,6 +964,7 @@ class _TopBar extends StatelessWidget {
     required this.onCurrency,
     required this.onSpeed,
     required this.onAirport,
+    required this.onGameStart,
   });
   final GameController game;
   final bool compact;
@@ -972,6 +976,7 @@ class _TopBar extends StatelessWidget {
   final ValueChanged<CurrencyOption> onCurrency;
   final ValueChanged<int> onSpeed;
   final ValueChanged<Airport> onAirport;
+  final VoidCallback onGameStart;
   @override
   Widget build(BuildContext context) {
     final search = _SearchBox(onAirport: onAirport);
@@ -1016,6 +1021,7 @@ class _TopBar extends StatelessWidget {
                           currency: currency,
                           onCurrency: onCurrency,
                           compact: compact,
+                          onGameStart: onGameStart,
                         ),
                         const SizedBox(width: 6),
                         _DateBadge(game: game, compact: compact),
@@ -1388,11 +1394,13 @@ class _AirlineBadge extends StatelessWidget {
     required this.currency,
     required this.onCurrency,
     required this.compact,
+    required this.onGameStart,
   });
   final GameController game;
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
   final bool compact;
+  final VoidCallback onGameStart;
 
   @override
   Widget build(BuildContext context) {
@@ -1404,6 +1412,7 @@ class _AirlineBadge extends StatelessWidget {
           game: game,
           currency: currency,
           onCurrency: onCurrency,
+          onGameStart: onGameStart,
         ),
       ],
       builder: (context, controller, child) => InkWell(
@@ -1462,11 +1471,13 @@ class _AirlineProfileDropdown extends StatelessWidget {
     required this.game,
     required this.currency,
     required this.onCurrency,
+    required this.onGameStart,
   });
 
   final GameController game;
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
+  final VoidCallback onGameStart;
 
   @override
   Widget build(BuildContext context) {
@@ -1714,11 +1725,18 @@ class _AirlineProfileDropdown extends StatelessWidget {
                                 game,
                                 currency,
                                 onCurrency,
+                                onGameStart: onGameStart,
                               );
                             }
                           });
                         } else {
-                          _showNewGameDialog(context, game, currency, onCurrency);
+                          _showNewGameDialog(
+                            context,
+                            game,
+                            currency,
+                            onCurrency,
+                            onGameStart: onGameStart,
+                          );
                         }
                       },
                       icon: const Icon(Icons.restart_alt),
@@ -2284,6 +2302,7 @@ void _showNewGameDialog(
   CurrencyOption currentCurrency,
   ValueChanged<CurrencyOption> onCurrency, {
   bool forceStart = false,
+  VoidCallback? onGameStart,
 }) {
   final nameController = TextEditingController(
     text: game.settings.playerAirlineName,
@@ -2316,8 +2335,7 @@ void _showNewGameDialog(
   };
   var activeSection = 0;
 
-  final wasRunning = game.hasStarted && !game.isPaused;
-  if (wasRunning) game.setSpeed(0);
+  game.resetToPreStart();
 
   showDialog<void>(
     context: context,
@@ -2842,6 +2860,7 @@ void _showNewGameDialog(
                     ),
                   );
                   onCurrency(selectedCurrency);
+                  onGameStart?.call();
                   Navigator.pop(context);
                 },
                 icon: const Icon(Icons.flight_takeoff),
@@ -2852,9 +2871,7 @@ void _showNewGameDialog(
         );
       },
     ),
-  ).then((_) {
-    if (wasRunning && !game.hasStarted) game.setSpeed(1);
-  });
+  );
 }
 
 class _NewGameSection extends StatelessWidget {
