@@ -6924,7 +6924,7 @@ class _AircraftPurchaseCard extends StatelessWidget {
                       opacity: unavailable ? 0.5 : 1,
                       child: Image.asset(
                         _aircraftImageAsset(type.id)!,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         width: 112,
                         height: 58,
                       ),
