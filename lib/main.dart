@@ -3544,7 +3544,17 @@ class _FloatingSearchRow extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8),
             child: SizedBox(
               width: 244,
-              child: _SearchBox(onAirport: onAirport),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  inputDecorationTheme:
+                      Theme.of(context).inputDecorationTheme.copyWith(
+                        fillColor: dark
+                            ? const Color(0xf0121212)
+                            : const Color(0xf2ffffff),
+                      ),
+                ),
+                child: _SearchBox(onAirport: onAirport),
+              ),
             ),
           ),
         ),
