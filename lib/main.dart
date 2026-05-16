@@ -2380,6 +2380,7 @@ void _showNewGameDialog(
           canPop: cancellable,
           child: _GlassDialog(
             maxWidth: 920,
+            onClose: cancellable ? () => Navigator.pop(context) : null,
             title: const Text('Start new airline'),
             content: SingleChildScrollView(
               child: Column(
@@ -11658,11 +11659,12 @@ Color _mutedText(BuildContext context) =>
 /// Use instead of [AlertDialog] directly. Adds BackdropFilter blur and
 /// frosted-glass surface decoration.
 class _GlassDialog extends StatelessWidget {
-  const _GlassDialog({this.title, this.content, this.actions, this.maxWidth});
+  const _GlassDialog({this.title, this.content, this.actions, this.maxWidth, this.onClose});
   final Widget? title;
   final Widget? content;
   final List<Widget>? actions;
   final double? maxWidth;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -11702,11 +11704,24 @@ class _GlassDialog extends StatelessWidget {
               children: [
                 if (title != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
-                    child: DefaultTextStyle(
-                      style: theme.dialogTheme.titleTextStyle ??
-                          theme.textTheme.titleLarge!,
-                      child: title!,
+                    padding: EdgeInsets.fromLTRB(24, 22, onClose != null ? 8 : 24, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: DefaultTextStyle(
+                            style: theme.dialogTheme.titleTextStyle ??
+                                theme.textTheme.titleLarge!,
+                            child: title!,
+                          ),
+                        ),
+                        if (onClose != null)
+                          IconButton(
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Cancel',
+                          ),
+                      ],
                     ),
                   ),
                 if (content != null)
