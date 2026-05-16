@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -1679,8 +1680,11 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
+                        final ctx = context;
                         closeMenu();
-                        _showRebrandDialog(context, game, currency);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (ctx.mounted) _showRebrandDialog(ctx, game, currency);
+                        });
                       },
                       icon: const Icon(Icons.edit),
                       child: const Text('Rebrand'),
@@ -1688,8 +1692,11 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
+                        final ctx = context;
                         closeMenu();
-                        _showExportDialog(context, game);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (ctx.mounted) _showExportDialog(ctx, game);
+                        });
                       },
                       icon: const Icon(Icons.upload_file),
                       child: const Text('Export'),
@@ -1697,8 +1704,11 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
+                        final ctx = context;
                         closeMenu();
-                        _showImportDialog(context, game, onCurrency);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (ctx.mounted) _showImportDialog(ctx, game, onCurrency);
+                        });
                       },
                       icon: const Icon(Icons.download),
                       child: const Text('Import'),
@@ -1706,8 +1716,11 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
+                        final ctx = context;
                         closeMenu();
-                        _showSettingsDialog(context, game);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (ctx.mounted) _showSettingsDialog(ctx, game);
+                        });
                       },
                       icon: const Icon(Icons.palette),
                       child: const Text('Theme'),
@@ -3213,23 +3226,24 @@ void _showExportDialog(BuildContext context, GameController game) {
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
-          _AppBtn(
-            variant: _BtnVariant.ghost,
-            onPressed: saving
-                ? null
-                : () async {
-                    setState(() => saving = true);
-                    try {
-                      await _saveProgressFile(context, game);
-                    } finally {
-                      if (dialogContext.mounted) {
-                        setState(() => saving = false);
+          if (Platform.isMacOS || Platform.isWindows || Platform.isLinux)
+            _AppBtn(
+              variant: _BtnVariant.ghost,
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setState(() => saving = true);
+                      try {
+                        await _saveProgressFile(context, game);
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setState(() => saving = false);
+                        }
                       }
-                    }
-                  },
-            icon: const Icon(Icons.save_alt),
-            child: Text(saving ? 'Saving...' : 'Save file'),
-          ),
+                    },
+              icon: const Icon(Icons.save_alt),
+              child: Text(saving ? 'Saving...' : 'Save file'),
+            ),
           _AppBtn(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: json));
