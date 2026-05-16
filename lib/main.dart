@@ -3150,6 +3150,7 @@ void _showExportDialog(BuildContext context, GameController game) {
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => _GlassDialog(
+        maxWidth: 660,
         title: const Text('Export progress'),
         content: SizedBox(
           width: 620,
@@ -3212,6 +3213,7 @@ void _showImportDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => _GlassDialog(
+        maxWidth: 660,
         title: const Text('Import progress'),
         content: SizedBox(
           width: 620,
@@ -11463,7 +11465,7 @@ class _GlassDialog extends StatelessWidget {
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+        constraints: BoxConstraints(maxWidth: maxWidth ?? 560),
         child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: BackdropFilter(
