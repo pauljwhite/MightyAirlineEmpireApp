@@ -32,10 +32,9 @@ import 'state/game_controller.dart';
 
 const _speedOptions = <({int value, String label})>[
   (value: 60, label: '1x'),
-  (value: 300, label: '2x'),
   (value: 1200, label: '3x'),
-  (value: 3600, label: '4x'),
-  (value: 14400, label: '5x'),
+  (value: 3600, label: '5x'),
+  (value: 14400, label: '10x'),
 ];
 
 void main() => runApp(const MightyAirlineEmpireApp());
