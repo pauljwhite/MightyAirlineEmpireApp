@@ -3929,11 +3929,12 @@ class _WorldMapState extends State<_WorldMap> {
                   MarkerLayer(markers: _airportMarkers()),
             ),
           ),
-          RepaintBoundary(
-            child: ValueListenableBuilder<int>(
-              valueListenable: widget.game.mapAnimationTick,
-              builder: (context, _, _) =>
-                  MarkerLayer(markers: _planeMarkers(_cachedDrawableRoutes)),
+          ValueListenableBuilder<int>(
+            valueListenable: widget.game.mapAnimationTick,
+            builder: (context, _, _) => _PlaneCanvasLayer(
+              routes: _cachedDrawableRoutes,
+              game: widget.game,
+              mapController: _mapController,
             ),
           ),
           RichAttributionWidget(
@@ -4030,66 +4031,6 @@ class _WorldMapState extends State<_WorldMap> {
       })
       .toList(growable: false);
 
-  List<Marker> _planeMarkers(List<RoutePlan> drawableRoutes) {
-    final zoom = _mapController.camera.zoom;
-    final zoomScale = (zoom / 6.0).clamp(0.35, 2.0);
-    final markers = <Marker>[];
-    for (final route in drawableRoutes) {
-      final marker = _planeMarker(route, zoomScale);
-      if (marker != null) markers.add(marker);
-    }
-    return markers;
-  }
-
-  Marker? _planeMarker(RoutePlan route, double zoomScale) {
-    final ac = widget.game.aircraft[route.aircraftId];
-    if (ac == null ||
-        ac.isGrounded ||
-        ac.status == AircraftStatus.maintenance ||
-        ac.status == AircraftStatus.crashed) {
-      return null;
-    }
-    final origin = airportsByIata[route.originIata];
-    final dest = airportsByIata[route.destinationIata];
-    if (origin == null || dest == null) return null;
-
-    final visualPoint = roundTripRoutePosition(
-      originLat: origin.lat,
-      originLon: origin.lon,
-      destinationLat: dest.lat,
-      destinationLon: dest.lon,
-      flightProgress: ac.flightProgress,
-    );
-    final airline = widget.game.airlines[route.airlineId];
-    final color = _colorFromHex(airline?.color ?? '#ffffff');
-    final type = aircraftTypesById[ac.typeId];
-    final basePx = switch (type?.category) {
-      AircraftCategory.regional => 22.0,
-      AircraftCategory.narrowbody => 25.0,
-      AircraftCategory.widebody => 30.0,
-      AircraftCategory.sst => 29.0,
-      null => 25.0,
-    };
-    final sizePx = basePx * zoomScale;
-
-    return Marker(
-      point: LatLng(visualPoint.lat, visualPoint.lon),
-      width: sizePx + 12,
-      height: sizePx + 12,
-      child: IgnorePointer(
-        child: Transform.rotate(
-          angle: visualPoint.bearingRadians,
-          child: SvgPicture.asset(
-            _planeAssetForCategory(type?.category),
-            width: sizePx,
-            height: sizePx,
-            fit: BoxFit.contain,
-            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 String _planeAssetForCategory(AircraftCategory? category) {
@@ -4104,6 +4045,135 @@ String _planeAssetForCategory(AircraftCategory? category) {
     case null:
       return 'assets/map_planes/narrowbody.svg';
   }
+}
+
+// Draws all plane icons on a single canvas — avoids per-plane compositing
+// layers and SVG re-rasterisation on every frame (iOS/Impeller bottleneck).
+class _PlaneCanvasLayer extends StatelessWidget {
+  const _PlaneCanvasLayer({
+    required this.routes,
+    required this.game,
+    required this.mapController,
+  });
+
+  final List<RoutePlan> routes;
+  final GameController game;
+  final MapController mapController;
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _PlanePainter(routes: routes, game: game, camera: camera),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
+
+class _PlanePainter extends CustomPainter {
+  _PlanePainter({
+    required this.routes,
+    required this.game,
+    required this.camera,
+  });
+
+  final List<RoutePlan> routes;
+  final GameController game;
+  final MapCamera camera;
+
+  static final _paint = Paint()..isAntiAlias = true;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final zoom = camera.zoom;
+    if (zoom < 2.5) return; // planes are invisible when fully zoomed out
+    final zoomScale = (zoom / 6.0).clamp(0.35, 2.0);
+
+    for (final route in routes) {
+      final ac = game.aircraft[route.aircraftId];
+      if (ac == null ||
+          ac.isGrounded ||
+          ac.status == AircraftStatus.maintenance ||
+          ac.status == AircraftStatus.crashed) continue;
+
+      final origin = airportsByIata[route.originIata];
+      final dest = airportsByIata[route.destinationIata];
+      if (origin == null || dest == null) continue;
+
+      final vp = roundTripRoutePosition(
+        originLat: origin.lat,
+        originLon: origin.lon,
+        destinationLat: dest.lat,
+        destinationLon: dest.lon,
+        flightProgress: ac.flightProgress,
+      );
+
+      final screenPt =
+          camera.getOffsetFromOrigin(LatLng(vp.lat, vp.lon));
+      if (screenPt.dx < -40 ||
+          screenPt.dy < -40 ||
+          screenPt.dx > size.width + 40 ||
+          screenPt.dy > size.height + 40) continue; // off-screen
+
+      final airline = game.airlines[route.airlineId];
+      final color = _colorFromHex(airline?.color ?? '#ffffff');
+      final type = aircraftTypesById[ac.typeId];
+      final basePx = switch (type?.category) {
+        AircraftCategory.regional => 7.0,
+        AircraftCategory.widebody => 10.0,
+        AircraftCategory.sst => 9.0,
+        _ => 8.5,
+      };
+      final sizePx = basePx * zoomScale;
+
+      canvas.save();
+      canvas.translate(screenPt.dx, screenPt.dy);
+      canvas.rotate(vp.bearingRadians);
+      _drawPlane(canvas, color, sizePx, type?.category);
+      canvas.restore();
+    }
+  }
+
+  void _drawPlane(
+      Canvas canvas, Color color, double s, AircraftCategory? cat) {
+    _paint.color = color;
+    final path = Path();
+    if (cat == AircraftCategory.regional) {
+      // Smaller dart shape
+      path.moveTo(0, -s);
+      path.lineTo(-s * 0.45, s * 0.55);
+      path.lineTo(0, s * 0.2);
+      path.lineTo(s * 0.45, s * 0.55);
+    } else if (cat == AircraftCategory.widebody) {
+      // Wider body
+      path.moveTo(0, -s);
+      path.lineTo(-s * 0.75, s * 0.45);
+      path.lineTo(-s * 0.18, s * 0.15);
+      path.lineTo(-s * 0.22, s);
+      path.lineTo(0, s * 0.7);
+      path.lineTo(s * 0.22, s);
+      path.lineTo(s * 0.18, s * 0.15);
+      path.lineTo(s * 0.75, s * 0.45);
+    } else {
+      // Narrowbody / SST
+      path.moveTo(0, -s);
+      path.lineTo(-s * 0.6, s * 0.5);
+      path.lineTo(-s * 0.14, s * 0.1);
+      path.lineTo(-s * 0.18, s * 0.9);
+      path.lineTo(0, s * 0.65);
+      path.lineTo(s * 0.18, s * 0.9);
+      path.lineTo(s * 0.14, s * 0.1);
+      path.lineTo(s * 0.6, s * 0.5);
+    }
+    path.close();
+    canvas.drawPath(path, _paint);
+  }
+
+  @override
+  bool shouldRepaint(_PlanePainter old) =>
+      old.routes != routes || old.camera != camera;
 }
 
 List<List<LatLng>> _routeArcLatLngSegments(
