@@ -3420,9 +3420,10 @@ class _DateBadge extends StatelessWidget {
           final dayMs = game.gameTimeMs % gameDayMs;
           final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
           final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
+          final day = date.day.toString().padLeft(2, '0');
           final label = compact
-              ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
-              : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
+              ? '${_monthLabel(date.month)} $day · $hour:$minute'
+              : '${_monthLabel(date.month)} $day, ${date.year} · $hour:$minute';
           return Text(
             label,
             textAlign: TextAlign.left,
