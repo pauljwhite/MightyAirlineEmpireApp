@@ -2286,6 +2286,7 @@ void _showNewGameDialog(
     Difficulty.normal: 30000000.0,
     Difficulty.hard: 15000000.0,
   };
+  var activeSection = 0;
 
   showDialog<void>(
     context: context,
@@ -2301,6 +2302,8 @@ void _showNewGameDialog(
           orElse: () => _newGameEras.first,
         );
         final selectedColor = _normaliseHexColor(colorController.text);
+        final dark = Theme.of(context).brightness == Brightness.dark;
+
         return PopScope(
           canPop: !forceStart,
           child: _GlassDialog(
@@ -2308,332 +2311,468 @@ void _showNewGameDialog(
             title: const Text('Start new airline'),
             content: SingleChildScrollView(
               child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Airline name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Airline colour',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _airlineColorOptions
-                          .map(
-                            (color) => InkWell(
-                              borderRadius: BorderRadius.circular(999),
-                              onTap: () {
-                                colorController.text = color;
-                                setState(() {});
-                              },
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: _MapPainter._colorFromHex(color),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selectedColor == color.toLowerCase()
-                                        ? Theme.of(context).colorScheme.primary
-                                        : _hairline(context),
-                                    width: selectedColor == color.toLowerCase()
-                                        ? 3
-                                        : 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: colorController,
-                      decoration: const InputDecoration(
-                        labelText: 'Custom colour',
-                        hintText: '#3b82f6',
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Section 1: Your airline ──────────────────────────
+                  _NewGameSection(
+                    index: 0,
+                    activeSection: activeSection,
+                    title: 'Your airline',
+                    collapsedSummary: _SectionSummary(
                       children: [
-                        _AirlineLogo(
-                          logo: emojiController.text.trim().isEmpty
-                              ? '✈️'
-                              : emojiController.text.trim(),
-                          size: 46,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: emojiController,
-                            decoration: const InputDecoration(
-                              labelText:
-                                  'Logo emoji, short mark, or data:image',
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: _MapPainter._colorFromHex(
+                              colorController.text.isEmpty
+                                  ? '#3b82f6'
+                                  : colorController.text,
                             ),
-                            onChanged: (_) => setState(() {}),
+                            shape: BoxShape.circle,
                           ),
                         ),
+                        const SizedBox(width: 5),
+                        Text(nameController.text.trim().isEmpty
+                            ? 'My Airline'
+                            : nameController.text.trim()),
+                        const SizedBox(width: 6),
+                        Text(emojiController.text.trim().isEmpty
+                            ? '✈️'
+                            : emojiController.text.trim()),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    _LogoPicker(
-                      value: emojiController.text.trim(),
-                      onChanged: (value) {
-                        emojiController.text = value;
-                        setState(() {});
-                      },
-                      onUploadLogo: () async {
-                        try {
-                          final uploaded = await _pickAirlineLogoImage();
-                          if (!context.mounted || uploaded == null) return;
-                          emojiController.text = uploaded;
-                          setState(() => error = null);
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          setState(() => error = e.toString());
-                        }
-                      },
-                    ),
-                    if (error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          error!,
-                          style: const TextStyle(color: Color(0xffff6b6b)),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    _AirportDropdown(
-                      label: 'Starting hub',
-                      value: startingHub,
-                      onChanged: (airport) =>
-                          setState(() => startingHub = airport),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Starting era',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        spacing: 8,
-                        children: _newGameEras.map((option) {
-                          final selected = startingYear == option.year;
-                          final dark = Theme.of(context).brightness ==
-                              Brightness.dark;
-                          return GestureDetector(
-                            onTap: () =>
-                                setState(() => startingYear = option.year),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 130),
-                              curve: Curves.easeOut,
-                              width: 108,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? const Color(0xff0a84ff)
-                                    : (dark
-                                        ? Colors.white.withValues(alpha: 0.08)
-                                        : Colors.black.withValues(alpha: 0.05)),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: selected
-                                      ? Colors.transparent
-                                      : (dark
-                                          ? Colors.white.withValues(alpha: 0.10)
-                                          : Colors.black.withValues(alpha: 0.08)),
-                                ),
-                                boxShadow: selected
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xff0a84ff,
-                                          ).withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    option.year.toString(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                      color: selected
-                                          ? Colors.white
-                                          : (dark
-                                              ? Colors.white
-                                              : Colors.black87),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: selected
-                                          ? Colors.white.withValues(alpha: 0.85)
-                                          : (dark
-                                              ? Colors.white.withValues(
-                                                  alpha: 0.50,
-                                                )
-                                              : Colors.black.withValues(
-                                                  alpha: 0.45,
-                                                )),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$availableAircraft aircraft available · ${era.flagship}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _mutedText(context),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<Difficulty>(
-                      initialValue: difficulty,
-                      decoration: const InputDecoration(
-                        labelText: 'Difficulty',
-                      ),
-                      items: Difficulty.values
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(
-                                '${value.name[0].toUpperCase()}${value.name.substring(1)} · ${money(startingCashByDifficulty[value]!, selectedCurrency)}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) setState(() => difficulty = value);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Text('AI airlines: $aiCount'),
-                    Slider(
-                      value: aiCount.toDouble(),
-                      min: 0,
-                      max: 12,
-                      divisions: 12,
-                      label: '$aiCount',
-                      onChanged: (value) =>
-                          setState(() => aiCount = value.round()),
-                    ),
-                    const SizedBox(height: 8),
-                    SegmentedButton<GameObjective>(
-                      segments: const [
-                        ButtonSegment(
-                          value: GameObjective.lastAirlineStanding,
-                          label: Text('Last airline standing'),
-                        ),
-                        ButtonSegment(
-                          value: GameObjective.marketShare,
-                          label: Text('Market share'),
-                        ),
-                      ],
-                      selected: {objective},
-                      onSelectionChanged: (value) =>
-                          setState(() => objective = value.first),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      child: objective == GameObjective.marketShare
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Target market share: ${targetMarketShare.round()}%',
-                                  ),
-                                  Slider(
-                                    value: targetMarketShare.toDouble(),
-                                    min: 60,
-                                    max: 100,
-                                    divisions: 40,
-                                    label: '${targetMarketShare.round()}%',
-                                    onChanged: (value) => setState(
-                                      () => targetMarketShare = value
-                                          .roundToDouble(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 16),
-                    Column(
+                    onTap: () => setState(() => activeSection = 0),
+                    onContinue: () => setState(() => activeSection = 1),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Currency',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xff9aa4b5),
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Airline name',
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Airline colour',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _airlineColorOptions
+                              .map(
+                                (color) => InkWell(
+                                  borderRadius: BorderRadius.circular(999),
+                                  onTap: () {
+                                    colorController.text = color;
+                                    setState(() {});
+                                  },
+                                  child: Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      color: _MapPainter._colorFromHex(color),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selectedColor ==
+                                                color.toLowerCase()
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
+                                            : _hairline(context),
+                                        width: selectedColor ==
+                                                color.toLowerCase()
+                                            ? 3
+                                            : 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: colorController,
+                          decoration: const InputDecoration(
+                            labelText: 'Custom colour',
+                            hintText: '#3b82f6',
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Logo',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _AirlineLogo(
+                              logo: emojiController.text.trim().isEmpty
+                                  ? '✈️'
+                                  : emojiController.text.trim(),
+                              size: 46,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: emojiController,
+                                decoration: const InputDecoration(
+                                  labelText:
+                                      'Logo emoji, short mark, or data:image',
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _LogoPicker(
+                          value: emojiController.text.trim(),
+                          onChanged: (value) {
+                            emojiController.text = value;
+                            setState(() {});
+                          },
+                          onUploadLogo: () async {
+                            try {
+                              final uploaded = await _pickAirlineLogoImage();
+                              if (!context.mounted || uploaded == null) return;
+                              emojiController.text = uploaded;
+                              setState(() => error = null);
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              setState(() => error = e.toString());
+                            }
+                          },
+                        ),
+                        if (error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              error!,
+                              style: const TextStyle(
+                                color: Color(0xffff6b6b),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Section 2: Operations ────────────────────────────
+                  _NewGameSection(
+                    index: 1,
+                    activeSection: activeSection,
+                    title: 'Operations',
+                    collapsedSummary: _SectionSummary(
+                      children: [
+                        Text('${startingHub.iata} · $startingYear · ${selectedCurrency.code}'),
+                      ],
+                    ),
+                    onTap: () => setState(() => activeSection = 1),
+                    onContinue: () => setState(() => activeSection = 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AirportDropdown(
+                          label: 'Starting hub',
+                          value: startingHub,
+                          onChanged: (airport) =>
+                              setState(() => startingHub = airport),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Starting era',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            spacing: 8,
+                            children: _newGameEras.map((option) {
+                              final selected = startingYear == option.year;
+                              return GestureDetector(
+                                onTap: () => setState(
+                                  () => startingYear = option.year,
+                                ),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 130),
+                                  curve: Curves.easeOut,
+                                  width: 108,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? const Color(0xff0a84ff)
+                                        : (dark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.08,
+                                              )
+                                            : Colors.black.withValues(
+                                                alpha: 0.05,
+                                              )),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selected
+                                          ? Colors.transparent
+                                          : (dark
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.10,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                )),
+                                    ),
+                                    boxShadow: selected
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xff0a84ff,
+                                              ).withValues(alpha: 0.35),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        option.year.toString(),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                          color: selected
+                                              ? Colors.white
+                                              : (dark
+                                                  ? Colors.white
+                                                  : Colors.black87),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        option.label,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: selected
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.85,
+                                                )
+                                              : (dark
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.50,
+                                                    )
+                                                  : Colors.black.withValues(
+                                                      alpha: 0.45,
+                                                    )),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$availableAircraft aircraft available · ${era.flagship}',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: _mutedText(context),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Currency',
+                          style: Theme.of(context).textTheme.labelLarge,
                         ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: currencyOptions.map((opt) {
-                            final isSelected = opt.code == selectedCurrency.code;
-                            return FilterChip(
-                              selected: isSelected,
-                              label: Text(
-                                '${opt.symbol} ${opt.code}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w800
-                                      : FontWeight.normal,
+                            final isSelected =
+                                opt.code == selectedCurrency.code;
+                            return GestureDetector(
+                              onTap: () =>
+                                  setState(() => selectedCurrency = opt),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 130),
+                                curve: Curves.easeOut,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xff0a84ff)
+                                      : (dark
+                                          ? Colors.white.withValues(alpha: 0.08)
+                                          : Colors.black.withValues(
+                                              alpha: 0.05,
+                                            )),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : (dark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.10,
+                                              )
+                                            : Colors.black.withValues(
+                                                alpha: 0.08,
+                                              )),
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xff0a84ff,
+                                            ).withValues(alpha: 0.35),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Text(
+                                  '${opt.symbol} ${opt.code}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : (dark
+                                            ? Colors.white
+                                            : Colors.black87),
+                                  ),
                                 ),
                               ),
-                              tooltip: opt.name,
-                              onSelected: (_) =>
-                                  setState(() => selectedCurrency = opt),
                             );
                           }).toList(),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Starting cash: ${money(startingCash, selectedCurrency)}',
-                      style: Theme.of(context).textTheme.titleMedium,
+                  ),
+
+                  // ── Section 3: Game settings ─────────────────────────
+                  _NewGameSection(
+                    index: 2,
+                    activeSection: activeSection,
+                    title: 'Game settings',
+                    collapsedSummary: _SectionSummary(
+                      children: [
+                        Text('$aiCount AI · ${difficulty.name}'),
+                      ],
                     ),
-                  ],
-                ),
+                    onTap: () => setState(() => activeSection = 2),
+                    onContinue: null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('AI airlines: $aiCount'),
+                        Slider(
+                          value: aiCount.toDouble(),
+                          min: 0,
+                          max: 12,
+                          divisions: 12,
+                          label: '$aiCount',
+                          onChanged: (value) =>
+                              setState(() => aiCount = value.round()),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<GameObjective>(
+                          segments: const [
+                            ButtonSegment(
+                              value: GameObjective.lastAirlineStanding,
+                              label: Text('Last airline standing'),
+                            ),
+                            ButtonSegment(
+                              value: GameObjective.marketShare,
+                              label: Text('Market share'),
+                            ),
+                          ],
+                          selected: {objective},
+                          onSelectionChanged: (value) =>
+                              setState(() => objective = value.first),
+                        ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          child: objective == GameObjective.marketShare
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Target market share: ${targetMarketShare.round()}%',
+                                      ),
+                                      Slider(
+                                        value: targetMarketShare.toDouble(),
+                                        min: 60,
+                                        max: 100,
+                                        divisions: 40,
+                                        label:
+                                            '${targetMarketShare.round()}%',
+                                        onChanged: (value) => setState(
+                                          () => targetMarketShare =
+                                              value.roundToDouble(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<Difficulty>(
+                          initialValue: difficulty,
+                          decoration: const InputDecoration(
+                            labelText: 'Difficulty',
+                          ),
+                          items: Difficulty.values
+                              .map(
+                                (value) => DropdownMenuItem(
+                                  value: value,
+                                  child: Text(
+                                    '${value.name[0].toUpperCase()}${value.name.substring(1)} · ${money(startingCashByDifficulty[value]!, selectedCurrency)}',
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => difficulty = value);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Starting cash: ${money(startingCash, selectedCurrency)}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
             actions: [
               if (!forceStart)
                 _AppBtn(
@@ -2650,7 +2789,8 @@ void _showNewGameDialog(
                     game.settings.copyWith(
                       playerAirlineName: name.isEmpty ? 'My Airline' : name,
                       playerAirlineColor:
-                          _normaliseHexColor(colorController.text) ?? '#3b82f6',
+                          _normaliseHexColor(colorController.text) ??
+                          '#3b82f6',
                       playerAirlineEmoji: emoji.isEmpty ? '✈️' : emoji,
                       startingHubIata: startingHub.iata,
                       difficulty: difficulty,
@@ -2674,6 +2814,163 @@ void _showNewGameDialog(
       },
     ),
   );
+}
+
+class _NewGameSection extends StatelessWidget {
+  const _NewGameSection({
+    required this.index,
+    required this.activeSection,
+    required this.title,
+    required this.collapsedSummary,
+    required this.onTap,
+    required this.child,
+    this.onContinue,
+  });
+
+  final int index;
+  final int activeSection;
+  final String title;
+  final Widget collapsedSummary;
+  final VoidCallback onTap;
+  final VoidCallback? onContinue;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOpen = activeSection == index;
+    final isDone = activeSection > index;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final muted = _mutedText(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: isOpen
+                        ? const Color(0xff0a84ff)
+                        : isDone
+                            ? const Color(0xff0a84ff).withValues(alpha: 0.15)
+                            : (dark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.black.withValues(alpha: 0.06)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: isDone
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 13,
+                            color: Color(0xff0a84ff),
+                          )
+                        : Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isOpen ? Colors.white : muted,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: isOpen ? null : (isDone ? null : muted),
+                        ),
+                      ),
+                      if (!isOpen)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: collapsedSummary,
+                        ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  isOpen
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: muted,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          child: isOpen
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 38, bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      child,
+                      if (onContinue != null) ...[
+                        const SizedBox(height: 20),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _AppBtn(
+                            small: true,
+                            onPressed: onContinue,
+                            child: const Text('Continue'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (index < 2)
+          Divider(
+            height: 1,
+            color: dark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.07),
+          ),
+      ],
+    );
+  }
+}
+
+class _SectionSummary extends StatelessWidget {
+  const _SectionSummary({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: children
+          .map(
+            (child) => DefaultTextStyle.merge(
+              style: TextStyle(fontSize: 12, color: _mutedText(context)),
+              child: child,
+            ),
+          )
+          .toList(),
+    );
+  }
 }
 
 class _NewGameEra {
