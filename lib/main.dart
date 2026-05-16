@@ -1566,6 +1566,21 @@ class _AirlineProfileDropdown extends StatelessWidget {
                         ],
                       ),
                     ),
+                    IconButton(
+                      tooltip: game.themeMode == ThemeModeSetting.dark
+                          ? 'Switch to light mode'
+                          : 'Switch to dark mode',
+                      icon: Icon(
+                        game.themeMode == ThemeModeSetting.dark
+                            ? Icons.light_mode
+                            : Icons.dark_mode,
+                      ),
+                      onPressed: () => game.setThemeMode(
+                        game.themeMode == ThemeModeSetting.dark
+                            ? ThemeModeSetting.light
+                            : ThemeModeSetting.dark,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1706,17 +1721,6 @@ class _AirlineProfileDropdown extends StatelessWidget {
                       },
                       icon: const Icon(Icons.download),
                       child: const Text('Import'),
-                    ),
-                    _AppBtn(
-                      variant: _BtnVariant.ghost,
-                      onPressed: () {
-                        closeMenu();
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (stableContext.mounted) _showSettingsDialog(stableContext, game);
-                        });
-                      },
-                      icon: const Icon(Icons.palette),
-                      child: const Text('Theme'),
                     ),
                     _AppBtn(
                       variant: _BtnVariant.ghost,
@@ -1991,113 +1995,6 @@ class _LogoPicker extends StatelessWidget {
   );
 }
 
-void _showSettingsDialog(BuildContext context, GameController game) {
-  showDialog<void>(
-    context: context,
-    builder: (context) => _GlassDialog(
-      title: const Text('Settings'),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Appearance',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            _ThemeOption(
-              label: 'Dark',
-              description: 'Low-glare cockpit style for long play sessions.',
-              selected: game.themeMode == ThemeModeSetting.dark,
-              onTap: () {
-                game.setThemeMode(ThemeModeSetting.dark);
-                Navigator.pop(context);
-              },
-            ),
-            const SizedBox(height: 10),
-            _ThemeOption(
-              label: 'Light',
-              description:
-                  'Brighter interface for daylight and mobile screens.',
-              selected: game.themeMode == ThemeModeSetting.light,
-              onTap: () {
-                game.setThemeMode(ThemeModeSetting.light);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        _AppBtn(
-          variant: _BtnVariant.plain,
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({
-    required this.label,
-    required this.description,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String description;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(12),
-    onTap: onTap,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: selected
-            ? const Color(0xff2f8cff).withValues(alpha: 0.16)
-            : _subtleSurface(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: selected ? const Color(0xff77c9ff) : _hairline(context),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(color: Color(0xff9e9e9e)),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? const Color(0xff77c9ff) : null,
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
 const _brandColours = [
   '#3b82f6',
