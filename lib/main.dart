@@ -11971,20 +11971,7 @@ class _Ticker extends StatefulWidget {
 }
 
 class _TickerState extends State<_Ticker> {
-  var index = 0;
-  var animationCycle = 0;
-
-  @override
-  void didUpdateWidget(covariant _Ticker oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final items = _items;
-    if (index >= items.length) {
-      index = 0;
-      return;
-    }
-    final currentId = items[index].id;
-    if (!items.any((item) => item.id == currentId)) index = 0;
-  }
+  var _animationCycle = 0;
 
   List<NewsTickerItem> get _items => widget.game.newsTicker.isEmpty
       ? const [
@@ -11993,69 +11980,237 @@ class _TickerState extends State<_Ticker> {
             text: 'Welcome to Mighty Airline Empire!',
           ),
         ]
-      : widget.game.newsTicker.take(8).toList(growable: false);
+      : widget.game.newsTicker.take(10).toList(growable: false);
 
-  void _advanceTicker() {
+  void _restartScroll() {
     if (!mounted) return;
+    setState(() => _animationCycle++);
+  }
+
+  void _openFeed() {
     final items = _items;
-    setState(() {
-      index = items.isEmpty ? 0 : (index + 1) % items.length;
-      animationCycle += 1;
-    });
+    final game = widget.game;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xff151922),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        builder: (ctx, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  const Text(
+                    'NEWS TICKER',
+                    style: TextStyle(
+                      color: Color(0xffffd166),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${items.length} items',
+                    style: const TextStyle(
+                      color: Color(0xff6b7280),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Color(0xff2a2f3a), height: 1),
+            Expanded(
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.only(bottom: 24),
+                itemCount: items.length,
+                separatorBuilder: (_, idx) =>
+                    const Divider(color: Color(0xff1e2330), height: 1),
+                itemBuilder: (ctx, i) {
+                  final item = items[i];
+                  final isAlert =
+                      item.playerRelated ||
+                      item.severity == 'fleet' ||
+                      item.severity == 'breaking';
+                  final article = item.articleId == null
+                      ? null
+                      : game.newsArticles[item.articleId!];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    leading: Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isAlert
+                            ? const Color(0xffff8c42)
+                            : const Color(0xff4a90d9),
+                      ),
+                    ),
+                    title: Text(
+                      item.text,
+                      style: TextStyle(
+                        color: isAlert
+                            ? const Color(0xffffd166)
+                            : const Color(0xffc7d2e5),
+                        fontSize: 13,
+                        fontWeight: isAlert ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    trailing: article == null
+                        ? null
+                        : TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _showHeraldArticle(
+                                context,
+                                game,
+                                article,
+                                readOnly: true,
+                              );
+                            },
+                            child: const Text(
+                              'Read →',
+                              style: TextStyle(
+                                color: Color(0xff4a90d9),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final items = _items;
-    final item = items[index.clamp(0, items.length - 1)];
     final speed = widget.game.speed;
-    final article = item.articleId == null
-        ? null
-        : widget.game.newsArticles[item.articleId!];
-    final isAlert =
-        item.playerRelated ||
-        item.severity == 'fleet' ||
-        item.severity == 'breaking';
-    final tickerText =
-        '${isAlert ? '‼️ ' : ''}${item.text}${article == null ? '' : ' Read the article'}';
-    final tagText = isAlert ? 'FLEET ALERT' : 'NEWS';
-    final tagColor =
-        isAlert ? const Color(0xffff8c42) : const Color(0xffffd166);
-    final tagBg = isAlert
-        ? const Color(0xffffd166).withValues(alpha: 0.12)
+
+    // Determine badge severity from the most urgent item
+    final hasBreaking = items.any((i) => i.severity == 'breaking');
+    final hasAlert = items.any(
+      (i) => i.playerRelated || i.severity == 'fleet',
+    );
+    final tagText = hasBreaking
+        ? 'BREAKING'
+        : hasAlert
+        ? 'FLEET ALERT'
+        : 'NEWS';
+    final tagColor = (hasBreaking || hasAlert)
+        ? const Color(0xffff8c42)
+        : const Color(0xffffd166);
+    final tagBg = (hasBreaking || hasAlert)
+        ? const Color(0xffffd166).withValues(alpha: 0.08)
         : Colors.transparent;
 
-    return InkWell(
-      onTap: article == null
-          ? null
-          : () => _showHeraldArticle(
-              context,
-              widget.game,
-              article,
-              readOnly: true,
-            ),
+    // Build list of spans for the combined scrolling strip
+    const separatorStyle = TextStyle(
+      color: Color(0xff3a4252),
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+    );
+    final normalStyle = TextStyle(
+      color: const Color(0xffc7d2e5).withValues(alpha: 0.85),
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+    );
+    const alertStyle = TextStyle(
+      color: Color(0xffffd166),
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+    );
+    const articleSuffix = TextStyle(
+      color: Color(0xff4a90d9),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    );
+
+    List<InlineSpan> buildSpans() {
+      final spans = <InlineSpan>[];
+      for (var i = 0; i < items.length; i++) {
+        if (i > 0) {
+          spans.add(
+            const TextSpan(text: '     ◆     ', style: separatorStyle),
+          );
+        }
+        final item = items[i];
+        final isAlert =
+            item.playerRelated ||
+            item.severity == 'fleet' ||
+            item.severity == 'breaking';
+        final hasArticle = item.articleId != null &&
+            widget.game.newsArticles.containsKey(item.articleId);
+        spans.add(
+          TextSpan(
+            text: isAlert ? '‼ ${item.text}' : item.text,
+            style: isAlert ? alertStyle : normalStyle,
+          ),
+        );
+        if (hasArticle) {
+          spans.add(
+            const TextSpan(text: '  [Read →]', style: articleSuffix),
+          );
+        }
+      }
+      // Pad end so the last item scrolls fully off before loop
+      spans.add(const TextSpan(text: '          ', style: separatorStyle));
+      return spans;
+    }
+
+    return GestureDetector(
+      onTap: _openFeed,
       child: Container(
         height: 42,
         color: const Color(0xff111111),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: tagBg,
-                border: Border.all(
-                  color: tagColor.withValues(alpha: 0.45),
+            GestureDetector(
+              onTap: _openFeed,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: tagBg,
+                  border: Border.all(color: tagColor.withValues(alpha: 0.45)),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                tagText,
-                style: TextStyle(
-                  color: tagColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                child: Text(
+                  tagText,
+                  style: TextStyle(
+                    color: tagColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
@@ -12065,32 +12220,23 @@ class _TickerState extends State<_Ticker> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final viewWidth = constraints.maxWidth;
-                    final textStyle = TextStyle(
-                      color: article != null || isAlert
-                          ? const Color(0xffffd166)
-                          : const Color(0xffc7d2e5),
-                      fontWeight: article != null || isAlert
-                          ? FontWeight.w900
-                          : FontWeight.w700,
-                      decoration: article == null
-                          ? TextDecoration.none
-                          : TextDecoration.underline,
-                    );
+                    final spans = buildSpans();
+                    final combinedSpan = TextSpan(children: spans);
                     final tp = TextPainter(
-                      text: TextSpan(text: '  $tickerText  ', style: textStyle),
+                      text: combinedSpan,
                       maxLines: 1,
                       textDirection: TextDirection.ltr,
                     )..layout();
                     final textWidth = tp.width;
                     tp.dispose();
-                    final pixelDistance = viewWidth + textWidth;
                     final pxPerSec = _tickerPixelsPerSecond(speed);
-                    final durationMs = (pixelDistance / pxPerSec * 1000).round();
+                    final durationMs =
+                        ((viewWidth + textWidth) / pxPerSec * 1000).round();
                     return TweenAnimationBuilder<double>(
-                      key: ValueKey('${item.id}-$animationCycle-$speed'),
+                      key: ValueKey('ticker-$_animationCycle-$speed'),
                       tween: Tween(begin: viewWidth, end: -textWidth),
                       duration: Duration(milliseconds: durationMs),
-                      onEnd: _advanceTicker,
+                      onEnd: _restartScroll,
                       builder: (context, value, child) => Transform.translate(
                         offset: Offset(value, 0),
                         child: child,
@@ -12098,12 +12244,11 @@ class _TickerState extends State<_Ticker> {
                       child: OverflowBox(
                         alignment: Alignment.centerLeft,
                         maxWidth: double.infinity,
-                        child: Text(
-                          '  $tickerText  ',
+                        child: RichText(
+                          text: combinedSpan,
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.visible,
-                          style: textStyle,
                         ),
                       ),
                     );

@@ -12,6 +12,7 @@ import '../engine/ai_preferences.dart';
 import '../engine/demand_model.dart';
 import '../engine/economics_engine.dart';
 import '../engine/finance.dart';
+import '../engine/ai_news.dart';
 import '../engine/hub_upgrades.dart';
 import '../engine/route_optimizer.dart';
 import '../engine/valuation.dart';
@@ -573,9 +574,13 @@ class GameController extends ChangeNotifier {
     String severity = 'normal',
     String? articleId,
     bool playerRelated = false,
+    NewsArticle? article,
   }) {
     var linkedArticleId = articleId;
-    if (playerRelated && linkedArticleId == null) {
+    if (article != null) {
+      linkedArticleId = article.id;
+      _publishNewsArticle(article);
+    } else if (playerRelated && linkedArticleId == null) {
       linkedArticleId = 'ticker-article-$gameDay-${newsArticles.length + 1}';
       _publishNewsArticle(
         NewsArticle(
@@ -2541,7 +2546,15 @@ class GameController extends ChangeNotifier {
         canBeTakenOver: true,
         marketSharePercent: 0,
       );
-      pushNewsItem('${airline.name} has entered insolvency protection.');
+      pushNewsItem(
+        '${airline.name} has entered insolvency protection.',
+        article: generateInsolvencyArticle(
+          id: 'insolvency-${airline.id}-$gameDay',
+          airlineName: airline.name,
+          gameDay: gameDay,
+          seed: airline.id.hashCode ^ gameDay,
+        ),
+      );
     }
 
     if (settings.objective == GameObjective.lastAirlineStanding &&
@@ -2725,6 +2738,15 @@ class GameController extends ChangeNotifier {
           _optimiseRouteForAirline(route.id, airline.id);
           pushNewsItem(
             '${airline.name} launches ${hub.iata}-${candidate.airport.iata}.',
+            article: generateRouteArticle(
+              id: 'route-launch-${airline.id}-${hub.iata}-${candidate.airport.iata}-$gameDay',
+              airlineName: airline.name,
+              originIata: hub.iata,
+              destIata: candidate.airport.iata,
+              distanceKm: distKm,
+              gameDay: gameDay,
+              seed: airline.id.hashCode ^ hub.iata.hashCode ^ candidate.airport.iata.hashCode ^ gameDay,
+            ),
           );
           break;
         } catch (_) {
@@ -2812,7 +2834,15 @@ class GameController extends ChangeNotifier {
 
       for (final route in worstRoutes.take(maxRoutes)) {
         _removeAIRoute(route);
-        pushNewsItem('${airline.name} has suspended a loss-making route.');
+        pushNewsItem(
+          '${airline.name} has suspended a loss-making route.',
+          article: generateRouteTerminationArticle(
+            id: 'termination-${airline.id}-${route.id}-$gameDay',
+            airlineName: airline.name,
+            gameDay: gameDay,
+            seed: airline.id.hashCode ^ route.id.hashCode ^ gameDay,
+          ),
+        );
       }
     }
   }
@@ -2905,7 +2935,16 @@ class GameController extends ChangeNotifier {
             .toDouble();
         if (buyer.cashUSD < price) continue;
         _aiAcquireAirline(buyer.id, target.id, price);
-        pushNewsItem('ACQUISITION: ${buyer.name} has acquired ${target.name}.');
+        pushNewsItem(
+          'ACQUISITION: ${buyer.name} has acquired ${target.name}.',
+          article: generateAcquisitionArticle(
+            id: 'acquisition-${buyer.id}-${target.id}-$gameDay',
+            buyerName: buyer.name,
+            targetName: target.name,
+            gameDay: gameDay,
+            seed: buyer.id.hashCode ^ target.id.hashCode ^ gameDay,
+          ),
+        );
         return;
       }
     }
@@ -2967,9 +3006,17 @@ class GameController extends ChangeNotifier {
           airlines[entry.key] = entry.value.copyWith(shareholders: holdings);
         }
       }
+      final dissolvedName = airline.name;
+      final dissolvedId = airline.id;
       airlines.remove(airline.id);
       pushNewsItem(
-        '${airline.name} has been dissolved after prolonged insolvency.',
+        '$dissolvedName has been dissolved after prolonged insolvency.',
+        article: generateDissolutionArticle(
+          id: 'dissolution-$dissolvedId-$gameDay',
+          airlineName: dissolvedName,
+          gameDay: gameDay,
+          seed: dissolvedId.hashCode ^ gameDay,
+        ),
       );
     }
   }
@@ -3054,7 +3101,17 @@ class GameController extends ChangeNotifier {
       reputationScore: 50,
     );
     _markAirportHub(hub.iata);
-    pushNewsItem('NEW ENTRANT: $name has launched a new hub at ${hub.iata}.');
+    pushNewsItem(
+      'NEW ENTRANT: $name has launched a new hub at ${hub.iata}.',
+      article: generateNewEntrantArticle(
+        id: 'entrant-$airlineId-$gameDay',
+        airlineName: name,
+        hubIata: hub.iata,
+        hubCity: hub.city,
+        gameDay: gameDay,
+        seed: airlineId.hashCode ^ gameDay,
+      ),
+    );
 
     final airline = airlines[airlineId]!;
     final existingDestinations = <String>{};
