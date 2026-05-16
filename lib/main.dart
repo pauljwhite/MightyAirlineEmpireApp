@@ -52,6 +52,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   Timer? _gameLoop;
   DateTime? _lastTickAt;
   var _initialNewGameDialogShown = false;
+  var _autoSaveChecked = false;
   var currency = currencyOptions.first;
   Airport? selectedAirport;
   _Panel? panel;
@@ -82,18 +83,26 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
 
   void _tryRestoreAutoSave() {
     GameController.loadAutoSave().then((saved) {
-      if (!mounted || saved == null || game.hasStarted) return;
-      try {
-        game.importJson(saved);
-        final restoredCurrency = currencyOptions.firstWhere(
-          (c) => c.code == game.settings.currency,
-          orElse: () => currencyOptions.first,
-        );
-        setState(() => currency = restoredCurrency);
-        _initialNewGameDialogShown = true;
-      } catch (_) {
-        // Corrupt save — ignore and let the new-game dialog open normally
+      if (!mounted) return;
+      if (saved != null && !game.hasStarted) {
+        try {
+          game.importJson(saved);
+          final restoredCurrency = currencyOptions.firstWhere(
+            (c) => c.code == game.settings.currency,
+            orElse: () => currencyOptions.first,
+          );
+          setState(() {
+            currency = restoredCurrency;
+            _autoSaveChecked = true;
+          });
+          _initialNewGameDialogShown = true;
+          return;
+        } catch (_) {
+          // Corrupt save — fall through to show new-game dialog
+        }
       }
+      // No save or corrupt save: mark checked so build() can open the dialog
+      setState(() => _autoSaveChecked = true);
     });
   }
 
@@ -552,7 +561,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
       animation: game,
       builder: (context, _) {
         final lightMode = game.themeMode == ThemeModeSetting.light;
-        _scheduleInitialNewGameDialog();
+        if (_autoSaveChecked) _scheduleInitialNewGameDialog();
         final theme = lightMode
             ? (_cachedLightTheme ??= _buildTheme(true))
             : (_cachedDarkTheme ??= _buildTheme(false));
