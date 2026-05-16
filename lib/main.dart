@@ -12296,7 +12296,11 @@ void _showHeraldArticle(
       : 'INCIDENT REPORT';
   showDialog<void>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
+    builder: (dialogContext) => Theme(
+      // Herald dialog is always a cream/parchment surface — force light
+      // brightness so adaptive buttons (ghost etc.) pick dark text/border.
+      data: Theme.of(dialogContext).copyWith(brightness: Brightness.light),
+      child: AlertDialog(
       backgroundColor: const Color(0xfff5f0e8),
       surfaceTintColor: Colors.transparent,
       contentPadding: EdgeInsets.zero,
@@ -12494,6 +12498,7 @@ void _showHeraldArticle(
           child: const Text('Close'),
         ),
       ],
+    ),
     ),
   );
 }
