@@ -6639,7 +6639,19 @@ class _FleetViewState extends State<_FleetView> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  if (type != null)
+                  if (type != null) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4, bottom: 6),
+                      child: Text(
+                        'Manual Maintenance',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: Color(0xff9e9e9e),
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -6672,6 +6684,7 @@ class _FleetViewState extends State<_FleetView> {
                         );
                       }).toList(),
                     ),
+                  ],
                   if (!ac.excludedFromPolicy)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
