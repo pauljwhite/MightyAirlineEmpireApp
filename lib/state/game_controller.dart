@@ -2189,6 +2189,196 @@ class GameController extends ChangeNotifier {
     return (hash & 0xffffffff) / 0xffffffff;
   }
 
+  /// Returns a deterministic but varied crash narrative based on [seed] ∈ [0,1).
+  ({String headline, String subheadline, List<String> paragraphs})
+  _crashScenario({
+    required String airlineName,
+    required String model,
+    required String registration,
+    required String routeLabel,
+    required double seed,
+  }) {
+    final idx = (seed * 15).floor().clamp(0, 14);
+    switch (idx) {
+      case 0:
+        return (
+          headline: 'Breaking: $airlineName jet lost after dual-engine flameout',
+          subheadline:
+              'Crew declared emergency over $routeLabel corridor before contact was lost',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after both engines flamed out during the cruise phase of a $routeLabel service. Air traffic control recorded the crew declaring a full emergency at flight level 350, citing total loss of thrust on both powerplants. The aircraft descended below radar coverage and did not arrive at its destination.',
+            'Preliminary data from the quick-access recorder indicates a simultaneous surge event across both engines, consistent with fuel contamination or sustained ingestion of volcanic ash at altitude. Investigators are cross-referencing the route with SIGMET reports filed in the region for the preceding 72 hours.',
+            '$airlineName has grounded the affected $model fleet pending emergency borescope inspections of high-pressure turbine stages and fuel system integrity checks. The carrier has dispatched a crisis response team and is cooperating fully with the national accident investigation authority.',
+          ],
+        );
+      case 1:
+        return (
+          headline: 'Breaking: $airlineName $model strikes high ground near destination',
+          subheadline:
+              'Aircraft operating normally before CFIT event on $routeLabel approach',
+          paragraphs: [
+            'A $model registered as $registration and operated by $airlineName has been destroyed after impacting elevated terrain during the descent phase of a $routeLabel flight. The aircraft was under radar contact and had been cleared for the approach when it deviated below the minimum safe altitude. No distress call was received before contact was lost.',
+            'Accident investigators have recovered both the flight data recorder and cockpit voice recorder from the wreckage site. Early analysis suggests the crew may have been operating under an incorrect altimeter setting and did not respond to terrain proximity warnings. The investigation will examine crew fatigue records, approach briefing documentation, and the serviceability history of the ground-proximity warning system.',
+            '$airlineName has immediately suspended all operations on the $routeLabel route and has placed its entire fleet on a mandatory terrain-awareness systems audit. The airline\'s CEO issued a public statement expressing profound condolences and pledging full transparency with investigators.',
+          ],
+        );
+      case 2:
+        return (
+          headline: 'Breaking: Structural failure destroys $airlineName aircraft in cruise',
+          subheadline:
+              '$routeLabel flight lost after catastrophic airframe breakup at altitude',
+          paragraphs: [
+            'A $model operated by $airlineName on a $routeLabel service has been lost following what investigators believe to have been a catastrophic in-flight structural failure. Radar tracks show the aircraft making a series of rapid altitude excursions before disappearing from screens. Debris has been located across a wide geographic area, consistent with a high-altitude break-up event.',
+            'Structural engineers from the manufacturer have been summoned to assist with the investigation. Sources within the inquiry indicate that the failure originated in the aft pressure bulkhead, an area subject to high cyclical stress loads. The airframe had accumulated significant pressurisation cycles and had undergone fuselage repair work eighteen months prior.',
+            'Airworthiness authorities have issued an emergency airworthiness directive requiring all operators of the $model type to conduct detailed non-destructive testing of the aft fuselage section before any further revenue flights. $airlineName has suspended all flying pending compliance.',
+          ],
+        );
+      case 3:
+        return (
+          headline: 'Breaking: $airlineName flight lost after cargo fire on $routeLabel route',
+          subheadline:
+              'Crew reported uncontrollable smoke in cabin before aircraft went silent',
+          paragraphs: [
+            'An $airlineName $model has been destroyed following a rapidly-spreading fire that originated in the forward cargo hold during a $routeLabel service. The crew first reported smoke in the cabin and declared an emergency, requesting an immediate diversion. A second transmission indicated the fire suppression system had been discharged but smoke was intensifying. The aircraft was subsequently lost from radar.',
+            'Investigators are examining the cargo manifest in detail. Preliminary findings suggest the fire may have been initiated by improperly declared lithium battery shipments. The heat generated by the failure overwhelmed the aircraft\'s fixed cargo fire suppression capacity within minutes, propagating into flight-critical wiring looms.',
+            'The incident has prompted an immediate regulatory review of dangerous goods screening procedures at both ends of the $routeLabel corridor. $airlineName has suspended all cargo carriage pending an independent audit, and has cooperated with customs authorities who are examining the documentation trail for the consignment in question.',
+          ],
+        );
+      case 4:
+        return (
+          headline: 'Breaking: $airlineName $model downed by massive bird strike on departure',
+          subheadline:
+              'Multiple engine ingestions cause total thrust loss on $routeLabel takeoff roll',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after a catastrophic bird strike during the takeoff roll on a $routeLabel service. The crew rejected the takeoff at high speed after both engines ingested large birds, but was unable to stop the aircraft within the remaining runway. The aircraft overran the runway end and struck terrain, resulting in a post-impact fire.',
+            'Wildlife hazard reports from the aerodrome cite a long-established roosting colony in the approach path, with multiple minor bird-strike incidents recorded in the preceding three months. Airport operations had been aware of the hazard but had not escalated to a flight-suspension protocol. The inquiry will examine the adequacy of the aerodrome\'s wildlife management programme.',
+            '$airlineName has called for a formal audit of bird-strike reporting compliance at all stations it serves. The carrier has also questioned why earlier incidents on the same runway were not communicated to flight crews in their pre-departure briefings.',
+          ],
+        );
+      case 5:
+        return (
+          headline: 'Breaking: $airlineName $model lost in severe windshear encounter',
+          subheadline:
+              'Rapid airspeed fluctuation on $routeLabel final approach preceded loss of control',
+          paragraphs: [
+            'An $airlineName $model has been destroyed after encountering severe windshear at low altitude during an instrument approach on a $routeLabel service. The crew received a windshear alert at approximately 600 feet above ground level and executed a go-around, but the aircraft suffered a catastrophic loss of lift during the recovery manoeuvre and impacted terrain short of the airfield perimeter.',
+            'Meteorological data recovered from the aerodrome weather station shows a microburst event with a peak outflow velocity exceeding 50 knots at the time of the accident. A preceding aircraft had reported moderate windshear on the same approach, but the warning was not flagged as severe by the terminal weather advisory system.',
+            'The inquiry will scrutinise the decision to continue the approach in prevailing meteorological conditions, the adequacy of pilot training on microburst recovery, and the latency of low-level windshear alert system data relay to the cockpit. $airlineName has suspended $routeLabel operations pending a safety assessment.',
+          ],
+        );
+      case 6:
+        return (
+          headline: 'Breaking: Ice ingestion forces $airlineName $model down over $routeLabel corridor',
+          subheadline:
+              'Crew lost control after both engines surged following ice crystal accumulation',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after the crew reported a dual-engine rollback during a $routeLabel sector. The aircraft had been operating in a region of convective cloud associated with an inter-tropical convergence zone when the engines began surging and then lost power. The crew was unable to restart either powerplant before impact.',
+            'Ice crystal icing — a phenomenon in which super-cooled water droplets accrete inside engine cores at high altitude — has been identified as the probable initiating cause. The condition is not detected by standard airborne weather radar and can develop rapidly in high-altitude tropical convection. The engines on the $model type were known to have a susceptibility to the phenomenon.',
+            'Airworthiness regulators have issued a notice to airmen requiring operators of the $model to avoid identified high-altitude convective cells by a wider margin and to monitor engine anti-ice performance more closely in tropical cruise environments. An airworthiness directive mandating engine core modification is expected within 90 days.',
+          ],
+        );
+      case 7:
+        return (
+          headline: 'Breaking: $airlineName $model crashes after hydraulic loss on $routeLabel service',
+          subheadline:
+              'Total hydraulic failure left crew unable to control aircraft on approach',
+          paragraphs: [
+            'A $model operated by $airlineName has been destroyed following a catastrophic loss of hydraulic pressure that rendered the aircraft\'s primary flight control surfaces inoperative during a $routeLabel approach. The crew declared an emergency and attempted to manoeuvre using asymmetric engine thrust, a technique practised in simulators but rarely executed in practice. The attempt was unsuccessful.',
+            'Engineering inspectors have identified a fractured hydraulic line in the aft equipment bay, consistent with chafing against an incorrectly routed electrical conduit. A redundant hydraulic circuit that should have maintained partial control authority was found to have been depressurised due to a faulty isolation valve that had been flagged in the aircraft\'s deferred defect log seven weeks prior.',
+            'The accident has raised serious questions about the management of open deferred defects within $airlineName\'s maintenance organisation. Regulators have ordered an emergency audit of the carrier\'s deferred defect procedures across its entire fleet and have placed a senior airworthiness inspector on-site at the airline\'s main maintenance base.',
+          ],
+        );
+      case 8:
+        return (
+          headline: 'Breaking: $airlineName $model breaks apart in extreme turbulence',
+          subheadline:
+              'Aircraft encountered severe mountain wave conditions on the $routeLabel sector',
+          paragraphs: [
+            'An $airlineName $model has been lost after encountering extreme clear-air turbulence associated with a mountain wave system during cruise on a $routeLabel service. Radar data shows the aircraft performing a rapid and uncontrolled pitch excursion before the fuselage separated into multiple sections. The event lasted fewer than twelve seconds from onset to structural failure.',
+            'The turbulence intensity experienced by the aircraft is estimated to have been in excess of 4g peak — well beyond the certified design limit load of the airframe. PIREP data from a military aircraft that transited the same airway two hours earlier described moderate chop, giving no indication of the severity of the wave event that had developed by the time of the accident.',
+            '$airlineName has cooperated with meteorological agencies to reconstruct the atmospheric conditions at the time of the accident. The inquiry will examine whether route planning tools adequately identify mountain wave hazard zones, and whether real-time turbulence reporting systems provided sufficient warning to redirect the flight.',
+          ],
+        );
+      case 9:
+        return (
+          headline: 'Breaking: Fuel starvation forces $airlineName $model down on $routeLabel route',
+          subheadline:
+              'Both engines flame out short of destination after crew loses track of fuel state',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after both engines flamed out due to fuel exhaustion during a $routeLabel service. The crew had been managing a series of diversion requests prompted by destination weather and airspace restrictions, and failed to correctly recalculate the fuel requirement for each successive amendment to the flight plan. The aircraft ran dry at low altitude with no suitable aerodrome within gliding range.',
+            'Flight data recorder information shows the crew received low-fuel warnings 47 minutes before impact but elected to continue to the planned destination rather than divert immediately. Radio communications in the final phase of the flight indicate crew resource management broke down, with the captain dismissing the first officer\'s repeated requests to seek an emergency landing.',
+            'The accident represents the most serious fuel mismanagement event on record for a commercial turbine aircraft in recent years. Investigators are examining training standards for fuel emergency procedures, workload management in high-congestion airspace, and whether the carrier\'s dispatch authority provided adequate fuel planning support to the crew during the multiple reroutes.',
+          ],
+        );
+      case 10:
+        return (
+          headline: 'Breaking: $airlineName $model crashes after icing stall on departure',
+          subheadline:
+              'Undetected ice contamination on wings caused loss of control on $routeLabel takeoff',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost shortly after departure on a $routeLabel service after wing ice contamination caused a stall at low altitude. The aircraft had been deiced on stand, but a significant holdover time was exceeded before the crew began the takeoff roll. Freezing drizzle had continued to fall during the extended taxi, depositing a thin but aerodynamically critical layer of ice on the wing leading edges.',
+            'Witnesses reported the aircraft climbing steeply before the nose pitched sharply down and the aircraft rolled to an unrecoverable angle. The stall occurred at approximately 400 feet, leaving insufficient altitude for recovery. The crew had not performed an independent pre-takeoff contamination check prior to departure, contrary to the operator\'s standard operating procedures.',
+            'Regulators have ordered a mandatory review of ground deicing procedures and holdover time monitoring at all aerodromes served by $airlineName. The airline has suspended $routeLabel winter operations pending the adoption of an enhanced contamination check protocol, including an independent visual inspection carried out at the runway threshold before every winter departure.',
+          ],
+        );
+      case 11:
+        return (
+          headline: 'Breaking: $airlineName $model lost after explosive decompression on $routeLabel',
+          subheadline:
+              'Fuselage skin rupture at cruise altitude caused rapid uncontrolled descent',
+          paragraphs: [
+            'A $model registered as $registration and operated by $airlineName has been lost after a section of fuselage skin separated at cruise altitude during a $routeLabel service, causing a rapid and catastrophic decompression. The structural failure incapacitated the flight crew within seconds. The aircraft entered an uncontrolled descent and impacted terrain.',
+            'Metallurgical analysis of recovered fuselage panels has identified fatigue cracking originating at a rivet line adjacent to a passenger door frame — a region identified in a manufacturer service bulletin issued two years prior as requiring additional inspections in aircraft with more than 25,000 pressurisation cycles. Records indicate $registration had not received the bulletin-mandated inspection.',
+            'An emergency airworthiness directive has been issued worldwide, requiring operators of the $model type to perform immediate non-destructive testing of the identified fuselage zones before any further flight above 10,000 feet. $airlineName\'s maintenance records are the subject of a formal criminal investigation by national aviation authorities.',
+          ],
+        );
+      case 12:
+        return (
+          headline: 'Breaking: $airlineName loses $model in runway excursion on $routeLabel landing',
+          subheadline:
+              'Brake and thrust-reverser failures combined to catastrophic effect on wet runway',
+          paragraphs: [
+            'A $model operated by $airlineName has been destroyed after overrunning the end of the runway during landing on a $routeLabel service. The crew was unable to arrest the aircraft\'s groundspeed after touchdown due to a combination of anti-skid system failure, a jammed thrust reverser on the right engine, and an undetected accumulation of rubber deposits on the runway surface. The aircraft travelled through the runway end safety area and struck a blast fence.',
+            'Maintenance records reveal the anti-skid control unit had been logged as intermittently faulty on three prior flights, but had been cleared each time after a ground test that did not replicate the in-flight failure mode. The jammed thrust reverser had been reported by the preceding inbound crew but was not actioned before the aircraft was returned to service.',
+            '$airlineName\'s maintenance quality assurance process is under intense regulatory scrutiny following the revelation of the deferred faults. The aerodrome operator has also been called to explain why runway maintenance reports showing rubber contamination had not triggered a mandatory rubber-removal grinding operation on the affected landing area.',
+          ],
+        );
+      case 13:
+        return (
+          headline: 'Breaking: $airlineName crew loses control of $model in night departure',
+          subheadline:
+              'Spatial disorientation on $routeLabel sector causes fatal upset in dark conditions',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after the flight crew experienced spatial disorientation shortly after departure on a night $routeLabel service. The aircraft climbed normally through the cloud base but then entered a series of increasing bank oscillations consistent with the classic "graveyard spiral" disorientation pattern. The airframe exceeded its structural limits during the resulting uncontrolled descent and broke up below the cloud layer.',
+            'Cockpit voice recorder data indicates the crew was engaged in a discussion about an unrelated technical issue in the moments before the upset began, consistent with attention narrowing that is a known precursor to loss of spatial awareness. The aircraft\'s autopilot was not engaged, and neither crew member identified the developing bank until the aircraft had rolled beyond 60 degrees.',
+            'Investigators are examining the standard of upset prevention and recovery training at $airlineName. The carrier\'s simulator programme will be reviewed to determine whether crews are receiving adequate exposure to unusual attitude recovery scenarios in instrument meteorological conditions, particularly during the critical initial climb phase.',
+          ],
+        );
+      case 14:
+        return (
+          headline: 'Breaking: Runaway trim sends $airlineName $model into fatal dive',
+          subheadline:
+              'Automated system failure overpowered crew inputs on $routeLabel sector',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost after a malfunctioning automated stabiliser trim system drove the horizontal stabiliser to a nose-down limit stop during cruise on a $routeLabel service. The resultant aerodynamic forces were sufficient to overpower the crew\'s manual control inputs. The aircraft entered a near-vertical dive from which it did not recover.',
+            'Engineering analysis of recovered components has identified a failed angle-of-attack sensor whose erroneous output triggered the runaway trim. The flight management system was configured to act on input from a single sensor rather than requiring corroboration from the opposing side, a known but unmitigated design vulnerability. A similar fault had been reported by another operator of the same type 14 months prior but had not been escalated to the manufacturer\'s safety organisation.',
+            'Aviation authorities across multiple jurisdictions have simultaneously issued emergency airworthiness directives mandating software modifications to the trim control law and requiring enhanced angle-of-attack sensor cross-checking before each flight. The $model type has been temporarily grounded worldwide pending manufacturer confirmation of the software fix.',
+          ],
+        );
+      default:
+        return (
+          headline: 'Breaking: ${airlineName} $model lost on $routeLabel service',
+          subheadline:
+              'Investigators launch inquiry after aircraft fails to arrive at destination',
+          paragraphs: [
+            'A $model operated by $airlineName has been lost while operating a $routeLabel service. The aircraft, registered as $registration, failed to arrive at its destination and wreckage has been located. The cause of the accident remains under active investigation by national airworthiness authorities.',
+            '$airlineName has suspended services on the $routeLabel route and is cooperating fully with investigators. The carrier has offered support to the families of all those aboard and has convened an emergency board session to assess the operational implications.',
+            'Regulators have ordered a precautionary review of the carrier\'s safety management system pending the outcome of the formal investigation. The flight data and cockpit voice recorders have been recovered and will be analysed at the national accident laboratory.',
+          ],
+        );
+    }
+  }
+
   void _triggerAircraftCrash(
     String aircraftId,
     String routeId,
@@ -2220,17 +2410,24 @@ class GameController extends ChangeNotifier {
       crashPenaltyDaysLeft: 30,
     );
 
+    final scenarioSeed = _stableUnitInterval(
+      '$gameDay:${ac.id}:${route.id}:scenario',
+    );
+    final scenario = _crashScenario(
+      airlineName: airline.name,
+      model: type?.model ?? 'aircraft',
+      registration: ac.name,
+      routeLabel: routeLabel,
+      seed: scenarioSeed,
+    );
+
     final article = NewsArticle(
       id: '${airline.isPlayer ? 'crash' : 'ai_crash'}_${gameDay}_$aircraftId',
       headline: airline.isPlayer
-          ? 'Breaking: ${airline.name} aircraft lost'
-          : 'Crash: ${airline.name} aircraft lost',
-      subheadline:
-          'Investigators launch inquiry after accident on the $routeLabel corridor',
-      paragraphs: [
-        'An aircraft operated by ${airline.name} has been lost while operating on the $routeLabel route. The ${type?.model ?? 'aircraft'}, registered as ${ac.name}, suffered a catastrophic failure under circumstances that remain under investigation by aviation authorities.',
-        '${airline.name} has suspended services on the affected route and convened an emergency board session. Regulators have opened an inquiry and the fleet faces a precautionary safety review.',
-      ],
+          ? scenario.headline
+          : 'Crash: ${airline.name} aircraft lost on $routeLabel',
+      subheadline: scenario.subheadline,
+      paragraphs: scenario.paragraphs,
       severity: 'crash',
       gameDay: gameDay,
       playerRelated: airline.isPlayer,
