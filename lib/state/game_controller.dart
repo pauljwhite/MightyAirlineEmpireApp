@@ -2608,22 +2608,8 @@ class GameController extends ChangeNotifier {
           .toSet();
       final allRoutes = routes.values.toList(growable: false);
       final allAirlines = airlines.values.toList(growable: false);
-      final candidates =
-          airportList
-              .where(
-                (airport) =>
-                    airport.iata != hub.iata &&
-                    !existingDestinations.contains(airport.iata),
-              )
-              .map(
-                (airport) => (
-                  airport: airport,
-                  demand: baselineDailyPassengers(hub, airport),
-                ),
-              )
-              .toList()
-            ..sort((a, b) => b.demand.compareTo(a.demand));
-      for (final candidate in candidates.take(20)) {
+      final candidates = _buildAIRouteCandidates(hub, existingDestinations);
+      for (final candidate in candidates) {
         final type = _pickAircraftForAI(airline, hub, candidate.airport);
         if (type == null ||
             airline.cashUSD < type.purchasePrice + _aiExpansionReserveUSD) {
@@ -2715,12 +2701,18 @@ class GameController extends ChangeNotifier {
           gameDay: gameDay,
           airportDailyPax: airportDailyPax,
         );
-        // Reject routes below $6k/day profit or 35% load factor
+        // Reject routes below profit/load-factor thresholds.
+        // Transcontinental routes (>4 500 km) get a relaxed floor: they carry
+        // fewer flights-per-day so daily revenue is naturally lower, but
+        // per-flight economics are strong.
         final estimatedLF =
             (est.passengers.toDouble() /
                     math.max(1, type.seatsEconomy + type.seatsBusiness))
                 .clamp(0, 1);
-        if (est.profit < 6000 || estimatedLF < 0.35) continue;
+        final isTranscontinental = distKm >= 4500;
+        final profitFloor = isTranscontinental ? 3000.0 : 6000.0;
+        final lfFloor = isTranscontinental ? 0.25 : 0.35;
+        if (est.profit < profitFloor || estimatedLF < lfFloor) continue;
         try {
           final route = _createRouteForAirline(
             airlineId: airline.id,
@@ -3066,18 +3058,8 @@ class GameController extends ChangeNotifier {
 
     final airline = airlines[airlineId]!;
     final existingDestinations = <String>{};
-    final candidates =
-        airportList
-            .where((airport) => airport.iata != hub.iata)
-            .map(
-              (airport) => (
-                airport: airport,
-                demand: baselineDailyPassengers(hub, airport),
-              ),
-            )
-            .toList()
-          ..sort((a, b) => b.demand.compareTo(a.demand));
-    for (final candidate in candidates.take(24)) {
+    final candidates = _buildAIRouteCandidates(hub, existingDestinations);
+    for (final candidate in candidates) {
       if (existingDestinations.contains(candidate.airport.iata)) continue;
       final type = _pickAircraftForAI(airline, hub, candidate.airport);
       if (type == null ||
@@ -3111,6 +3093,68 @@ class GameController extends ChangeNotifier {
       if (!existingNames.contains(candidate)) return candidate;
     }
     return 'New entrant ${_nextAirline + 1}';
+  }
+
+  /// Builds a mixed candidate pool for AI route expansion.
+  ///
+  /// Pure demand-sort buries transcontinental routes because the demand model
+  /// applies a strong distance penalty. This helper returns:
+  ///   - up to 16 short/medium-haul candidates sorted by demand
+  ///   - up to 12 transcontinental candidates (>4 500 km, different region,
+  ///     major or large airports) sorted by airport size then demand
+  ///
+  /// The two pools are deduplicated and capped at 28 total entries.
+  List<({Airport airport, double demand})> _buildAIRouteCandidates(
+    Airport hub,
+    Set<String> excludeIatas,
+  ) {
+    final all = airportList
+        .where(
+          (a) => a.iata != hub.iata && !excludeIatas.contains(a.iata),
+        )
+        .map((airport) {
+          final distKm =
+              haversineKm(hub.lat, hub.lon, airport.lat, airport.lon);
+          return (
+            airport: airport,
+            demand: baselineDailyPassengers(hub, airport),
+            distKm: distKm,
+          );
+        })
+        .toList();
+
+    // Short/medium haul — demand-sorted (unchanged behaviour)
+    final demandSorted = (all.toList()
+          ..sort((a, b) => b.demand.compareTo(a.demand)))
+        .take(16)
+        .toList();
+    final demandIatas = demandSorted.map((c) => c.airport.iata).toSet();
+
+    // Transcontinental — major/large airports in a different region, >4 500 km
+    final transcontinental =
+        (all
+                .where(
+                  (c) =>
+                      c.distKm >= 4500 &&
+                      c.airport.region != hub.region &&
+                      (c.airport.size == AirportSize.major ||
+                          c.airport.size == AirportSize.large) &&
+                      !demandIatas.contains(c.airport.iata),
+                )
+                .toList()
+              ..sort((a, b) {
+                // Major before large, then higher demand wins within tier
+                final sizeA = a.airport.size == AirportSize.major ? 1 : 0;
+                final sizeB = b.airport.size == AirportSize.major ? 1 : 0;
+                if (sizeA != sizeB) return sizeB.compareTo(sizeA);
+                return b.demand.compareTo(a.demand);
+              }))
+            .take(12);
+
+    return [
+      ...demandSorted.map((c) => (airport: c.airport, demand: c.demand)),
+      ...transcontinental.map((c) => (airport: c.airport, demand: c.demand)),
+    ];
   }
 
   AircraftType? _pickAircraftForAI(
