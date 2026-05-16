@@ -1010,12 +1010,10 @@ class _TopBar extends StatelessWidget {
       onPanel: onPanel,
       compact: compact,
     );
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
+    final dark = !_isLight(context);
+    return Container(
       decoration: BoxDecoration(
-        color: _chromeSurface(context),
+        color: dark ? const Color(0xf5121212) : const Color(0xf8ffffff),
         border: Border(bottom: BorderSide(color: _hairline(context))),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -1079,8 +1077,6 @@ class _TopBar extends StatelessWidget {
                 : const SizedBox.shrink(),
           ),
         ],
-      ),
-    ),
       ),
     );
   }
@@ -3445,65 +3441,62 @@ class _SearchBox extends StatelessWidget {
         alignment: Alignment.topLeft,
         child: Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: ClipRRect(
+          child: Material(
+            color: dark ? const Color(0xf2161616) : const Color(0xf5f5f5f5),
             borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Material(
-                color: dark ? const Color(0xee1c1c1c) : const Color(0xf5f5f5f5),
+            elevation: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                elevation: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: dark
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : Colors.black.withValues(alpha: 0.07),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: dark ? 0.5 : 0.15),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                border: Border.all(
+                  color: dark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.07),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: dark ? 0.5 : 0.15),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 340,
-                      maxHeight: 300,
-                    ),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      itemCount: options.length,
-                      itemBuilder: (context, index) {
-                        final a = options.elementAt(index);
-                        return ListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 2,
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 340,
+                    maxHeight: 300,
+                  ),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final a = options.elementAt(index);
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 2,
+                        ),
+                        title: Text(
+                          '${a.iata} · ${a.city}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
                           ),
-                          title: Text(
-                            '${a.iata} · ${a.city}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                            ),
+                        ),
+                        subtitle: Text(
+                          '${a.name}, ${a.country}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _mutedText(context),
                           ),
-                          subtitle: Text(
-                            '${a.name}, ${a.country}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _mutedText(context),
-                            ),
-                          ),
-                          onTap: () => onSelected(a),
-                        );
-                      },
-                    ),
+                        ),
+                        onTap: () => onSelected(a),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -3523,43 +3516,47 @@ class _FloatingSearchButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = !_isLight(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xcc141414) : const Color(0xddffffff),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: dark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.black.withValues(alpha: 0.07),
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xf0121212) : const Color(0xf2ffffff),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.07),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.4 : 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(18),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    searchOpen ? Icons.close : Icons.search,
-                    size: 18,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  searchOpen ? Icons.close : Icons.search,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  searchOpen ? 'Close' : 'Search',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: -0.2,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    searchOpen ? 'Close' : 'Search',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -3575,38 +3572,39 @@ class _MapToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = !_isLight(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xcc141414) : const Color(0xddffffff),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: dark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.black.withValues(alpha: 0.07),
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xf0121212) : const Color(0xf2ffffff),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.black.withValues(alpha: 0.07),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.4 : 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 12, right: 4, top: 2, bottom: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Show AI on map',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: -0.2,
-                    color: dark ? Colors.white70 : const Color(0xff3c3c43),
-                  ),
-                ),
-                Switch(value: showAi, onChanged: onChanged),
-              ],
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 12, right: 4, top: 2, bottom: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Show AI on map',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                letterSpacing: -0.2,
+                color: dark ? Colors.white70 : const Color(0xff3c3c43),
+              ),
             ),
-          ),
+            Switch(value: showAi, onChanged: onChanged),
+          ],
         ),
       ),
     );
@@ -3638,6 +3636,22 @@ class _WorldMapState extends State<_WorldMap> {
   double? _trackpadZoomStart;
   var _mapReady = false;
   var _gameHasStarted = false;
+  List<RoutePlan> _cachedDrawableRoutes = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.game.routesStructureVersion.addListener(_refreshRouteCache);
+    _refreshRouteCache();
+  }
+
+  void _refreshRouteCache() {
+    _cachedDrawableRoutes = widget.game.routes.values.where((r) {
+      if (!r.isActive || r.aircraftId == null) return false;
+      if (widget.showAiOnMap) return true;
+      return widget.game.airlines[r.airlineId]?.isPlayer == true;
+    }).toList(growable: false);
+  }
 
   @override
   void didUpdateWidget(covariant _WorldMap oldWidget) {
@@ -3652,10 +3666,19 @@ class _WorldMapState extends State<_WorldMap> {
     } else if (_gameHasStarted && !nowStarted) {
       _gameHasStarted = false;
     }
+    if (oldWidget.showAiOnMap != widget.showAiOnMap ||
+        oldWidget.game != widget.game) {
+      if (oldWidget.game != widget.game) {
+        oldWidget.game.routesStructureVersion.removeListener(_refreshRouteCache);
+        widget.game.routesStructureVersion.addListener(_refreshRouteCache);
+      }
+      _refreshRouteCache();
+    }
   }
 
   @override
   void dispose() {
+    widget.game.routesStructureVersion.removeListener(_refreshRouteCache);
     _routeHitNotifier.dispose();
     _mapController.dispose();
     super.dispose();
@@ -3825,7 +3848,7 @@ class _WorldMapState extends State<_WorldMap> {
                     minimumHitbox: 28,
                     drawInSingleWorld: true,
                     simplificationTolerance: 0,
-                    polylines: _routePolylines(_drawableRoutes().toList(growable: false)),
+                    polylines: _routePolylines(_cachedDrawableRoutes),
                   ),
                 ),
               ),
@@ -3835,7 +3858,7 @@ class _WorldMapState extends State<_WorldMap> {
             child: ValueListenableBuilder<int>(
               valueListenable: widget.game.mapAnimationTick,
               builder: (context, _, _) =>
-                  MarkerLayer(markers: _planeMarkers(_drawableRoutes().toList(growable: false))),
+                  MarkerLayer(markers: _planeMarkers(_cachedDrawableRoutes)),
             ),
           ),
           RepaintBoundary(
@@ -3855,13 +3878,6 @@ class _WorldMapState extends State<_WorldMap> {
       ),
     );
   }
-
-  Iterable<RoutePlan> _drawableRoutes() =>
-      widget.game.routes.values.where((route) {
-        if (!route.isActive || route.aircraftId == null) return false;
-        if (widget.showAiOnMap) return true;
-        return widget.game.airlines[route.airlineId]?.isPlayer == true;
-      });
 
   List<Polyline<RoutePlan>> _routePolylines(List<RoutePlan> drawableRoutes) {
     final lines = <Polyline<RoutePlan>>[];
@@ -11580,32 +11596,27 @@ class _PanelShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = !_isLight(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: dark
-                ? const Color(0xd4141414)
-                : const Color(0xedffffff),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: dark
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.black.withValues(alpha: 0.07),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? 0.60 : 0.18),
-                blurRadius: 40,
-                spreadRadius: -4,
-                offset: const Offset(0, 14),
-              ),
-            ],
-          ),
-          child: child,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xf0121212) : const Color(0xf8ffffff),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.14)
+              : Colors.black.withValues(alpha: 0.07),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.60 : 0.18),
+            blurRadius: 40,
+            spreadRadius: -4,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: child,
       ),
     );
   }
