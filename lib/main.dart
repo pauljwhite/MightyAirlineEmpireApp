@@ -6828,15 +6828,10 @@ class _FleetViewState extends State<_FleetView> {
 }
 
 class _BuyAircraftDialog extends StatefulWidget {
-  const _BuyAircraftDialog({
-    required this.game,
-    required this.currency,
-    this.onPostBuy,
-  });
+  const _BuyAircraftDialog({required this.game, required this.currency});
 
   final GameController game;
   final CurrencyOption currency;
-  final void Function(Aircraft aircraft)? onPostBuy;
 
   @override
   State<_BuyAircraftDialog> createState() => _BuyAircraftDialogState();
@@ -6999,8 +6994,7 @@ class _BuyAircraftDialogState extends State<_BuyAircraftDialog> {
     }
     if (widget.game.player.cashUSD < type.purchasePrice) return;
     try {
-      final ac = widget.game.buyAircraft(type.id);
-      widget.onPostBuy?.call(ac);
+      widget.game.buyAircraft(type.id);
       Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
       setState(
@@ -7094,6 +7088,10 @@ class _AircraftPurchaseList extends StatelessWidget {
     required this.types,
     required this.purchaseError,
     required this.onBuy,
+    this.shrinkWrap = false,
+    this.routeOrigin,
+    this.routeDestination,
+    this.routeDistanceKm,
   });
 
   final GameController game;
@@ -7102,10 +7100,46 @@ class _AircraftPurchaseList extends StatelessWidget {
   final List<AircraftType> types;
   final String? purchaseError;
   final ValueChanged<AircraftType> onBuy;
+  final bool shrinkWrap;
+  final Airport? routeOrigin;
+  final Airport? routeDestination;
+  final double? routeDistanceKm;
+
+  String? _incompatibleReason(AircraftType type) {
+    if (routeDistanceKm != null && type.rangeKm < routeDistanceKm!) {
+      return 'Range too short (${_formatCount(type.rangeKm)} km, need ${_formatCount(routeDistanceKm!.round())} km)';
+    }
+    if (routeOrigin != null && !canAirportHandleAircraft(routeOrigin!, type)) {
+      return 'Runway too short at ${routeOrigin!.iata}';
+    }
+    if (routeDestination != null &&
+        !canAirportHandleAircraft(routeDestination!, type)) {
+      return 'Runway too short at ${routeDestination!.iata}';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasRouteContext =
+        routeDistanceKm != null || routeOrigin != null || routeDestination != null;
+    final sortedTypes = [...types];
+    if (hasRouteContext) {
+      sortedTypes.sort((a, b) {
+        final aCompat = _incompatibleReason(a) == null;
+        final bCompat = _incompatibleReason(b) == null;
+        if (aCompat != bCompat) return aCompat ? -1 : 1;
+        final aAvail = a.yearIntroduced <= gameYear;
+        final bAvail = b.yearIntroduced <= gameYear;
+        if (aAvail != bAvail) return aAvail ? -1 : 1;
+        final maker = a.manufacturer.compareTo(b.manufacturer);
+        if (maker != 0) return maker;
+        return a.model.compareTo(b.model);
+      });
+    }
     return ListView(
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(14),
       children: [
         if (purchaseError != null)
@@ -7124,15 +7158,17 @@ class _AircraftPurchaseList extends StatelessWidget {
               style: const TextStyle(color: Color(0xffffb4b4)),
             ),
           ),
-        ...types.map((type) {
+        ...sortedTypes.map((type) {
           final unavailable = type.yearIntroduced > gameYear;
           final canAfford = game.player.cashUSD >= type.purchasePrice;
+          final incompatReason = _incompatibleReason(type);
           return _AircraftPurchaseCard(
             type: type,
             currency: currency,
             unavailable: unavailable,
             canAfford: canAfford,
             onBuy: () => onBuy(type),
+            incompatibleReason: incompatReason,
           );
         }),
       ],
@@ -7147,6 +7183,7 @@ class _AircraftPurchaseCard extends StatelessWidget {
     required this.unavailable,
     required this.canAfford,
     required this.onBuy,
+    this.incompatibleReason,
   });
 
   final AircraftType type;
@@ -7154,6 +7191,7 @@ class _AircraftPurchaseCard extends StatelessWidget {
   final bool unavailable;
   final bool canAfford;
   final VoidCallback onBuy;
+  final String? incompatibleReason;
 
   @override
   Widget build(BuildContext context) {
@@ -7258,8 +7296,17 @@ class _AircraftPurchaseCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           if (!unavailable)
                             _AppBtn(
-                              onPressed: canAfford ? onBuy : null,
-                              child: Text(canAfford ? 'Buy' : 'No funds'),
+                              onPressed:
+                                  canAfford && incompatibleReason == null
+                                      ? onBuy
+                                      : null,
+                              child: Text(
+                                incompatibleReason != null
+                                    ? 'Incompatible'
+                                    : canAfford
+                                        ? 'Buy'
+                                        : 'No funds',
+                              ),
                             ),
                         ],
                       ),
@@ -7289,6 +7336,29 @@ class _AircraftPurchaseCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (incompatibleReason != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            size: 13,
+                            color: Color(0xffffb347),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              incompatibleReason!,
+                              style: const TextStyle(
+                                color: Color(0xffffb347),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -9831,6 +9901,9 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
   );
   String? aircraftError;
   var confirmDelete = false;
+  var _showBuyShop = false;
+  var _buyShopManufacturer = 'All';
+  String? _buyShopError;
 
   @override
   void dispose() {
@@ -10012,26 +10085,77 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                             },
                     ),
                     const SizedBox(height: 12),
-                    _AppBtn(
-                      variant: _BtnVariant.ghost,
-                      onPressed: () => showDialog<void>(
-                        context: context,
-                        builder: (context) => _BuyAircraftDialog(
-                          game: widget.game,
-                          currency: widget.currency,
-                          onPostBuy: (ac) {
-                            try {
-                              widget.game.assignAircraftToRoute(ac.id, route.id);
-                              setState(() => aircraftError = null);
-                            } catch (e) {
-                              setState(() => aircraftError = e.toString());
-                            }
-                          },
-                        ),
+                    if (!_showBuyShop)
+                      _AppBtn(
+                        variant: _BtnVariant.ghost,
+                        onPressed: () => setState(() {
+                          _showBuyShop = true;
+                          _buyShopError = null;
+                        }),
+                        icon: const Icon(Icons.add),
+                        child: const Text('Buy New Plane'),
+                      )
+                    else ...[
+                      Row(
+                        children: [
+                          const Text(
+                            'Buy a new aircraft',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => setState(() => _showBuyShop = false),
+                            child: const Text('Cancel'),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.add),
-                      child: const Text('Buy New Plane'),
-                    ),
+                      const SizedBox(height: 6),
+                      _ManufacturerRail(
+                        manufacturers: [
+                          'All',
+                          ...aircraftTypes
+                              .map((t) => t.manufacturer)
+                              .toSet()
+                              .toList()
+                            ..sort((a, b) =>
+                                a.toLowerCase().compareTo(b.toLowerCase())),
+                        ],
+                        selected: _buyShopManufacturer,
+                        horizontal: true,
+                        onSelected: (m) =>
+                            setState(() => _buyShopManufacturer = m),
+                      ),
+                      const SizedBox(height: 4),
+                      _AircraftPurchaseList(
+                        game: widget.game,
+                        currency: widget.currency,
+                        gameYear: currentYear,
+                        types: aircraftTypes
+                            .where((t) =>
+                                _buyShopManufacturer == 'All' ||
+                                t.manufacturer == _buyShopManufacturer)
+                            .toList(),
+                        purchaseError: _buyShopError,
+                        shrinkWrap: true,
+                        routeOrigin: origin,
+                        routeDestination: destination,
+                        routeDistanceKm: route.distanceKm,
+                        onBuy: (type) {
+                          try {
+                            final ac = widget.game.buyAircraft(type.id);
+                            widget.game.assignAircraftToRoute(ac.id, route.id);
+                            setState(() {
+                              _showBuyShop = false;
+                              _buyShopError = null;
+                              aircraftError = null;
+                            });
+                          } catch (e) {
+                            setState(() => _buyShopError =
+                                e.toString().replaceFirst('Bad state: ', ''));
+                          }
+                        },
+                      ),
+                    ],
                     if (aircraftError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
