@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +57,8 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   _Panel? panel;
   var mobileSearchOpen = false;
   final _autoOpenedArticleIds = <String>{};
+  ThemeData? _cachedLightTheme;
+  ThemeData? _cachedDarkTheme;
 
   @override
   void initState() {
@@ -183,19 +186,8 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: game,
-      builder: (context, _) {
-        final lightMode = game.themeMode == ThemeModeSetting.light;
-        _scheduleInitialNewGameDialog();
-        return MaterialApp(
-          navigatorKey: _navigatorKey,
-          debugShowCheckedModeBanner: false,
-          title: 'Mighty Airline Empire',
-          theme:
-              (lightMode
+  ThemeData _buildTheme(bool lightMode) {
+    return (lightMode
                       ? ThemeData.light(useMaterial3: true)
                       : ThemeData.dark(useMaterial3: true))
                   .copyWith(
@@ -550,9 +542,40 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                       thickness: 0.5,
                       space: 1,
                     ),
-                  ),
+                  );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: game,
+      builder: (context, _) {
+        final lightMode = game.themeMode == ThemeModeSetting.light;
+        _scheduleInitialNewGameDialog();
+        final theme = lightMode
+            ? (_cachedLightTheme ??= _buildTheme(true))
+            : (_cachedDarkTheme ??= _buildTheme(false));
+        return MaterialApp(
+          navigatorKey: _navigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'Mighty Airline Empire',
+          theme: theme,
           home: game.hasStarted
-              ? Scaffold(
+              ? PopScope(
+                  canPop: panel == null && selectedAirport == null && !mobileSearchOpen,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (didPop) return;
+                    setState(() {
+                      if (panel != null) {
+                        panel = null;
+                      } else if (selectedAirport != null) {
+                        selectedAirport = null;
+                      } else if (mobileSearchOpen) {
+                        mobileSearchOpen = false;
+                      }
+                    });
+                  },
+                  child: Scaffold(
                   body: SafeArea(
                     bottom: false,
                     child: LayoutBuilder(
@@ -673,6 +696,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                       },
                     ),
                   ),
+                ),
                 )
               : Scaffold(
                   body: SafeArea(
@@ -2154,31 +2178,35 @@ void _showRebrandDialog(
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _brandColours
-                        .map(
-                          (candidate) => Tooltip(
-                            message: candidate,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: () => setState(() => colour = candidate),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _MapPainter._colorFromHex(candidate),
-                                  border: Border.all(
-                                    color: colour == candidate
-                                        ? Colors.white
-                                        : const Color(0xff263247),
-                                    width: colour == candidate ? 3 : 1,
-                                  ),
+                    children: [
+                      ..._brandColours.map(
+                        (candidate) => Tooltip(
+                          message: candidate,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => setState(() => colour = candidate),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _MapPainter._colorFromHex(candidate),
+                                border: Border.all(
+                                  color: colour == candidate
+                                      ? Colors.white
+                                      : const Color(0xff263247),
+                                  width: colour == candidate ? 3 : 1,
                                 ),
                               ),
                             ),
                           ),
-                        )
-                        .toList(),
+                        ),
+                      ),
+                      _RainbowCircleButton(
+                        currentColor: _MapPainter._colorFromHex(colour),
+                        onColorSelected: (c) => setState(() => colour = _colorToHex(c)),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (hasChange) ...[
@@ -2288,6 +2316,9 @@ void _showNewGameDialog(
   };
   var activeSection = 0;
 
+  final wasRunning = game.hasStarted && !game.isPaused;
+  if (wasRunning) game.setSpeed(0);
+
   showDialog<void>(
     context: context,
     barrierDismissible: !forceStart,
@@ -2363,37 +2394,45 @@ void _showNewGameDialog(
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _airlineColorOptions
-                              .map(
-                                (color) => InkWell(
-                                  borderRadius: BorderRadius.circular(999),
-                                  onTap: () {
-                                    colorController.text = color;
-                                    setState(() {});
-                                  },
-                                  child: Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: _MapPainter._colorFromHex(color),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: selectedColor ==
-                                                color.toLowerCase()
-                                            ? Theme.of(
-                                                context,
-                                              ).colorScheme.primary
-                                            : _hairline(context),
-                                        width: selectedColor ==
-                                                color.toLowerCase()
-                                            ? 3
-                                            : 1,
-                                      ),
+                          children: [
+                            ..._airlineColorOptions.map(
+                              (color) => InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () {
+                                  colorController.text = color;
+                                  setState(() {});
+                                },
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: _MapPainter._colorFromHex(color),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: selectedColor ==
+                                              color.toLowerCase()
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : _hairline(context),
+                                      width: selectedColor ==
+                                              color.toLowerCase()
+                                          ? 3
+                                          : 1,
                                     ),
                                   ),
                                 ),
-                              )
-                              .toList(),
+                              ),
+                            ),
+                            _RainbowCircleButton(
+                              size: 34,
+                              currentColor: _MapPainter._colorFromHex(colorController.text),
+                              onColorSelected: (c) {
+                                colorController.text = _colorToHex(c);
+                                setState(() {});
+                              },
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         TextField(
@@ -2813,7 +2852,9 @@ void _showNewGameDialog(
         );
       },
     ),
-  );
+  ).then((_) {
+    if (wasRunning && !game.hasStarted) game.setSpeed(1);
+  });
 }
 
 class _NewGameSection extends StatelessWidget {
@@ -3011,6 +3052,13 @@ String? _normaliseHexColor(String value) {
   if (match == null) return null;
   final withHash = trimmed.startsWith('#') ? trimmed : '#$trimmed';
   return withHash.toLowerCase();
+}
+
+String _colorToHex(Color color) {
+  final r = (color.r * 255).round();
+  final g = (color.g * 255).round();
+  final b = (color.b * 255).round();
+  return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}';
 }
 
 String _fileSafeName(String name) {
@@ -3224,18 +3272,8 @@ class _DateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateTime(
-      game.settings.startingYear,
-      1,
-      1,
-    ).add(Duration(days: game.gameDay));
-    final dayMs = game.gameTimeMs % gameDayMs;
-    final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
-    final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
-    final label = compact
-        ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
-        : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
     final dark = !_isLight(context);
+    final textColor = dark ? Colors.white : const Color(0xff1c1c1e);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -3243,16 +3281,32 @@ class _DateBadge extends StatelessWidget {
         border: Border.all(color: _hairline(context)),
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Text(
-        label,
-        textAlign: TextAlign.left,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
-          fontFeatures: const [FontFeature.tabularFigures()],
-          color: dark ? Colors.white : const Color(0xff1c1c1e),
-        ),
+      child: ValueListenableBuilder<int>(
+        valueListenable: game.mapAnimationTick,
+        builder: (context, _, _) {
+          final date = DateTime(
+            game.settings.startingYear,
+            1,
+            1,
+          ).add(Duration(days: game.gameDay));
+          final dayMs = game.gameTimeMs % gameDayMs;
+          final hour = (dayMs ~/ 3600000).toString().padLeft(2, '0');
+          final minute = ((dayMs % 3600000) ~/ 60000).toString().padLeft(2, '0');
+          final label = compact
+              ? '${_monthLabel(date.month)} ${date.day} · $hour:$minute'
+              : '${_monthLabel(date.month)} ${date.day}, ${date.year} · $hour:$minute';
+          return Text(
+            label,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: textColor,
+            ),
+          );
+        },
       ),
     );
   }
@@ -3444,6 +3498,7 @@ class _WorldMapState extends State<_WorldMap> {
   double? _trackpadZoomStart;
   var _mapReady = false;
 
+
   @override
   void didUpdateWidget(covariant _WorldMap oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -3511,7 +3566,6 @@ class _WorldMapState extends State<_WorldMap> {
 
   @override
   Widget build(BuildContext context) {
-    final drawableRoutes = _drawableRoutes().toList(growable: false);
     final lightMap = widget.game.themeMode == ThemeModeSetting.light;
 
     return Listener(
@@ -3606,12 +3660,17 @@ class _WorldMapState extends State<_WorldMap> {
                 final route = _routeHitNotifier.value?.hitValues.lastOrNull;
                 if (route != null) widget.onRouteSelected(route);
               },
-              child: PolylineLayer<RoutePlan>(
-                hitNotifier: _routeHitNotifier,
-                minimumHitbox: 28,
-                drawInSingleWorld: true,
-                simplificationTolerance: 0,
-                polylines: _routePolylines(drawableRoutes),
+              child: RepaintBoundary(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: widget.game.routesStructureVersion,
+                  builder: (context, _, _) => PolylineLayer<RoutePlan>(
+                    hitNotifier: _routeHitNotifier,
+                    minimumHitbox: 28,
+                    drawInSingleWorld: true,
+                    simplificationTolerance: 0,
+                    polylines: _routePolylines(_drawableRoutes().toList(growable: false)),
+                  ),
+                ),
               ),
             ),
           ),
@@ -3619,10 +3678,16 @@ class _WorldMapState extends State<_WorldMap> {
             child: ValueListenableBuilder<int>(
               valueListenable: widget.game.mapAnimationTick,
               builder: (context, _, _) =>
-                  MarkerLayer(markers: _planeMarkers(drawableRoutes)),
+                  MarkerLayer(markers: _planeMarkers(_drawableRoutes().toList(growable: false))),
             ),
           ),
-          MarkerLayer(markers: _airportMarkers()),
+          RepaintBoundary(
+            child: ValueListenableBuilder<int>(
+              valueListenable: widget.game.airportStateVersion,
+              builder: (context, _, _) =>
+                  MarkerLayer(markers: _airportMarkers()),
+            ),
+          ),
           RichAttributionWidget(
             showFlutterMapAttribution: false,
             attributions: [
@@ -3696,6 +3761,7 @@ class _WorldMapState extends State<_WorldMap> {
             ? const Color(0xff2dd4bf)
             : const Color(0xff58a6ff);
 
+        final dotSize = selected ? radius * 2 + 8 : radius * 2;
         return Marker(
           point: LatLng(a.lat, a.lon),
           width: 36,
@@ -3704,25 +3770,17 @@ class _WorldMapState extends State<_WorldMap> {
             behavior: HitTestBehavior.opaque,
             onTap: () => widget.onAirportSelected(airport),
             child: Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: selected ? radius * 2 + 8 : radius * 2,
-                height: selected ? radius * 2 + 8 : radius * 2,
+              child: Container(
+                width: dotSize,
+                height: dotSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: color,
                   border: isClosed
                       ? Border.all(color: const Color(0xffffb3b3), width: 2)
-                      : playerHub || aiHub
+                      : selected || playerHub || aiHub
                       ? Border.all(color: Colors.white70, width: 1.2)
                       : null,
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: selected ? 0.38 : 0.22),
-                      blurRadius: selected ? 12 : 6,
-                      spreadRadius: selected ? 2 : 0,
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -3777,25 +3835,12 @@ class _WorldMapState extends State<_WorldMap> {
       child: IgnorePointer(
         child: Transform.rotate(
           angle: visualPoint.bearingRadians,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: sizePx * 0.68,
-                height: sizePx * 0.68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.20),
-                ),
-              ),
-              SvgPicture.asset(
-                _planeAssetForCategory(type?.category),
-                width: sizePx,
-                height: sizePx,
-                fit: BoxFit.contain,
-                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-              ),
-            ],
+          child: SvgPicture.asset(
+            _planeAssetForCategory(type?.category),
+            width: sizePx,
+            height: sizePx,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
           ),
         ),
       ),
@@ -3820,7 +3865,7 @@ String _planeAssetForCategory(AircraftCategory? category) {
 List<List<LatLng>> _routeArcLatLngSegments(
   Airport origin,
   Airport destination, {
-  int pointCount = 32,
+  int pointCount = 18,
 }) {
   final lonDelta = _shortestLonDelta(origin.lon, destination.lon);
   final rawPoints = <({double lat, double lon})>[];
@@ -10217,6 +10262,7 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 8),
               // ── Airport selection (side-by-side on wide, stacked on mobile) ──
               _AdaptiveRow(
                 children: [
@@ -11201,6 +11247,76 @@ class _EmptyState extends StatelessWidget {
       style: const TextStyle(color: Color(0xff9aa4b5)),
     ),
   );
+}
+
+class _RainbowCircleButton extends StatelessWidget {
+  const _RainbowCircleButton({required this.currentColor, required this.onColorSelected, this.size = 36});
+  final Color currentColor;
+  final ValueChanged<Color> onColorSelected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Custom colour',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(size),
+        onTap: () => _showPicker(context),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const SweepGradient(
+              colors: [
+                Color(0xFFFF0000),
+                Color(0xFFFFFF00),
+                Color(0xFF00FF00),
+                Color(0xFF00FFFF),
+                Color(0xFF0000FF),
+                Color(0xFFFF00FF),
+                Color(0xFFFF0000),
+              ],
+            ),
+            border: Border.all(color: const Color(0xff263247), width: 1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPicker(BuildContext context) {
+    Color pickerColor = currentColor;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xff1a2535),
+        title: const Text('Pick a colour', style: TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (c) => pickerColor = c,
+            enableAlpha: false,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.7,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onColorSelected(pickerColor);
+            },
+            child: const Text('Select'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {

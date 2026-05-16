@@ -536,21 +536,36 @@ class GameController extends ChangeNotifier {
   final newsArticles = <String, NewsArticle>{};
   final newspaperQueue = <String>[];
   final mapAnimationTick = ValueNotifier<int>(0);
+  /// Increments when the route set changes structurally (added/removed/active
+  /// toggled, aircraft assignment changed, airline color changed). Used by the
+  /// map to skip rebuilding polylines/markers when nothing visually changed.
+  final routesStructureVersion = ValueNotifier<int>(0);
+  /// Increments when airport-visual state changes (hubs, closures, theme).
+  final airportStateVersion = ValueNotifier<int>(0);
   String? latestArticleId;
   int _nextAircraft = 1;
   int _nextRoute = 1;
   int _nextLoan = 1;
   int _nextTicker = 1;
   int _nextAirline = 1;
-  int _lastClockNotifyGameMs = 0;
   int _animFrameSkip = 0;
+  int _lastAutoSaveRealMs = 0;
 
   static const _aiExpansionReserveUSD = 5000000.0;
 
   @override
   void dispose() {
     mapAnimationTick.dispose();
+    routesStructureVersion.dispose();
+    airportStateVersion.dispose();
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    routesStructureVersion.value += 1;
+    airportStateVersion.value += 1;
+    super.notifyListeners();
   }
 
   void pushNewsItem(
@@ -728,7 +743,6 @@ class GameController extends ChangeNotifier {
   void setSpeed(int nextSpeed) {
     speed = nextSpeed;
     isPaused = nextSpeed == 0;
-    _lastClockNotifyGameMs = gameTimeMs;
     notifyListeners();
   }
 
@@ -737,7 +751,6 @@ class GameController extends ChangeNotifier {
     if (isPaused || speed <= 0) return;
     final delta = (realDelta.inMilliseconds * speed).round();
     if (delta <= 0) return;
-    _advanceAircraftPositions(delta);
     gameTimeMs += delta;
     final targetDay = gameTimeMs ~/ gameDayMs;
     var daysProcessed = 0;
@@ -746,11 +759,9 @@ class GameController extends ChangeNotifier {
       daysProcessed += 1;
     }
     _animFrameSkip = (_animFrameSkip + 1) % 2;
-    if (_animFrameSkip == 0) mapAnimationTick.value += 1;
-    if (daysProcessed == 0 &&
-        gameTimeMs - _lastClockNotifyGameMs >= 15 * 60 * 1000) {
-      _lastClockNotifyGameMs = gameTimeMs;
-      notifyListeners();
+    if (_animFrameSkip == 0) {
+      _advanceAircraftPositions(delta * 2);
+      mapAnimationTick.value += 1;
     }
   }
 
@@ -905,7 +916,7 @@ class GameController extends ChangeNotifier {
     _nextLoan = 1;
     _nextTicker = 1;
     _nextAirline = 1;
-    _lastClockNotifyGameMs = 0;
+    _lastAutoSaveRealMs = 0;
     final startingHub = airportsByIata.containsKey(settings.startingHubIata)
         ? settings.startingHubIata
         : 'LHR';
@@ -2111,12 +2122,12 @@ class GameController extends ChangeNotifier {
   // ─── Auto-save ────────────────────────────────────────────────────────────
 
   static const _autoSaveKey = 'mighty_airline_autosave';
-  static const _autoSaveIntervalDays = 1;
-  int _lastAutoSaveDay = -1;
+  static const _autoSaveIntervalRealMs = 20000;
 
   void _scheduleAutoSave() {
-    if (gameDay - _lastAutoSaveDay < _autoSaveIntervalDays) return;
-    _lastAutoSaveDay = gameDay;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastAutoSaveRealMs < _autoSaveIntervalRealMs) return;
+    _lastAutoSaveRealMs = nowMs;
     SharedPreferences.getInstance().then((prefs) {
       prefs.setString(_autoSaveKey, exportJson());
     });
