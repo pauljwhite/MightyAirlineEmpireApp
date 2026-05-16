@@ -224,16 +224,16 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                         backgroundColor: WidgetStateProperty.resolveWith((s) {
                           if (s.contains(WidgetState.disabled)) {
                             return lightMode
-                                ? const Color(0xffb8d0f0)
-                                : const Color(0xff1c2d48);
+                                ? const Color(0xffd0d0d0)
+                                : const Color(0xff2a2a2a);
                           }
                           return const Color(0xff0a84ff);
                         }),
                         foregroundColor: WidgetStateProperty.resolveWith((s) =>
                             s.contains(WidgetState.disabled)
                                 ? (lightMode
-                                      ? const Color(0xff7096c8)
-                                      : const Color(0xff3d5272))
+                                      ? const Color(0xff888888)
+                                      : const Color(0xff555555))
                                 : Colors.white),
                         overlayColor: WidgetStateProperty.resolveWith((s) =>
                             s.contains(WidgetState.pressed)
@@ -308,7 +308,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                             s.contains(WidgetState.disabled)
                                 ? (lightMode
                                       ? const Color(0xffb0b8c8)
-                                      : const Color(0xff3d5272))
+                                      : const Color(0xff555555))
                                 : const Color(0xff0a84ff)),
                         overlayColor: WidgetStateProperty.resolveWith((s) =>
                             s.contains(WidgetState.pressed)
@@ -783,7 +783,7 @@ class _GameOutcomeOverlay extends StatelessWidget {
             width: math.min(520, MediaQuery.sizeOf(context).width - 32),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xff0b1020),
+              color: const Color(0xff111111),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               boxShadow: const [
@@ -3458,7 +3458,7 @@ class _MapToggle extends StatelessWidget {
         filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: dark ? const Color(0xcc0b1020) : const Color(0xddffffff),
+            color: dark ? const Color(0xcc141414) : const Color(0xddffffff),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: dark
@@ -4894,7 +4894,7 @@ class _AirportMetricBar extends StatelessWidget {
             minHeight: 9,
             value: math.min(1, shown / 100),
             color: color,
-            backgroundColor: const Color(0xff293244),
+            backgroundColor: const Color(0xff2e2e2e),
           ),
         ),
       ],
@@ -5468,7 +5468,7 @@ class _LoadFactorLine extends StatelessWidget {
               value: value.clamp(0, 1),
               minHeight: 8,
               color: color,
-              backgroundColor: const Color(0xff293244),
+              backgroundColor: const Color(0xff2e2e2e),
             ),
           ),
         ),
@@ -6113,7 +6113,7 @@ class _FleetViewState extends State<_FleetView> {
                             value: (ac.condition / 100).clamp(0, 1),
                             minHeight: 6,
                             color: conditionColor,
-                            backgroundColor: const Color(0xff293244),
+                            backgroundColor: const Color(0xff2e2e2e),
                           ),
                         ),
                       ),
@@ -6199,7 +6199,7 @@ class _FleetViewState extends State<_FleetView> {
                   LinearProgressIndicator(
                     value: ac.condition / 100,
                     color: conditionColor,
-                    backgroundColor: const Color(0xff293244),
+                    backgroundColor: const Color(0xff2e2e2e),
                   ),
                   const SizedBox(height: 8),
                   _InfoRow('Condition', '${ac.condition.toStringAsFixed(0)}%'),
@@ -7579,7 +7579,7 @@ class _FinanceView extends StatelessWidget {
                   color: player.totalDebt > creditLimit * 0.8
                       ? const Color(0xffffd166)
                       : const Color(0xff77c9ff),
-                  backgroundColor: const Color(0xff293244),
+                  backgroundColor: const Color(0xff2e2e2e),
                 ),
               ),
               const SizedBox(height: 12),
@@ -9253,7 +9253,7 @@ class _RouteSummaryDialog extends StatelessWidget {
                       LinearProgressIndicator(
                         value: (condition / 100).clamp(0, 1),
                         color: conditionColor,
-                        backgroundColor: const Color(0xff293244),
+                        backgroundColor: const Color(0xff2e2e2e),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -11039,7 +11039,7 @@ class _SelectableInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = selected ? const Color(0xff5db4ff) : const Color(0xff273145);
+    final border = selected ? const Color(0xff5db4ff) : const Color(0xff333333);
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
@@ -11049,8 +11049,8 @@ class _SelectableInfoRow extends StatelessWidget {
           color: selected
               ? const Color(0xff1c4268)
               : enabled
-              ? const Color(0xff141b2b)
-              : const Color(0xff101524),
+              ? const Color(0xff252525)
+              : const Color(0xff1a1a1a),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: border),
         ),
@@ -11391,7 +11391,7 @@ class _PanelShell extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: dark
-                ? const Color(0xd40b1020)
+                ? const Color(0xd4141414)
                 : const Color(0xedffffff),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -11938,12 +11938,12 @@ class _AppBtnState extends State<_AppBtn> {
       case _BtnVariant.primary:
         const base = Color(0xff0a84ff);
         bg = disabled
-            ? (dark ? const Color(0xff1c2d48) : const Color(0xffb8d0f0))
+            ? (dark ? const Color(0xff2a2a2a) : const Color(0xffd0d0d0))
             : _pressed
             ? const Color(0xff006ed6)
             : base;
         fg = disabled
-            ? (dark ? const Color(0xff3d5272) : const Color(0xff7096c8))
+            ? (dark ? const Color(0xff555555) : const Color(0xff888888))
             : Colors.white;
         if (!disabled)
           shadows = [
