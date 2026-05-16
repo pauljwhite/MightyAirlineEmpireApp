@@ -1679,6 +1679,17 @@ class _AirlineProfileDropdown extends StatelessWidget {
                       onPressed: () {
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (stableContext.mounted) _showPRCampaignDialog(stableContext, game, currency);
+                        });
+                      },
+                      icon: const Icon(Icons.campaign),
+                      child: const Text('PR Campaign'),
+                    ),
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
+                      onPressed: () {
+                        closeMenu();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (stableContext.mounted) _showExportDialog(stableContext, game);
                         });
                       },
@@ -2098,6 +2109,155 @@ const _brandColours = [
   '#ec4899',
   '#64748b',
 ];
+
+void _showPRCampaignDialog(
+  BuildContext context,
+  GameController game,
+  CurrencyOption currency,
+) {
+  const tiers = [
+    (
+      name: 'Targeted',
+      description:
+          'Regional media blitz across key markets — digital ads, social push, airport out-of-home, and influencer partnerships.',
+      cost: 25000000.0,
+      repGain: 8.0,
+    ),
+    (
+      name: 'National',
+      description:
+          'Primetime TV spots, major airport takeovers, celebrity endorsements, and a sustained press campaign across all national outlets.',
+      cost: 75000000.0,
+      repGain: 15.0,
+    ),
+    (
+      name: 'Global',
+      description:
+          'Full international media blitz — flagship sponsorships, Super Bowl–scale buys, stadium naming rights, and a global brand awareness push.',
+      cost: 200000000.0,
+      repGain: 25.0,
+    ),
+  ];
+
+  showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        final rep = game.player.reputationScore;
+        final cash = game.player.cashUSD;
+        final atMax = rep >= 100;
+
+        return _GlassDialog(
+          title: const Text('PR Campaign'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      atMax
+                          ? 'Your reputation is already at its maximum.'
+                          : 'Choose the scale of your campaign. Reputation is currently ${rep.toStringAsFixed(0)}/100.',
+                      style: const TextStyle(fontSize: 13, color: Color(0xff9e9e9e)),
+                    ),
+                  ),
+                  for (final tier in tiers)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    tier.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  money(tier.cost, currency),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Text(
+                                tier.description,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xff9e9e9e),
+                                ),
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '+${tier.repGain.toStringAsFixed(0)} reputation',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xff4ade80),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                _AppBtn(
+                                  small: true,
+                                  variant: _BtnVariant.tonal,
+                                  onPressed: atMax || cash < tier.cost
+                                      ? null
+                                      : () {
+                                          final ok = game.launchPRCampaign(
+                                            cost: tier.cost,
+                                            reputationGain: tier.repGain,
+                                          );
+                                          if (!ok) return;
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '${tier.name} PR campaign launched! +${tier.repGain.toStringAsFixed(0)} reputation',
+                                              ),
+                                              duration: const Duration(seconds: 3),
+                                            ),
+                                          );
+                                        },
+                                  child: const Text('Launch'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            _AppBtn(
+              variant: _BtnVariant.plain,
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
 
 void _showRebrandDialog(
   BuildContext context,
@@ -7410,39 +7570,9 @@ class _FinanceView extends StatelessWidget {
                 'Market share',
                 '${player.marketSharePercent.toStringAsFixed(1)}%',
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _InfoRow(
-                      'Reputation',
-                      player.reputationScore.toStringAsFixed(0),
-                    ),
-                  ),
-                  if (player.reputationScore < 100)
-                    Tooltip(
-                      message: 'Spend \$5M to gain +10 reputation',
-                      child: _AppBtn(
-                        small: true,
-                        variant: _BtnVariant.tonal,
-                        onPressed: player.cashUSD >= 5000000
-                            ? () {
-                                final ok = game.launchPRCampaign();
-                                if (!ok) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'PR campaign launched! +10 reputation',
-                                    ),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.campaign),
-                        child: const Text('PR Campaign'),
-                      ),
-                    ),
-                ],
+              _InfoRow(
+                'Reputation',
+                '${player.reputationScore.toStringAsFixed(0)}/100',
               ),
             ],
           ),
