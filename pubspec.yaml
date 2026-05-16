@@ -76,6 +76,8 @@ flutter:
     - assets/map_planes/narrowbody.svg
     - assets/map_planes/widebody.svg
     - assets/map_planes/sst.svg
+    - assets/icon.png
+    - assets/planes/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

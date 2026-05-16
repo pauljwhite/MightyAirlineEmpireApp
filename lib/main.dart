@@ -6918,13 +6918,24 @@ class _AircraftPurchaseCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _hairline(context)),
               ),
-              child: Icon(
-                _aircraftCategoryIcon(type.category),
-                color: unavailable
-                    ? const Color(0xff6b7280)
-                    : const Color(0xff77c9ff),
-                size: 34,
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: _aircraftImageAsset(type.id) != null
+                  ? Opacity(
+                      opacity: unavailable ? 0.5 : 1,
+                      child: Image.asset(
+                        _aircraftImageAsset(type.id)!,
+                        fit: BoxFit.cover,
+                        width: 112,
+                        height: 58,
+                      ),
+                    )
+                  : Icon(
+                      _aircraftCategoryIcon(type.category),
+                      color: unavailable
+                          ? const Color(0xff6b7280)
+                          : const Color(0xff77c9ff),
+                      size: 34,
+                    ),
             ),
             Expanded(
               child: Column(
@@ -7022,6 +7033,28 @@ IconData _aircraftCategoryIcon(AircraftCategory category) => switch (category) {
   AircraftCategory.widebody => Icons.airplanemode_active,
   AircraftCategory.sst => Icons.rocket_launch,
 };
+
+const _aircraftImageAssets = <String, String>{
+  'il18':       'assets/planes/IL18.png',
+  'il62':       'assets/planes/IL62.png',
+  'il-62m':     'assets/planes/IL62.png',
+  'il-86':      'assets/planes/IL86.png',
+  'il-96-300':  'assets/planes/IL96.png',
+  'il-96-400':  'assets/planes/IL96.png',
+  'tu104a':     'assets/planes/Tu104.png',
+  'tu124':      'assets/planes/Tu124.png',
+  'tu-134a':    'assets/planes/Tu134.png',
+  'tu-144':     'assets/planes/Tu144.png',
+  'tu-154b':    'assets/planes/Tu154.png',
+  'tu-154m':    'assets/planes/Tu154.png',
+  'tu-204-100': 'assets/planes/Tu204.png',
+  'tu-204-300': 'assets/planes/Tu204.png',
+  'tu-214':     'assets/planes/Tu214.png',
+  'yak40':      'assets/planes/Yak40.png',
+  'yak-42d':    'assets/planes/Yak42.png',
+};
+
+String? _aircraftImageAsset(String typeId) => _aircraftImageAssets[typeId];
 
 class _SpecText extends StatelessWidget {
   const _SpecText(this.label, this.value);
