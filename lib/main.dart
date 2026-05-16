@@ -11296,6 +11296,34 @@ class _InlineAircraftShop extends StatelessWidget {
                   trailing = null;
                   trailingColor = null;
                 }
+                final imgAsset = _aircraftImageAsset(type.id);
+                final isDesktop = MediaQuery.sizeOf(context).width >= 600;
+                final Widget? leadingWidget = isDesktop
+                    ? Container(
+                        width: 76,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff1a1a1a),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: imgAsset != null
+                            ? Opacity(
+                                opacity: enabled ? 1.0 : 0.35,
+                                child: Image.asset(
+                                  imgAsset,
+                                  fit: BoxFit.contain,
+                                ),
+                              )
+                            : Icon(
+                                _aircraftCategoryIcon(type.category),
+                                color: enabled
+                                    ? const Color(0xff77c9ff)
+                                    : const Color(0xff3a4252),
+                                size: 22,
+                              ),
+                      )
+                    : null;
                 return _SelectableInfoRow(
                   selected: selectedTypeId == type.id,
                   enabled: enabled,
@@ -11310,6 +11338,7 @@ class _InlineAircraftShop extends StatelessWidget {
                   priceLabel: money(type.purchasePrice, currency),
                   trailing: trailing,
                   trailingColor: trailingColor,
+                  leading: leadingWidget,
                   onTap: () => onSelected(type),
                 );
               },
@@ -11331,6 +11360,7 @@ class _SelectableInfoRow extends StatelessWidget {
     this.priceLabel,
     this.trailing,
     this.trailingColor,
+    this.leading,
   });
 
   final bool selected;
@@ -11341,6 +11371,7 @@ class _SelectableInfoRow extends StatelessWidget {
   final String? trailing;
   final Color? trailingColor;
   final VoidCallback onTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -11361,16 +11392,23 @@ class _SelectableInfoRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.airplanemode_active,
-              color: enabled
-                  ? selected
-                        ? const Color(0xff74c0fc)
-                        : const Color(0xff9e9e9e)
-                  : const Color(0xff4a5263),
-              size: 20,
-            ),
-            const SizedBox(width: 10),
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 10),
+            ] else ...[
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.airplanemode_active,
+                color: enabled
+                    ? selected
+                          ? const Color(0xff74c0fc)
+                          : const Color(0xff9e9e9e)
+                    : const Color(0xff4a5263),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
