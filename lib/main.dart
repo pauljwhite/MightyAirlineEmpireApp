@@ -187,8 +187,11 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
       return;
     }
     if (_autoOpenedArticleIds.contains(article.id)) return;
-    if (article.actionAircraftId == null) return;
-    if (game.player.maintenancePolicy.autoMaintainIssues) return;
+    final isPlayerCrash = article.playerRelated && article.severity == 'crash';
+    if (!isPlayerCrash) {
+      if (article.actionAircraftId == null) return;
+      if (game.player.maintenancePolicy.autoMaintainIssues) return;
+    }
     _autoOpenedArticleIds.add(article.id);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !game.newsArticles.containsKey(article.id)) return;

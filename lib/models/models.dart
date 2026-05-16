@@ -221,6 +221,7 @@ class NewsArticle {
     this.actionAircraftId,
     this.actionMaintenanceCost,
     this.suppressAutoOpen = false,
+    this.playerRelated = false,
   });
   final String id;
   final String headline;
@@ -231,6 +232,7 @@ class NewsArticle {
   final String? actionAircraftId;
   final int? actionMaintenanceCost;
   final bool suppressAutoOpen;
+  final bool playerRelated;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -242,6 +244,7 @@ class NewsArticle {
     'actionAircraftId': actionAircraftId,
     'actionMaintenanceCost': actionMaintenanceCost,
     'suppressAutoOpen': suppressAutoOpen,
+    'playerRelated': playerRelated,
   };
 
   factory NewsArticle.fromJson(Map<String, Object?> json) => NewsArticle(
@@ -254,6 +257,7 @@ class NewsArticle {
     actionAircraftId: json['actionAircraftId'] as String?,
     actionMaintenanceCost: (json['actionMaintenanceCost'] as num?)?.round(),
     suppressAutoOpen: json['suppressAutoOpen'] == true,
+    playerRelated: json['playerRelated'] == true,
   );
 }
 

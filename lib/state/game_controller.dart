@@ -2233,6 +2233,7 @@ class GameController extends ChangeNotifier {
       ],
       severity: 'crash',
       gameDay: gameDay,
+      playerRelated: airline.isPlayer,
     );
     _publishNewsArticle(article);
     pushNewsItem(
