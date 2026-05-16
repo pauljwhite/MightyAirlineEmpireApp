@@ -595,6 +595,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final compact = constraints.maxWidth < 700;
+                        // Inline search becomes too narrow before the mobile
+                        // breakpoint — collapse it to a floating icon earlier.
+                        final showSearch = constraints.maxWidth >= 900;
                         final topOffset = compact ? 70.0 : 68.0;
                         _scheduleHeraldAutoOpen(context);
                         return Stack(
@@ -616,6 +619,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                               child: _TopBar(
                                 game: game,
                                 compact: compact,
+                                showSearch: showSearch,
                                 currency: currency,
                                 selectedPanel: panel,
                                 onPanel: (p) => setState(
@@ -627,6 +631,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                   selectedAirport = a;
                                   mobileSearchOpen = false;
                                 }),
+                                onSearchToggle: () => setState(
+                                  () => mobileSearchOpen = !mobileSearchOpen,
+                                ),
                                 onGameStart: () => setState(() => selectedAirport = null),
                               ),
                             ),
@@ -641,7 +648,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                     showAi: game.showAiOnMap,
                                     onChanged: game.setShowAiOnMap,
                                   ),
-                                  if (compact) ...[
+                                  if (compact || !showSearch) ...[
                                     const SizedBox(height: 5),
                                     _FloatingSearchRow(
                                       searchOpen: mobileSearchOpen,
@@ -982,22 +989,28 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.game,
     required this.compact,
+    required this.showSearch,
     required this.currency,
     required this.selectedPanel,
     required this.onPanel,
     required this.onCurrency,
     required this.onSpeed,
     required this.onAirport,
+    required this.onSearchToggle,
     required this.onGameStart,
   });
   final GameController game;
   final bool compact;
+  /// True when the inline search box should be shown in the nav centre.
+  /// When false (intermediate width), a search icon is shown instead.
+  final bool showSearch;
   final CurrencyOption currency;
   final _Panel? selectedPanel;
   final ValueChanged<_Panel> onPanel;
   final ValueChanged<CurrencyOption> onCurrency;
   final ValueChanged<int> onSpeed;
   final ValueChanged<Airport> onAirport;
+  final VoidCallback onSearchToggle;
   final VoidCallback onGameStart;
   @override
   Widget build(BuildContext context) {
@@ -1046,12 +1059,26 @@ class _TopBar extends StatelessWidget {
                   ),
               ],
             ),
-            if (!compact)
+            if (!compact && showSearch)
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 340),
                     child: search,
+                  ),
+                ),
+              )
+            else if (!compact)
+              // Intermediate width: inline search would be too small — show
+              // an icon button that opens the floating search instead.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.center,
+                  child: IconButton(
+                    tooltip: 'Search airports',
+                    icon: const Icon(Icons.search),
+                    onPressed: onSearchToggle,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
               )
