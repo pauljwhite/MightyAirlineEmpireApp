@@ -1230,11 +1230,13 @@ class _SpeedControl extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(speedValue == 0 ? Icons.pause : Icons.speed, size: 17),
-              const SizedBox(width: 5),
-              Text(
-                speedValue == 0 ? 'Pause' : _speedLabel(speedValue),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+              if (speedValue != 0) ...[
+                const SizedBox(width: 5),
+                Text(
+                  _speedLabel(speedValue),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
             ],
           ),
         ),
