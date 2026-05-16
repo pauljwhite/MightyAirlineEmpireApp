@@ -12084,7 +12084,7 @@ class _AppBtnState extends State<_AppBtn> {
               border: border,
               boxShadow: _pressed ? const [] : shadows,
             ),
-            child: content,
+            child: Center(widthFactor: 1, child: content),
           ),
         ),
       ),
