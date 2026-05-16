@@ -447,3 +447,206 @@ NewsArticle generateDissolutionArticle({
       );
   }
 }
+
+/// Generates a detailed news article for a fleet technical event
+/// (engine fault, hydraulic issue, bird strike, etc.) on an AI aircraft.
+///
+/// [faultLabel] is the raw event label, e.g. 'engine fault', 'bird strike'.
+/// [aircraftName] is the registration/name, e.g. 'B737 EA-123'.
+/// [routeLabel] is e.g. 'LHR-JFK' or 'unassigned services'.
+/// [grounds] indicates whether the aircraft was taken out of service.
+NewsArticle generateFleetEventArticle({
+  required String id,
+  required String airlineName,
+  required String aircraftName,
+  required String faultLabel,
+  required String routeLabel,
+  required bool grounds,
+  required int gameDay,
+  required int seed,
+}) {
+  switch (faultLabel) {
+    case 'engine fault':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName aircraft pulled from service after engine fault',
+        subheadline: '$aircraftName reported abnormal engine indications on $routeLabel service',
+        paragraphs: [
+          '$airlineName has withdrawn $aircraftName from scheduled operations after the aircraft reported abnormal engine performance indications during its $routeLabel service. The crew elected to discontinue operations in accordance with standard abnormal procedures, and the aircraft was ferried to its maintenance base under reduced-thrust precautionary conditions.',
+          'Technical teams have begun borescope inspections of the high-pressure turbine section and have called in the engine manufacturer\'s field support unit. The airline stated that the precautionary grounding is consistent with its safety management procedures, which mandate withdrawal from service on any abnormal powerplant indication pending engineering assessment.',
+          grounds
+              ? '$airlineName expects to have a full assessment within 48 hours. The carrier is sourcing replacement capacity to cover affected $routeLabel services during the inspection period.'
+              : 'Engineers cleared the aircraft to resume operations following a ground run and borescope inspection. An additional maintenance item has been logged for resolution at the aircraft\'s next scheduled heavy check.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'hydraulic issue':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName grounds $aircraftName over hydraulic fault',
+        subheadline: 'Pressure anomaly detected in primary hydraulic system on $routeLabel operation',
+        paragraphs: [
+          '$airlineName has grounded $aircraftName after technicians identified an anomalous pressure reading in the aircraft\'s primary hydraulic system during a post-flight inspection following the $routeLabel sector. The fault was not reported during the flight itself, but was detected during routine system health monitoring at turnround.',
+          'Engineering staff have traced the fault to a suspected leak in the hydraulic line serving the nose gear actuation circuit. The aircraft has been positioned in the maintenance hangar and all three hydraulic systems are undergoing full functional testing before the airline will consider a return to service.',
+          grounds
+              ? 'The carrier confirmed that no safety event occurred on the affected service, and that the discovery of the defect through post-flight monitoring reflects the effectiveness of its condition-monitoring programme.'
+              : 'Following a successful ground hydraulic test and actuation cycling, the aircraft has been returned to service with an enhanced monitoring schedule for the affected circuit.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'fuselage crack':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName takes $aircraftName offline after structural finding',
+        subheadline: 'Fatigue indication found in fuselage skin during scheduled inspection',
+        paragraphs: [
+          '$airlineName has removed $aircraftName from active service following the discovery of a hairline fatigue crack in the fuselage skin during a scheduled airframe inspection. The finding is described as a typical high-cycle fatigue indication in the skin panel adjacent to the forward door frame, an area known to accumulate cyclic stress with pressurisation.',
+          'The airline\'s structural engineering team has notified the aircraft manufacturer and the national airworthiness authority in line with mandatory defect-reporting obligations. A repair scheme using standard doubler-plate methodology has been submitted for airworthiness approval.',
+          'The airframe had accumulated a high number of pressurisation cycles relative to its age, which engineering sources noted is not unusual for an aircraft operated predominantly on short-sector routes. No similar findings have been reported on other aircraft in the carrier\'s fleet from the same structural inspection batch.',
+        ],
+        severity: 'grounding',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'avionics fault':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName reports avionics anomaly on $aircraftName',
+        subheadline: 'Flight management system irregularity detected during $routeLabel sector',
+        paragraphs: [
+          '$airlineName has reported an avionics anomaly on $aircraftName after the flight crew observed an unexpected flight management system alert during the $routeLabel sector. The crew completed the applicable non-normal checklist and the aircraft arrived at its destination without further incident, but post-flight review of the onboard maintenance system flagged a latent fault code requiring engineering investigation.',
+          grounds
+              ? 'The aircraft has been taken out of service pending a full avionics software and hardware diagnostic. Avionics technicians are working with the line-replaceable-unit\'s original equipment manufacturer to isolate the fault to a specific module.'
+              : 'Following a ground software reset and LRU substitution test, engineers isolated the fault to a single navigation data processor module, which has been replaced. The aircraft has been returned to service after a satisfactory avionics health check.',
+          'The carrier reported the defect to the manufacturer\'s technical support centre and to the national authority in accordance with mandatory occurrence reporting procedures. No safety impact was assessed for the affected sector.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'fuel leak':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName $aircraftName grounded after fuel system defect',
+        subheadline: 'Leak detected in wing tank fuel line following $routeLabel service',
+        paragraphs: [
+          '$airlineName has taken $aircraftName out of service following the discovery of a fuel leak in the wing tank feed line during a post-flight walk-around inspection after the $routeLabel service. Ground crew observed a seeping fuel stain on the underside of the left wing, and the aircraft was immediately isolated and depressurised as a precautionary measure.',
+          'Fuel system engineers have identified the leak source as a fractured fuel line fitting in the tank collector cell, consistent with a fatigue failure of the coupling thread under thermal cycling loads. The repair requires access through the wing inspection panel, and the aircraft has been positioned in the hangar for fuel system work.',
+          grounds
+              ? 'The carrier stated that the amount of fuel lost was below the safety-significant threshold and that the crew\'s pre-departure fuel checks were within normal parameters throughout the flight.'
+              : 'Engineers repaired the coupling and conducted a pressure test and leak check before returning the aircraft to service. The repair has been logged with the manufacturer.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'pressurisation fault':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName $aircraftName removed from service after cabin pressure event',
+        subheadline: 'Automatic pressurisation controller triggered precautionary descent on $routeLabel',
+        paragraphs: [
+          '$airlineName has grounded $aircraftName following an automatic pressurisation system activation that prompted a precautionary descent during the $routeLabel sector. The cabin altitude alert triggered at cruise level and the crew followed the appropriate memory items, executing a controlled descent to a safe altitude.',
+          'Post-flight investigation identified a faulty outflow valve controller as the initiating cause. The controller failed to regulate cabin altitude correctly under the prevailing atmospheric conditions, triggering the protective system response. The crew\'s handling of the event was assessed as exemplary by the airline\'s flight operations safety team.',
+          grounds
+              ? 'The aircraft has been withdrawn from service pending replacement of the outflow valve controller and a full pressurisation system functional check. The carrier has reviewed whether similar valves are approaching their service-life limit on other fleet members.'
+              : 'Following replacement of the faulty controller and a successful pressurisation ground test, the aircraft was returned to the operating programme.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'landing gear fault':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName grounds $aircraftName after landing gear indication',
+        subheadline: 'Abnormal gear indication on $routeLabel departure prompts precautionary return',
+        paragraphs: [
+          '$airlineName has grounded $aircraftName after the crew observed an abnormal landing gear retraction indication following departure on the $routeLabel service. The crew declared a precautionary situation and elected to return to the departure aerodrome for an inspection landing, during which the gear operated normally.',
+          'Engineering assessment identified a failure in the inboard main gear down-lock sensor, which was providing an intermittent indication to the cockpit display. While the fault was assessed as a sensor failure rather than a structural deficiency, the aircraft has been taken offline pending a full gear bay inspection and sensor replacement.',
+          grounds
+              ? 'The airline praised the crew\'s conservative decision-making in returning to base. The aircraft is expected to return to service within 24 hours once the sensor replacement and functional test are complete.'
+              : 'The sensor was replaced and the gear was cycled through ten full retraction and extension cycles under ground power before the aircraft was cleared to return to service.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'fire warning':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName $aircraftName returns to base after fire warning',
+        subheadline: 'Crew actioned engine fire drill after cockpit alert on $routeLabel departure',
+        paragraphs: [
+          '$airlineName $aircraftName returned to its departure aerodrome after the crew received a fire warning indication in the right engine during climb-out on the $routeLabel service. The crew followed fire drill procedures, shutting down the affected engine and discharging the engine fire suppression system as a precaution before declaring an emergency and returning for an overweight landing.',
+          'Post-landing inspection by fire services and airline engineers found no evidence of actual fire or heat damage in the engine bay. The warning is believed to have been initiated by a faulty fire detection loop sensor, a known intermittent failure mode on this aircraft type that triggers a spurious warning without an actual thermal event.',
+          grounds
+              ? 'The aircraft has been withdrawn from service pending replacement of the fire detection loop and a full engine bay inspection. The carrier commended the crew\'s exemplary adherence to procedure in responding to the warning.'
+              : 'Following replacement of the detection loop and a successful engine ground run, the aircraft was returned to service. The carrier filed a mandatory occurrence report with the national authority.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'bird strike':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName $aircraftName suffers bird strike on $routeLabel',
+        subheadline: 'Avian ingestion event prompts precautionary return and engine inspection',
+        paragraphs: [
+          '$airlineName $aircraftName suffered a bird strike during the initial climb phase of the $routeLabel departure. The crew reported a loud impact and observed minor engine parameter fluctuations consistent with avian ingestion. The aircraft returned to the departure aerodrome as a precaution, maintaining full control throughout.',
+          'Post-landing borescope inspection of both engines revealed organic debris consistent with medium-sized bird ingestion in the left engine fan section. Minor fan blade leading-edge damage was found on two blades, with no damage to the core stages. The damage is within serviceable limits under the manufacturer\'s damage tolerance criteria.',
+          grounds
+              ? 'The airline has elected to replace the two affected fan blades as a precautionary measure. The aerodrome operator has been notified to review wildlife strike reporting for the runway in use at the time.'
+              : 'The aircraft was returned to service following the inspection. A formal bird-strike report has been submitted to the national aerodrome safety database.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    case 'tyre blowout':
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName $aircraftName reports tyre failure on $routeLabel arrival',
+        subheadline: 'Main gear tyre deflation on landing causes minor delay',
+        paragraphs: [
+          '$airlineName $aircraftName suffered a main gear tyre deflation on landing at the end of the $routeLabel service. The tyre failed during the landing roll, resulting in a slight directional excursion corrected by the crew using differential braking. The aircraft vacated the runway normally and taxied to stand under its own power.',
+          'Ground engineers inspecting the failed tyre found evidence of a sidewall cut consistent with foreign object damage sustained during the landing roll. The runway was briefly inspected by aerodrome operations and a small piece of metal debris was recovered from the landing zone.',
+          'The failed tyre and its twin on the opposing bogie were replaced and the aircraft was returned to service after a brake and undercarriage functional check. The carrier filed a foreign object debris report with the aerodrome operator.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+
+    default:
+      return NewsArticle(
+        id: id,
+        headline: '$airlineName reports technical issue on $aircraftName',
+        subheadline: '$faultLabel detected during $routeLabel operations',
+        paragraphs: [
+          '$airlineName has reported a technical defect — $faultLabel — on $aircraftName following operations on the $routeLabel sector. The fault was identified during post-flight systems monitoring and has been referred to the line maintenance team for investigation.',
+          grounds
+              ? 'The aircraft has been removed from the operating programme pending resolution of the defect. The airline expects the investigation to be completed within the next scheduled maintenance window.'
+              : 'Engineers assessed the defect and cleared the aircraft to continue operations with an enhanced monitoring schedule and a maintenance action logged for rectification at the next available ground opportunity.',
+          'The carrier reported the finding through its mandatory defect-reporting system and is cooperating with the aircraft manufacturer\'s technical support organisation to determine whether the failure mode has fleet-wide implications.',
+        ],
+        severity: grounds ? 'grounding' : 'news',
+        gameDay: gameDay,
+        suppressAutoOpen: true,
+      );
+  }
+}

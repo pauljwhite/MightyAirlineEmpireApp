@@ -4060,23 +4060,44 @@ class _WorldMapState extends State<_WorldMap> {
 
 }
 
-String _planeAssetForCategory(AircraftCategory? category) {
-  switch (category) {
-    case AircraftCategory.regional:
-      return 'assets/map_planes/regional.svg';
-    case AircraftCategory.widebody:
-      return 'assets/map_planes/widebody.svg';
-    case AircraftCategory.sst:
-      return 'assets/map_planes/sst.svg';
-    case AircraftCategory.narrowbody:
-    case null:
-      return 'assets/map_planes/narrowbody.svg';
+
+// ── SVG icon cache ────────────────────────────────────────────────────────────
+// Rasterises each plane-category SVG once at a fixed logical size (64 × 64 px).
+// The resulting ui.Image objects are tinted per-airline at draw time using a
+// ColorFilter, so we never re-parse the SVG on the paint thread.
+class _PlaneIconCache {
+  _PlaneIconCache._();
+
+  static const _assets = {
+    AircraftCategory.regional:   'assets/map_planes/regional.svg',
+    AircraftCategory.narrowbody: 'assets/map_planes/narrowbody.svg',
+    AircraftCategory.widebody:   'assets/map_planes/widebody.svg',
+    AircraftCategory.sst:        'assets/map_planes/sst.svg',
+  };
+
+  static final Map<AircraftCategory, ui.Image> _cache = {};
+  static bool _loading = false;
+
+  static bool get isReady => _cache.length == _assets.length;
+
+  static Future<void> ensureLoaded(double devicePixelRatio) async {
+    if (isReady || _loading) return;
+    _loading = true;
+    const logicalSize = 64.0;
+    final px = (logicalSize * devicePixelRatio).round().clamp(32, 256);
+    for (final entry in _assets.entries) {
+      final info = await vg.loadPicture(SvgAssetLoader(entry.value), null);
+      final img = await info.picture.toImage(px, px);
+      info.picture.dispose();
+      _cache[entry.key] = img;
+    }
   }
+
 }
 
 // Draws all plane icons on a single canvas — avoids per-plane compositing
 // layers and SVG re-rasterisation on every frame (iOS/Impeller bottleneck).
-class _PlaneCanvasLayer extends StatelessWidget {
+class _PlaneCanvasLayer extends StatefulWidget {
   const _PlaneCanvasLayer({
     required this.routes,
     required this.game,
@@ -4088,11 +4109,32 @@ class _PlaneCanvasLayer extends StatelessWidget {
   final MapController mapController;
 
   @override
+  State<_PlaneCanvasLayer> createState() => _PlaneCanvasLayerState();
+}
+
+class _PlaneCanvasLayerState extends State<_PlaneCanvasLayer> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_PlaneIconCache.isReady) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      _PlaneIconCache.ensureLoaded(dpr).then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final camera = MapCamera.of(context);
     return IgnorePointer(
       child: CustomPaint(
-        painter: _PlanePainter(routes: routes, game: game, camera: camera),
+        painter: _PlanePainter(
+          routes: widget.routes,
+          game: widget.game,
+          camera: camera,
+          icons: _PlaneIconCache._cache,
+        ),
         size: Size.infinite,
       ),
     );
@@ -4104,16 +4146,20 @@ class _PlanePainter extends CustomPainter {
     required this.routes,
     required this.game,
     required this.camera,
+    required this.icons,
   });
 
   final List<RoutePlan> routes;
   final GameController game;
   final MapCamera camera;
+  final Map<AircraftCategory, ui.Image> icons;
 
-  static final _paint = Paint()..isAntiAlias = true;
+  // Reused paint — colorFilter is set per draw call.
+  static final _imgPaint = Paint()..isAntiAlias = true;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (icons.isEmpty) return; // still loading
     final zoom = camera.zoom;
     if (zoom < 2.5) return; // planes are invisible when fully zoomed out
     final zoomScale = (zoom / 6.0).clamp(0.35, 2.0);
@@ -4137,8 +4183,7 @@ class _PlanePainter extends CustomPainter {
         flightProgress: ac.flightProgress,
       );
 
-      final screenPt =
-          camera.getOffsetFromOrigin(LatLng(vp.lat, vp.lon));
+      final screenPt = camera.getOffsetFromOrigin(LatLng(vp.lat, vp.lon));
       if (screenPt.dx < -40 ||
           screenPt.dy < -40 ||
           screenPt.dx > size.width + 40 ||
@@ -4147,60 +4192,36 @@ class _PlanePainter extends CustomPainter {
       final airline = game.airlines[route.airlineId];
       final color = _colorFromHex(airline?.color ?? '#ffffff');
       final type = aircraftTypesById[ac.typeId];
-      final basePx = switch (type?.category) {
-        AircraftCategory.regional => 7.0,
-        AircraftCategory.widebody => 10.0,
-        AircraftCategory.sst => 9.0,
-        _ => 8.5,
+      final cat = type?.category;
+      final basePx = switch (cat) {
+        AircraftCategory.regional => 14.0,
+        AircraftCategory.widebody => 20.0,
+        AircraftCategory.sst      => 18.0,
+        _                         => 17.0,
       };
-      final sizePx = basePx * zoomScale;
+      final halfPx = basePx * zoomScale;
+
+      final img = icons[cat ?? AircraftCategory.narrowbody];
+      if (img == null) continue;
+
+      _imgPaint.colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
 
       canvas.save();
       canvas.translate(screenPt.dx, screenPt.dy);
       canvas.rotate(vp.bearingRadians);
-      _drawPlane(canvas, color, sizePx, type?.category);
+      canvas.drawImageRect(
+        img,
+        Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+        Rect.fromCenter(center: Offset.zero, width: halfPx * 2, height: halfPx * 2),
+        _imgPaint,
+      );
       canvas.restore();
     }
   }
 
-  void _drawPlane(
-      Canvas canvas, Color color, double s, AircraftCategory? cat) {
-    _paint.color = color;
-    final path = Path();
-    if (cat == AircraftCategory.regional) {
-      // Smaller dart shape
-      path.moveTo(0, -s);
-      path.lineTo(-s * 0.45, s * 0.55);
-      path.lineTo(0, s * 0.2);
-      path.lineTo(s * 0.45, s * 0.55);
-    } else if (cat == AircraftCategory.widebody) {
-      // Wider body
-      path.moveTo(0, -s);
-      path.lineTo(-s * 0.75, s * 0.45);
-      path.lineTo(-s * 0.18, s * 0.15);
-      path.lineTo(-s * 0.22, s);
-      path.lineTo(0, s * 0.7);
-      path.lineTo(s * 0.22, s);
-      path.lineTo(s * 0.18, s * 0.15);
-      path.lineTo(s * 0.75, s * 0.45);
-    } else {
-      // Narrowbody / SST
-      path.moveTo(0, -s);
-      path.lineTo(-s * 0.6, s * 0.5);
-      path.lineTo(-s * 0.14, s * 0.1);
-      path.lineTo(-s * 0.18, s * 0.9);
-      path.lineTo(0, s * 0.65);
-      path.lineTo(s * 0.18, s * 0.9);
-      path.lineTo(s * 0.14, s * 0.1);
-      path.lineTo(s * 0.6, s * 0.5);
-    }
-    path.close();
-    canvas.drawPath(path, _paint);
-  }
-
   @override
   bool shouldRepaint(_PlanePainter old) =>
-      old.routes != routes || old.camera != camera;
+      old.routes != routes || old.camera != camera || old.icons != icons;
 }
 
 List<List<LatLng>> _routeArcLatLngSegments(
@@ -6459,6 +6480,25 @@ class _FleetViewState extends State<_FleetView> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_aircraftImageAsset(ac.typeId) != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: double.infinity,
+                        height: 110,
+                        color: const Color(0xff1a1f2e),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Image.asset(
+                          _aircraftImageAsset(ac.typeId)!,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Row(
                     children: [
                       Container(
@@ -7295,31 +7335,82 @@ IconData _aircraftCategoryIcon(AircraftCategory category) => switch (category) {
 };
 
 const _aircraftImageAssets = <String, String>{
-  'a319':       'assets/planes/A319.png',
-  'a319neo':    'assets/planes/A319neo.png',
-  'a320':       'assets/planes/A320.png',
-  'a320neo':    'assets/planes/A320neo.png',
-  'a321':       'assets/planes/A321.png',
-  'a321neo':    'assets/planes/A321neo.png',
-  'a321xlr':    'assets/planes/A321xlr.png',
-  'an24':       'assets/planes/An24.png',
-  'il18':       'assets/planes/IL18.png',
-  'il62':       'assets/planes/IL62.png',
-  'il-62m':     'assets/planes/IL62.png',
-  'il-86':      'assets/planes/IL86.png',
-  'il-96-300':  'assets/planes/IL96.png',
-  'il-96-400':  'assets/planes/IL96.png',
-  'tu104a':     'assets/planes/Tu104.png',
-  'tu124':      'assets/planes/Tu124.png',
-  'tu-134a':    'assets/planes/Tu134.png',
-  'tu-144':     'assets/planes/Tu144.png',
-  'tu-154b':    'assets/planes/Tu154.png',
-  'tu-154m':    'assets/planes/Tu154.png',
-  'tu-204-100': 'assets/planes/Tu204.png',
-  'tu-204-300': 'assets/planes/Tu204.png',
-  'tu-214':     'assets/planes/Tu214.png',
-  'yak40':      'assets/planes/Yak40.png',
-  'yak-42d':    'assets/planes/Yak42.png',
+  // ── Concorde ──────────────────────────────────────────────────────────────
+  'concorde':     'assets/planes/Concorde.png',
+
+  // ── Airbus narrow-body ────────────────────────────────────────────────────
+  'a220-100':     'assets/planes/A220-200.png',
+  'a220-300':     'assets/planes/A220-300.png',
+  'a319':         'assets/planes/A319.png',
+  'a319neo':      'assets/planes/A319neo.png',
+  'a320':         'assets/planes/A320.png',
+  'a320neo':      'assets/planes/A320neo.png',
+  'a321':         'assets/planes/A321.png',
+  'a321neo':      'assets/planes/A321neo.png',
+  'a321xlr':      'assets/planes/A321xlr.png',
+
+  // ── Airbus wide-body ──────────────────────────────────────────────────────
+  'a300-600':     'assets/planes/A300-600.png',
+  'a330-200':     'assets/planes/A330-200.png',
+  'a330-300':     'assets/planes/A330-300.png',
+  'a330-800neo':  'assets/planes/A330-800neo.png',
+  'a330-900neo':  'assets/planes/A330-900neo.png',
+  'a340-300':     'assets/planes/A340-300.png',
+  'a340-600':     'assets/planes/A340-600.png',
+  'a350-900':     'assets/planes/A350-900.png',
+  'a350-1000':    'assets/planes/A350-1000.png',
+  'a380-800':     'assets/planes/A380-800.png',
+
+  // ── ATR turboprops ────────────────────────────────────────────────────────
+  'atr42-300':    'assets/planes/ATR42-300.png',
+  'atr42-600':    'assets/planes/ATR42-600.png',
+  'atr72-200':    'assets/planes/ATR72-200.png',
+  'atr72-500':    'assets/planes/ATR72-500.png',
+  'atr72-600':    'assets/planes/ATR72-600.png',
+
+  // ── Avro / BAe regional jets ──────────────────────────────────────────────
+  'avrorj100':    'assets/planes/AvroRJ100.png',
+  'avrorj85':     'assets/planes/AvroRJ85.png',
+  'bae146-100':   'assets/planes/BAe146-100.png',
+  'bae146-200':   'assets/planes/BAe146-200.png',
+  'bae146-300':   'assets/planes/BAe146-300.png',
+
+  // ── BAC One-Eleven ────────────────────────────────────────────────────────
+  'bac111-200':   'assets/planes/BAC111-200.png',
+  'bac111-500':   'assets/planes/BAC111-500.png',
+
+  // ── Boeing narrow-body ────────────────────────────────────────────────────
+  'b707-120':     'assets/planes/B707-120.png',
+  'b707-320':     'assets/planes/B707-320.png',
+  'b717-200':     'assets/planes/B717-200.png',
+  'b727-100':     'assets/planes/B727-100.png',
+  'b727-200':     'assets/planes/B727-200.png',
+
+  // ── Antonov turboprops ────────────────────────────────────────────────────
+  'an24':         'assets/planes/An24.png',
+
+  // ── Ilyushin ─────────────────────────────────────────────────────────────
+  'il18':         'assets/planes/IL18.png',
+  'il62':         'assets/planes/IL62.png',
+  'il-62m':       'assets/planes/IL62.png',
+  'il-86':        'assets/planes/IL86.png',
+  'il-96-300':    'assets/planes/IL96.png',
+  'il-96-400':    'assets/planes/IL96.png',
+
+  // ── Tupolev ───────────────────────────────────────────────────────────────
+  'tu104a':       'assets/planes/Tu104.png',
+  'tu124':        'assets/planes/Tu124.png',
+  'tu-134a':      'assets/planes/Tu134.png',
+  'tu-144':       'assets/planes/Tu144.png',
+  'tu-154b':      'assets/planes/Tu154.png',
+  'tu-154m':      'assets/planes/Tu154.png',
+  'tu-204-100':   'assets/planes/Tu204.png',
+  'tu-204-300':   'assets/planes/Tu204.png',
+  'tu-214':       'assets/planes/Tu214.png',
+
+  // ── Yakovlev ──────────────────────────────────────────────────────────────
+  'yak40':        'assets/planes/Yak40.png',
+  'yak-42d':      'assets/planes/Yak42.png',
 };
 
 String? _aircraftImageAsset(String typeId) => _aircraftImageAssets[typeId];

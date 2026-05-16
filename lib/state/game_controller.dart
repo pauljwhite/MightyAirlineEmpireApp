@@ -1545,9 +1545,25 @@ class GameController extends ChangeNotifier {
               playerRelated: true,
             );
           } else {
+            final route = ac.assignedRouteId == null
+                ? null
+                : routes[ac.assignedRouteId!];
+            final routeLabel = route == null
+                ? 'unassigned services'
+                : '${route.originIata}-${route.destinationIata}';
             pushNewsItem(
               '${airline.name}: $label on ${ac.name}.',
               severity: 'fleet',
+              article: generateFleetEventArticle(
+                id: 'fleet-${ac.id}-$gameDay',
+                airlineName: airline.name,
+                aircraftName: ac.name,
+                faultLabel: label,
+                routeLabel: routeLabel,
+                grounds: grounds,
+                gameDay: gameDay,
+                seed: ac.id.hashCode ^ gameDay,
+              ),
             );
           }
           break; // one event per aircraft per day
