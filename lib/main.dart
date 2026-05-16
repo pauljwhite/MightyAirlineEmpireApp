@@ -4002,6 +4002,13 @@ class _WorldMapState extends State<_WorldMap> {
               );
             },
           ),
+          RepaintBoundary(
+            child: ValueListenableBuilder<int>(
+              valueListenable: widget.game.airportStateVersion,
+              builder: (context, _, _) =>
+                  MarkerLayer(markers: _airportMarkers()),
+            ),
+          ),
           MouseRegion(
             hitTestBehavior: HitTestBehavior.deferToChild,
             cursor: SystemMouseCursors.click,
@@ -4030,13 +4037,6 @@ class _WorldMapState extends State<_WorldMap> {
               valueListenable: widget.game.mapAnimationTick,
               builder: (context, _, _) =>
                   MarkerLayer(markers: _planeMarkers(_cachedDrawableRoutes)),
-            ),
-          ),
-          RepaintBoundary(
-            child: ValueListenableBuilder<int>(
-              valueListenable: widget.game.airportStateVersion,
-              builder: (context, _, _) =>
-                  MarkerLayer(markers: _airportMarkers()),
             ),
           ),
           RichAttributionWidget(
