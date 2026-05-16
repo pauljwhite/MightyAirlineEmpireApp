@@ -194,7 +194,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                   .copyWith(
                     scaffoldBackgroundColor: lightMode
                         ? const Color(0xfff2f2f7)
-                        : const Color(0xff050915),
+                        : const Color(0xff111111),
                     colorScheme: ColorScheme.fromSeed(
                       seedColor: const Color(0xff2f8cff),
                       brightness: lightMode
@@ -208,7 +208,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                       ),
                       backgroundColor: lightMode
                           ? const Color(0xf8f8f8f8)
-                          : const Color(0xec121a2c),
+                          : const Color(0xec1c1c1c),
                       surfaceTintColor: Colors.transparent,
                       elevation: 0,
                       titleTextStyle: TextStyle(
@@ -265,7 +265,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                         foregroundColor: WidgetStateProperty.resolveWith((s) =>
                             s.contains(WidgetState.disabled)
                                 ? (lightMode
-                                      ? const Color(0xff9aa4b5)
+                                      ? const Color(0xff9e9e9e)
                                       : const Color(0xff4a5568))
                                 : lightMode
                                 ? const Color(0xff1c1c1e)
@@ -481,7 +481,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                     popupMenuTheme: PopupMenuThemeData(
                       color: lightMode
                           ? const Color(0xf8f8f8f8)
-                          : const Color(0xee121a2c),
+                          : const Color(0xee1c1c1c),
                       elevation: 12,
                       surfaceTintColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
@@ -532,7 +532,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                       ),
                       color: lightMode
                           ? const Color(0xfff8f8f8)
-                          : const Color(0xff151b2b),
+                          : const Color(0xff1e1e1e),
                       surfaceTintColor: Colors.transparent,
                     ),
                     // ── Dividers ─────────────────────────────────────────────
@@ -717,7 +717,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                           const SizedBox(height: 8),
                           const Text(
                             'Set up your airline to begin.',
-                            style: TextStyle(color: Color(0xff9aa4b5)),
+                            style: TextStyle(color: Color(0xff9e9e9e)),
                           ),
                         ],
                       ),
@@ -822,7 +822,7 @@ class _GameOutcomeOverlay extends StatelessWidget {
                       ),
                       Text(
                         'Day ${game.gameDay} · $currentYear',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ],
                   ),
@@ -1550,7 +1550,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
                             'IATA: ${player.iataPrefix} · Founded ${game.settings.startingYear + player.foundedGameDay ~/ 365}',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xff9aa4b5),
+                              color: Color(0xff9e9e9e),
                             ),
                           ),
                         ],
@@ -1951,7 +1951,7 @@ class _LogoPicker extends StatelessWidget {
         _isImageLogo(value)
             ? 'Custom image logo detected from imported save.'
             : 'Pick an emoji, type a short mark, or paste a data:image logo.',
-        style: const TextStyle(color: Color(0xff9aa4b5), fontSize: 12),
+        style: const TextStyle(color: Color(0xff9e9e9e), fontSize: 12),
       ),
     ],
   );
@@ -2049,7 +2049,7 @@ class _ThemeOption extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                    style: const TextStyle(color: Color(0xff9e9e9e)),
                   ),
                 ],
               ),
@@ -2148,7 +2148,7 @@ void _showRebrandDialog(
                               Text(
                                 'Company value ${money(game.playerCompanyValue(), currency)}',
                                 style: const TextStyle(
-                                  color: Color(0xff9aa4b5),
+                                  color: Color(0xff9e9e9e),
                                 ),
                               ),
                             ],
@@ -2212,7 +2212,7 @@ void _showRebrandDialog(
                                 border: Border.all(
                                   color: colour == candidate
                                       ? Colors.white
-                                      : const Color(0xff263247),
+                                      : const Color(0xff383838),
                                   width: colour == candidate ? 3 : 1,
                                 ),
                               ),
@@ -2248,7 +2248,7 @@ void _showRebrandDialog(
                     style: TextStyle(
                       color: hasChange
                           ? const Color(0xffffd166)
-                          : const Color(0xff9aa4b5),
+                          : const Color(0xff9e9e9e),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -3294,7 +3294,7 @@ class _DateBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xcc0d1526) : const Color(0xddffffff),
+        color: dark ? const Color(0xcc141414) : const Color(0xddffffff),
         border: Border.all(color: _hairline(context)),
         borderRadius: BorderRadius.circular(22),
       ),
@@ -3380,7 +3380,7 @@ class _SearchBox extends StatelessWidget {
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Material(
-                color: dark ? const Color(0xee121a2c) : const Color(0xf5f5f5f5),
+                color: dark ? const Color(0xee1c1c1c) : const Color(0xf5f5f5f5),
                 borderRadius: BorderRadius.circular(18),
                 elevation: 0,
                 child: DecoratedBox(
@@ -3623,7 +3623,7 @@ class _WorldMapState extends State<_WorldMap> {
           ),
           backgroundColor: lightMap
               ? const Color(0xffdbe8f3)
-              : const Color(0xff08111f),
+              : const Color(0xff0d0d0d),
         ),
         children: [
           TileLayer(
@@ -4212,7 +4212,7 @@ class _MapPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = const Color(0xff08111f),
+      Paint()..color = const Color(0xff0d0d0d),
     );
     _drawWorldBasemap(canvas, size);
     final grid = Paint()
@@ -4407,7 +4407,7 @@ class _MapPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
     final outline = Paint()
-      ..color = const Color(0xff050915)
+      ..color = const Color(0xff111111)
       ..style = PaintingStyle.stroke
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round
@@ -4635,7 +4635,7 @@ class _AirportPanel extends StatelessWidget {
                       ),
                       Text(
                         '${airport.city}, ${airport.country}',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ],
                   ),
@@ -4733,7 +4733,7 @@ class _AirportPanel extends StatelessWidget {
                         Text(
                           'Terminals increase airport capacity. Lounges increase route demand.',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: const Color(0xff9aa4b5)),
+                              ?.copyWith(color: const Color(0xff9e9e9e)),
                         ),
                         const SizedBox(height: 12),
                         _AppBtn(
@@ -4876,7 +4876,7 @@ class _AirportMetricBar extends StatelessWidget {
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: Color(0xff9aa4b5),
+                  color: Color(0xff9e9e9e),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -4941,7 +4941,7 @@ class _AirportDestinationCard extends StatelessWidget {
     }
     final valueText = valueLabel;
     return Material(
-      color: const Color(0xff151b2b),
+      color: const Color(0xff1e1e1e),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -5202,7 +5202,7 @@ class _RoutesView extends StatelessWidget {
                       : optimisation.optimisableCount == 0
                       ? 'All eligible routes are already optimised.'
                       : '${optimisation.optimisableCount} routes can improve · ${money(optimisation.costUSD, currency)} consulting fee',
-                  style: const TextStyle(color: Color(0xff9aa4b5)),
+                  style: const TextStyle(color: Color(0xff9e9e9e)),
                 ),
                 if (optimisation.hasChanges &&
                     game.player.cashUSD < optimisation.costUSD)
@@ -5315,7 +5315,7 @@ class _RouteCardState extends State<_RouteCard> {
             type == null
                 ? 'No aircraft assigned · ${route.flightsPerWeek}/week'
                 : '${type.displayName} · ${route.flightsPerWeek}/week',
-            style: const TextStyle(color: Color(0xff9aa4b5)),
+            style: const TextStyle(color: Color(0xff9e9e9e)),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -5447,7 +5447,7 @@ class _LoadFactorLine extends StatelessWidget {
             ? const Color(0xff3af083)
             : delta < 0
                 ? const Color(0xffff6b6b)
-                : const Color(0xff9aa4b5);
+                : const Color(0xff9e9e9e);
     final deltaText = delta == null
         ? null
         : delta > 0
@@ -5459,7 +5459,7 @@ class _LoadFactorLine extends StatelessWidget {
       children: [
         SizedBox(
           width: 34,
-          child: Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+          child: Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
         ),
         Expanded(
           child: ClipRRect(
@@ -5528,7 +5528,7 @@ class _RoutePreviewCard extends StatelessWidget {
           if (route == null)
             const Text(
               'Assign a compatible aircraft to preview this route.',
-              style: TextStyle(color: Color(0xff9aa4b5)),
+              style: TextStyle(color: Color(0xff9e9e9e)),
             )
           else ...[
             _LoadFactorLine(
@@ -5580,7 +5580,7 @@ class _RoutePreviewCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${route.dailyPassengers} pax/day · ${(route.flightDurationHours).toStringAsFixed(1)}h flight',
-              style: const TextStyle(color: Color(0xff9aa4b5)),
+              style: const TextStyle(color: Color(0xff9e9e9e)),
             ),
             if (route.dailyCost > 0) ...[
               const SizedBox(height: 8),
@@ -5684,12 +5684,12 @@ class _HubsView extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Annual fee ${money(hubAnnualFeeUsd, currency)}/hub · total ${money(dailyFee, currency)}/day',
-                style: const TextStyle(color: Color(0xff9aa4b5)),
+                style: const TextStyle(color: Color(0xff9e9e9e)),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Terminals raise capacity. First class lounges raise demand.',
-                style: TextStyle(color: Color(0xff9aa4b5)),
+                style: TextStyle(color: Color(0xff9e9e9e)),
               ),
             ],
           ),
@@ -5725,7 +5725,7 @@ class _HubsView extends StatelessWidget {
                           ),
                           Text(
                             '${airport.city}, ${airport.country} · ${airport.iata}',
-                            style: const TextStyle(color: Color(0xff9aa4b5)),
+                            style: const TextStyle(color: Color(0xff9e9e9e)),
                           ),
                           Text(
                             '${money(hubAnnualFeeUsd / 365, currency)}/day',
@@ -5826,7 +5826,7 @@ class _HubUpgradeRow extends StatelessWidget {
                   '$title $level',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                Text(detail, style: const TextStyle(color: Color(0xff9aa4b5))),
+                Text(detail, style: const TextStyle(color: Color(0xff9e9e9e))),
               ],
             ),
           ),
@@ -5942,7 +5942,7 @@ class _FleetViewState extends State<_FleetView> {
                     children: [
                       Text(
                         'Trigger below ${policy.threshold.round()}% condition',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                       Slider(
                         value: policy.threshold.clamp(20, 80).toDouble(),
@@ -6085,7 +6085,7 @@ class _FleetViewState extends State<_FleetView> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xff9aa4b5),
+                      color: Color(0xff9e9e9e),
                       fontSize: 12,
                     ),
                   ),
@@ -6181,7 +6181,7 @@ class _FleetViewState extends State<_FleetView> {
                       Expanded(
                         child: Text(
                           type?.displayName ?? ac.typeId,
-                          style: const TextStyle(color: Color(0xff9aa4b5)),
+                          style: const TextStyle(color: Color(0xff9e9e9e)),
                         ),
                       ),
                       Text(
@@ -6193,7 +6193,7 @@ class _FleetViewState extends State<_FleetView> {
                   if (type != null)
                     Text(
                       '${_aircraftCategoryLabel(type.category)} · ${type.seatsEconomy}Y/${type.seatsBusiness}J · ${_formatCount(type.rangeKm)} km range · ${type.cruiseSpeedKmh} km/h',
-                      style: const TextStyle(color: Color(0xff9aa4b5)),
+                      style: const TextStyle(color: Color(0xff9e9e9e)),
                     ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
@@ -6216,7 +6216,7 @@ class _FleetViewState extends State<_FleetView> {
                     inMaintenance
                         ? 'In ${ac.activeMaintTier?.name ?? 'standard'} maintenance since day ${ac.lastMaintenanceGameDay}'
                         : 'Maintenance owed ${ac.maintenanceHoursOwed.toStringAsFixed(1)}h',
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                    style: const TextStyle(color: Color(0xff9e9e9e)),
                   ),
                   if (ac.isGrounded || isCrashed) ...[
                     const SizedBox(height: 10),
@@ -6347,7 +6347,7 @@ class _FleetViewState extends State<_FleetView> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         'Fleet policy ${policy.enabled ? 'ON' : 'OFF'}',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ),
                   if (ac.excludedFromPolicy) ...[
@@ -6398,7 +6398,7 @@ class _FleetViewState extends State<_FleetView> {
                                       Text(
                                         'Trigger below ${ac.autoMaintenanceThreshold.round()}% condition',
                                         style: const TextStyle(
-                                          color: Color(0xff9aa4b5),
+                                          color: Color(0xff9e9e9e),
                                         ),
                                       ),
                                       Slider(
@@ -6705,7 +6705,7 @@ class _ManufacturerRail extends StatelessWidget {
               style: TextStyle(
                 color: isSelected
                     ? const Color(0xfff8fafc)
-                    : const Color(0xff9aa4b5),
+                    : const Color(0xff9e9e9e),
                 fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                 fontSize: 13,
               ),
@@ -7152,7 +7152,7 @@ class _FinanceView extends StatelessWidget {
                     ? const Center(
                         child: Text(
                           'Run a few days to build a trend.',
-                          style: TextStyle(color: Color(0xff9aa4b5)),
+                          style: TextStyle(color: Color(0xff9e9e9e)),
                         ),
                       )
                     : CustomPaint(
@@ -7463,7 +7463,7 @@ class _FinanceView extends StatelessWidget {
                                 '${seg.label} ${(seg.value / totalCost * 100).toStringAsFixed(0)}%',
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xff9aa4b5),
+                                  color: Color(0xff9e9e9e),
                                 ),
                               ),
                             ],
@@ -7598,7 +7598,7 @@ class _FinanceView extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Apply for finance',
-                  style: TextStyle(color: Color(0xff9aa4b5)),
+                  style: TextStyle(color: Color(0xff9e9e9e)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -7849,7 +7849,7 @@ class _FinanceBreakdownRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: strong ? const Color(0xffdbe4f3) : const Color(0xff9aa4b5),
+              color: strong ? const Color(0xffe0e0e0) : const Color(0xff9e9e9e),
               fontWeight: strong ? FontWeight.w900 : FontWeight.w600,
             ),
           ),
@@ -7895,7 +7895,7 @@ class _FinanceMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+          Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
           const SizedBox(height: 8),
           Text(
             value,
@@ -7924,7 +7924,7 @@ class _MiniFinanceStat extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+        Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
         Text(
           value,
           maxLines: 1,
@@ -8169,7 +8169,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                           ),
                           Text(
                             '${airline.isPlayer ? 'Your airline' : '${airline.personality.name} airline'} · Hub: ${airline.hubIatas.isEmpty ? '-' : airline.hubIatas.join(', ')}${airline.isInsolvent ? ' · Bankrupt' : ''}',
-                            style: const TextStyle(color: Color(0xff9aa4b5)),
+                            style: const TextStyle(color: Color(0xff9e9e9e)),
                           ),
                         ],
                       ),
@@ -8390,7 +8390,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                       padding: EdgeInsets.only(top: 8),
                       child: Text(
                         'Majority stake required for takeover.',
-                        style: TextStyle(color: Color(0xff9aa4b5)),
+                        style: TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ),
                 ],
@@ -8494,7 +8494,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                           '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft'
                           '${hubLabel != null ? ' · $hubLabel' : ''}',
                           style: const TextStyle(
-                            color: Color(0xff9aa4b5),
+                            color: Color(0xff9e9e9e),
                             fontSize: 11,
                           ),
                         ),
@@ -8548,13 +8548,13 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                   const Icon(
                     Icons.star_rounded,
                     size: 11,
-                    color: Color(0xff9aa4b5),
+                    color: Color(0xff9e9e9e),
                   ),
                   const SizedBox(width: 3),
                   Text(
                     'Rep ${airline.reputationScore.toStringAsFixed(0)}/100',
                     style: const TextStyle(
-                      color: Color(0xff9aa4b5),
+                      color: Color(0xff9e9e9e),
                       fontSize: 11,
                     ),
                   ),
@@ -8564,7 +8564,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                     style: TextStyle(
                       fontSize: 11,
                       color: airline.cashUSD >= 0
-                          ? const Color(0xff9aa4b5)
+                          ? const Color(0xff9e9e9e)
                           : const Color(0xffff6b6b),
                     ),
                   ),
@@ -8738,7 +8738,7 @@ void _showShareTradeDialog(
                       child: Text(
                         'Secondary share blocks include a 15% seller premium.',
                         style: TextStyle(
-                          color: Color(0xff9aa4b5),
+                          color: Color(0xff9e9e9e),
                           fontSize: 12,
                         ),
                       ),
@@ -8781,7 +8781,7 @@ void _showShareTradeDialog(
                     Expanded(
                       child: Text(
                         selling ? 'Proceeds' : 'Cost',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ),
                     Text(
@@ -8955,7 +8955,7 @@ void _showTakeoverDialog(
                               'Aircraft',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xff9aa4b5),
+                                color: Color(0xff9e9e9e),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -8976,7 +8976,7 @@ void _showTakeoverDialog(
                                     '${ac.condition.toStringAsFixed(0)}% cond',
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xff9aa4b5),
+                                      color: Color(0xff9e9e9e),
                                     ),
                                   ),
                                 ],
@@ -8991,7 +8991,7 @@ void _showTakeoverDialog(
                               'Routes',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xff9aa4b5),
+                                color: Color(0xff9e9e9e),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -9561,7 +9561,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: Color(0xff9aa4b5),
+                color: Color(0xff9e9e9e),
               ),
             ),
         ],
@@ -9594,7 +9594,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                     if (ac == null)
                       const Text(
                         'No aircraft assigned. The route is inactive until one is assigned.',
-                        style: TextStyle(color: Color(0xff9aa4b5)),
+                        style: TextStyle(color: Color(0xff9e9e9e)),
                       )
                     else ...[
                       Text(
@@ -9603,7 +9603,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                       ),
                       Text(
                         '${ac.condition.toStringAsFixed(0)}% condition · ${type == null ? '' : '${type.rangeKm} km range'}',
-                        style: const TextStyle(color: Color(0xff9aa4b5)),
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -9792,7 +9792,7 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   ),
                   Text(
                     '${(flights / 7).toStringAsFixed(1)}/day',
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                    style: const TextStyle(color: Color(0xff9e9e9e)),
                   ),
                 ],
               ),
@@ -9929,7 +9929,7 @@ class _RouteJourneyCard extends StatelessWidget {
     final potentialValue =
         demand * (150 + math.sqrt(math.max(250, distanceKm)) * 18);
     final statusColor = aircraftType == null
-        ? const Color(0xff9aa4b5)
+        ? const Color(0xff9e9e9e)
         : rangeLimited || runwayLimited
         ? const Color(0xffff6b6b)
         : const Color(0xff3af083);
@@ -9963,7 +9963,7 @@ class _RouteJourneyCard extends StatelessWidget {
                     Text(
                       _distanceLabel(distanceKm),
                       style: const TextStyle(
-                        color: Color(0xff9aa4b5),
+                        color: Color(0xff9e9e9e),
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -10058,7 +10058,7 @@ class _JourneyAirportBlock extends StatelessWidget {
         textAlign: alignEnd ? TextAlign.right : TextAlign.left,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Color(0xff9aa4b5), fontSize: 12),
+        style: const TextStyle(color: Color(0xff9e9e9e), fontSize: 12),
       ),
     ],
   );
@@ -10068,7 +10068,7 @@ class _JourneyPill extends StatelessWidget {
   const _JourneyPill({
     required this.icon,
     required this.label,
-    this.color = const Color(0xff9aa4b5),
+    this.color = const Color(0xff9e9e9e),
   });
 
   final IconData icon;
@@ -10407,7 +10407,7 @@ child: Text(
                           SizedBox(height: 4),
                           Text(
                             'Finds the best frequency and fares before creation.',
-                            style: TextStyle(color: Color(0xff9aa4b5)),
+                            style: TextStyle(color: Color(0xff9e9e9e)),
                           ),
                         ],
                       ),
@@ -10463,7 +10463,7 @@ child: Text(
                   ),
                   Text(
                     '${(flights / 7).toStringAsFixed(1)}/day',
-                    style: const TextStyle(color: Color(0xff9aa4b5)),
+                    style: const TextStyle(color: Color(0xff9e9e9e)),
                   ),
                 ],
               ),
@@ -10809,7 +10809,7 @@ class _RouteAircraftPicker extends StatelessWidget {
             pendingType == null
                 ? 'Use an idle aircraft from your fleet, or create the route inactive.'
                 : '${pendingType!.displayName} will be purchased when this route is created.',
-            style: const TextStyle(color: Color(0xff9aa4b5)),
+            style: const TextStyle(color: Color(0xff9e9e9e)),
           ),
           const SizedBox(height: 10),
           _SelectableInfoRow(
@@ -10930,7 +10930,7 @@ class _InlineAircraftShop extends StatelessWidget {
               ),
               Text(
                 '${distanceKm.toStringAsFixed(0)} km',
-                style: const TextStyle(color: Color(0xff9aa4b5)),
+                style: const TextStyle(color: Color(0xff9e9e9e)),
               ),
             ],
           ),
@@ -11038,7 +11038,7 @@ class _SelectableInfoRow extends StatelessWidget {
               color: enabled
                   ? selected
                         ? const Color(0xff74c0fc)
-                        : const Color(0xff9aa4b5)
+                        : const Color(0xff9e9e9e)
                   : const Color(0xff4a5263),
               size: 20,
             ),
@@ -11060,7 +11060,7 @@ class _SelectableInfoRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: enabled
-                          ? const Color(0xff9aa4b5)
+                          ? const Color(0xff9e9e9e)
                           : const Color(0xff4f586a),
                       fontSize: 12,
                     ),
@@ -11177,7 +11177,7 @@ class _MetricCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: Color(0xff9aa4b5))),
+        Text(title, style: const TextStyle(color: Color(0xff9e9e9e))),
         const SizedBox(height: 8),
         Text(
           value,
@@ -11261,7 +11261,7 @@ class _EmptyState extends StatelessWidget {
     child: Text(
       text,
       textAlign: TextAlign.center,
-      style: const TextStyle(color: Color(0xff9aa4b5)),
+      style: const TextStyle(color: Color(0xff9e9e9e)),
     ),
   );
 }
@@ -11295,7 +11295,7 @@ class _RainbowCircleButton extends StatelessWidget {
                 Color(0xFFFF0000),
               ],
             ),
-            border: Border.all(color: const Color(0xff263247), width: 1),
+            border: Border.all(color: const Color(0xff383838), width: 1),
           ),
         ),
       ),
@@ -11307,7 +11307,7 @@ class _RainbowCircleButton extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xff1a2535),
+        backgroundColor: const Color(0xff252525),
         title: const Text('Pick a colour', style: TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
           child: ColorPicker(
@@ -11346,7 +11346,7 @@ class _InfoRow extends StatelessWidget {
     child: Row(
       children: [
         Expanded(
-          child: Text(label, style: const TextStyle(color: Color(0xff9aa4b5))),
+          child: Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
         ),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
       ],
@@ -11395,11 +11395,11 @@ bool _isLight(BuildContext context) =>
     Theme.of(context).brightness == Brightness.light;
 
 Color _chromeSurface(BuildContext context) =>
-    _isLight(context) ? const Color(0xeaffffff) : const Color(0xd4050915);
+    _isLight(context) ? const Color(0xeaffffff) : const Color(0xd4141414);
 
 
 Color _cardSurface(BuildContext context) =>
-    _isLight(context) ? const Color(0xfff8fafc) : const Color(0xff151b2b);
+    _isLight(context) ? const Color(0xfff8fafc) : const Color(0xff1e1e1e);
 
 Color _subtleSurface(BuildContext context) => _isLight(context)
     ? const Color(0xffeef2f7)
@@ -11410,7 +11410,7 @@ Color _hairline(BuildContext context) => _isLight(context)
     : Colors.white.withValues(alpha: 0.12);
 
 Color _mutedText(BuildContext context) =>
-    _isLight(context) ? const Color(0xff64748b) : const Color(0xff9aa4b5);
+    _isLight(context) ? const Color(0xff64748b) : const Color(0xff9e9e9e);
 
 /// Glass-effect dialog wrapper.
 ///
@@ -11439,7 +11439,7 @@ class _GlassDialog extends StatelessWidget {
           filter: ui.ImageFilter.blur(sigmaX: 32, sigmaY: 32),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: dark ? const Color(0xec121a2c) : const Color(0xf5f8faff),
+              color: dark ? const Color(0xec1c1c1c) : const Color(0xf5f8faff),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: dark
@@ -11572,7 +11572,7 @@ class _TickerState extends State<_Ticker> {
             ),
       child: Container(
         height: 42,
-        color: const Color(0xff050915),
+        color: const Color(0xff111111),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
