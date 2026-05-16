@@ -1031,12 +1031,13 @@ class _TopBar extends StatelessWidget {
                           speedValue: speedValue,
                           onSpeed: onSpeed,
                         ),
-                        IconButton(
-                          tooltip: 'Advance day',
-                          onPressed: game.runDailyTick,
-                          icon: const Icon(Icons.skip_next),
-                          visualDensity: VisualDensity.compact,
-                        ),
+                        if (!compact)
+                          IconButton(
+                            tooltip: 'Advance day',
+                            onPressed: game.runDailyTick,
+                            icon: const Icon(Icons.skip_next),
+                            visualDensity: VisualDensity.compact,
+                          ),
                       ],
                     ),
                     const Spacer(),
@@ -1431,10 +1432,22 @@ class _AirlineBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _AirlineLogo(logo: game.player.logoEmoji, size: 28),
-              if (!compact) ...[
-                const SizedBox(width: 8),
+              const SizedBox(width: 8),
+              if (compact)
+                Text(
+                  money(game.player.cashUSD, currency),
+                  style: TextStyle(
+                    color: game.player.cashUSD >= 0
+                        ? const Color(0xff25c96b)
+                        : const Color(0xffff6b6b),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              if (!compact)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       game.player.name,
@@ -1455,8 +1468,7 @@ class _AirlineBadge extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(width: 6),
-              ],
+              const SizedBox(width: 4),
               Icon(Icons.expand_more, size: 18, color: muted),
             ],
           ),
