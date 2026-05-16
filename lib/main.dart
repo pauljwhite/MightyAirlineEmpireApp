@@ -2318,7 +2318,7 @@ void _showNewGameDialog(
       airportsByIata['LHR']!;
   var startingYear = game.settings.startingYear;
   var difficulty = game.settings.difficulty;
-  var aiCount = game.settings.aiCount.clamp(0, 12).toInt();
+  var aiCount = game.settings.aiCount.clamp(0, 16).toInt();
   var objective = game.settings.objective;
   var targetMarketShare = game.settings.targetMarketShare
       .clamp(60, 100)
@@ -2745,8 +2745,8 @@ void _showNewGameDialog(
                         Slider(
                           value: aiCount.toDouble(),
                           min: 0,
-                          max: 12,
-                          divisions: 12,
+                          max: 16,
+                          divisions: 16,
                           label: '$aiCount',
                           onChanged: (value) =>
                               setState(() => aiCount = value.round()),
