@@ -591,7 +591,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                     bottom: false,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 980;
+                        final compact = constraints.maxWidth < 700;
                         final topOffset = compact ? 70.0 : 68.0;
                         _scheduleHeraldAutoOpen(context);
                         return Stack(
