@@ -7307,6 +7307,11 @@ IconData _aircraftCategoryIcon(AircraftCategory category) => switch (category) {
 };
 
 const _aircraftImageAssets = <String, String>{
+  'a319':       'assets/planes/A319.png',
+  'a319neo':    'assets/planes/A319neo.png',
+  'a320':       'assets/planes/A320.png',
+  'a320neo':    'assets/planes/A320neo.png',
+  'an24':       'assets/planes/An24.png',
   'il18':       'assets/planes/IL18.png',
   'il62':       'assets/planes/IL62.png',
   'il-62m':     'assets/planes/IL62.png',
