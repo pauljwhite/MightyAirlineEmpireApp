@@ -2267,11 +2267,10 @@ void _showNewGameDialog(
         return PopScope(
           canPop: !forceStart,
           child: _GlassDialog(
+            maxWidth: 920,
             title: const Text('Start new airline'),
-            content: SizedBox(
-              width: 560,
-              child: SingleChildScrollView(
-                child: Column(
+            content: SingleChildScrollView(
+              child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2598,7 +2597,6 @@ void _showNewGameDialog(
                   ],
                 ),
               ),
-            ),
             actions: [
               if (!forceStart)
                 _AppBtn(
