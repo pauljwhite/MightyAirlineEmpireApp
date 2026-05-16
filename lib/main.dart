@@ -1658,7 +1658,44 @@ class _AirlineProfileDropdown extends StatelessWidget {
                       variant: _BtnVariant.ghost,
                       onPressed: () {
                         closeMenu();
-                        _showNewGameDialog(context, game, currency, onCurrency);
+                        if (game.gameDay > 0) {
+                          showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => _GlassDialog(
+                              maxWidth: 420,
+                              title: const Text('Abandon current game?'),
+                              content: const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Your current progress will be lost and cannot be recovered.',
+                                ),
+                              ),
+                              actions: [
+                                _AppBtn(
+                                  variant: _BtnVariant.plain,
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                _AppBtn(
+                                  variant: _BtnVariant.danger,
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Abandon & restart'),
+                                ),
+                              ],
+                            ),
+                          ).then((confirmed) {
+                            if (confirmed == true && context.mounted) {
+                              _showNewGameDialog(
+                                context,
+                                game,
+                                currency,
+                                onCurrency,
+                              );
+                            }
+                          });
+                        } else {
+                          _showNewGameDialog(context, game, currency, onCurrency);
+                        }
                       },
                       icon: const Icon(Icons.restart_alt),
                       child: const Text('Start again'),
