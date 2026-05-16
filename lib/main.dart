@@ -2357,8 +2357,6 @@ void _showNewGameDialog(
   var activeSection = 0;
   var importing = false;
 
-  game.resetToPreStart();
-
   showDialog<void>(
     context: context,
     barrierDismissible: false,
