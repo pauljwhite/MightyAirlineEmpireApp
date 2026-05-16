@@ -1404,6 +1404,7 @@ class _AirlineBadge extends StatelessWidget {
           currency: currency,
           onCurrency: onCurrency,
           onGameStart: onGameStart,
+          stableContext: context,
         ),
       ],
       builder: (context, controller, child) => InkWell(
@@ -1474,12 +1475,16 @@ class _AirlineProfileDropdown extends StatelessWidget {
     required this.currency,
     required this.onCurrency,
     required this.onGameStart,
+    required this.stableContext,
   });
 
   final GameController game;
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
   final VoidCallback onGameStart;
+  // Context from _AirlineBadge — lives in the main tree, not the menu overlay,
+  // so it stays mounted after closeMenu() removes the dropdown from the overlay.
+  final BuildContext stableContext;
 
   @override
   Widget build(BuildContext context) {
@@ -1658,10 +1663,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
-                        final ctx = context;
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (ctx.mounted) _showRebrandDialog(ctx, game, currency);
+                          if (stableContext.mounted) _showRebrandDialog(stableContext, game, currency);
                         });
                       },
                       icon: const Icon(Icons.edit),
@@ -1670,10 +1674,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
-                        final ctx = context;
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (ctx.mounted) _showExportDialog(ctx, game);
+                          if (stableContext.mounted) _showExportDialog(stableContext, game);
                         });
                       },
                       icon: const Icon(Icons.upload_file),
@@ -1682,10 +1685,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
-                        final ctx = context;
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (ctx.mounted) _showImportDialog(ctx, game, onCurrency);
+                          if (stableContext.mounted) _showImportDialog(stableContext, game, onCurrency);
                         });
                       },
                       icon: const Icon(Icons.download),
@@ -1694,10 +1696,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
-                        final ctx = context;
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (ctx.mounted) _showSettingsDialog(ctx, game);
+                          if (stableContext.mounted) _showSettingsDialog(stableContext, game);
                         });
                       },
                       icon: const Icon(Icons.palette),
@@ -1706,16 +1707,12 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     _AppBtn(
                       variant: _BtnVariant.ghost,
                       onPressed: () {
-                        // Close the menu first, then show dialogs in a
-                        // post-frame callback so the menu context is still
-                        // mounted when showDialog is called.
-                        final capturedContext = context;
                         closeMenu();
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!capturedContext.mounted) return;
+                          if (!stableContext.mounted) return;
                           if (game.gameDay > 0) {
                             showDialog<bool>(
-                              context: capturedContext,
+                              context: stableContext,
                               builder: (ctx) => _GlassDialog(
                                 maxWidth: 420,
                                 title: const Text('Abandon current game?'),
@@ -1739,9 +1736,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                                 ],
                               ),
                             ).then((confirmed) {
-                              if (confirmed == true && capturedContext.mounted) {
+                              if (confirmed == true && stableContext.mounted) {
                                 _showNewGameDialog(
-                                  capturedContext,
+                                  stableContext,
                                   game,
                                   currency,
                                   onCurrency,
@@ -1751,7 +1748,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
                             });
                           } else {
                             _showNewGameDialog(
-                              capturedContext,
+                              stableContext,
                               game,
                               currency,
                               onCurrency,
