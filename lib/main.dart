@@ -1409,7 +1409,7 @@ String _panelLabel(_Panel panel) => switch (panel) {
   _Panel.hubs => 'Hubs',
 };
 
-class _AirlineBadge extends StatelessWidget {
+class _AirlineBadge extends StatefulWidget {
   const _AirlineBadge({
     required this.game,
     required this.currency,
@@ -1424,24 +1424,105 @@ class _AirlineBadge extends StatelessWidget {
   final VoidCallback onGameStart;
 
   @override
+  State<_AirlineBadge> createState() => _AirlineBadgeState();
+}
+
+class _AirlineBadgeState extends State<_AirlineBadge>
+    with SingleTickerProviderStateMixin {
+  final LayerLink _link = LayerLink();
+  OverlayEntry? _overlay;
+  bool _isOpen = false;
+  late final AnimationController _animCtrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  Future<void> _closeMenu() async {
+    if (!_isOpen) return;
+    await _animCtrl.reverse();
+    _removeOverlay();
+    if (mounted) setState(() => _isOpen = false);
+  }
+
+  void _openMenu() {
+    if (_isOpen) return;
+    setState(() => _isOpen = true);
+    _overlay = OverlayEntry(builder: (ctx) {
+      // Capture stable context for dialogs before overlay is built
+      final stableCtx = context;
+      return Stack(
+        children: [
+          // Invisible full-screen tap-to-dismiss layer
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _closeMenu,
+            ),
+          ),
+          // Animated dropdown positioned below the badge
+          CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 8),
+            child: FadeTransition(
+              opacity: _fade,
+              child: SlideTransition(
+                position: _slide,
+                child: _AirlineProfileDropdown(
+                  game: widget.game,
+                  currency: widget.currency,
+                  onCurrency: widget.onCurrency,
+                  onGameStart: widget.onGameStart,
+                  stableContext: stableCtx,
+                  onClose: _closeMenu,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+    Overlay.of(context).insert(_overlay!);
+    _animCtrl.forward(from: 0);
+  }
+
+  void _toggleMenu() => _isOpen ? _closeMenu() : _openMenu();
+
+  @override
   Widget build(BuildContext context) {
     final muted = _mutedText(context);
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 8),
-      menuChildren: [
-        _AirlineProfileDropdown(
-          game: game,
-          currency: currency,
-          onCurrency: onCurrency,
-          onGameStart: onGameStart,
-          stableContext: context,
-        ),
-      ],
-      builder: (context, controller, child) => InkWell(
+    return CompositedTransformTarget(
+      link: _link,
+      child: InkWell(
         borderRadius: BorderRadius.circular(28),
-        onTap: () {
-          controller.isOpen ? controller.close() : controller.open();
-        },
+        onTap: _toggleMenu,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
@@ -1452,35 +1533,35 @@ class _AirlineBadge extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _AirlineLogo(logo: game.player.logoEmoji, size: 28),
+              _AirlineLogo(logo: widget.game.player.logoEmoji, size: 28),
               const SizedBox(width: 8),
-              if (compact)
+              if (widget.compact)
                 Text(
-                  money(game.player.cashUSD, currency),
+                  money(widget.game.player.cashUSD, widget.currency),
                   style: TextStyle(
-                    color: game.player.cashUSD >= 0
+                    color: widget.game.player.cashUSD >= 0
                         ? const Color(0xff25c96b)
                         : const Color(0xffff6b6b),
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),
                 ),
-              if (!compact)
+              if (!widget.compact)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      game.player.name,
+                      widget.game.player.name,
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      money(game.player.cashUSD, currency),
+                      money(widget.game.player.cashUSD, widget.currency),
                       style: TextStyle(
-                        color: game.player.cashUSD >= 0
+                        color: widget.game.player.cashUSD >= 0
                             ? const Color(0xff25c96b)
                             : const Color(0xffff6b6b),
                         fontWeight: FontWeight.w800,
@@ -1490,7 +1571,12 @@ class _AirlineBadge extends StatelessWidget {
                   ],
                 ),
               const SizedBox(width: 4),
-              Icon(Icons.expand_more, size: 18, color: muted),
+              AnimatedRotation(
+                turns: _isOpen ? 0.5 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                child: Icon(Icons.expand_more, size: 18, color: muted),
+              ),
             ],
           ),
         ),
@@ -1506,6 +1592,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
     required this.onCurrency,
     required this.onGameStart,
     required this.stableContext,
+    required this.onClose,
   });
 
   final GameController game;
@@ -1515,6 +1602,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
   // Context from _AirlineBadge — lives in the main tree, not the menu overlay,
   // so it stays mounted after closeMenu() removes the dropdown from the overlay.
   final BuildContext stableContext;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -1540,14 +1628,29 @@ class _AirlineProfileDropdown extends StatelessWidget {
         ? 0.0
         : player.totalPassengersAllTime / totalPassengers * 100;
     final width = math.min(430.0, MediaQuery.sizeOf(context).width - 24);
-    void closeMenu() => MenuController.maybeOf(context)?.close();
+    void closeMenu() => onClose();
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: width,
-        maxHeight: MediaQuery.sizeOf(context).height - 92,
-      ),
-      child: SingleChildScrollView(
+    return Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: width,
+          maxHeight: MediaQuery.sizeOf(context).height - 92,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: _chromeSurface(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _hairline(context)),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black54,
+                blurRadius: 28,
+                offset: Offset(0, 16),
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1595,74 +1698,92 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     ),
                   ],
                 ),
-                const Divider(height: 20),
-                _InfoRow('Cash', money(player.cashUSD, currency)),
-                if (player.totalDebt > 0)
-                  _InfoRow('Debt', money(player.totalDebt, currency)),
-                _InfoRow(
-                  'Reputation',
-                  '${player.reputationScore.toStringAsFixed(0)}/100',
-                ),
-                _InfoRow(
-                  'Market share',
-                  '${player.marketSharePercent.toStringAsFixed(1)}%',
-                ),
-                _InfoRow(
-                  'All-time share',
-                  '${allTimeShare.toStringAsFixed(1)}%',
-                ),
-                _InfoRow(
-                  'Passengers',
-                  _formatCount(player.totalPassengersAllTime),
-                ),
-                const Divider(height: 20),
-                _InfoRow('Fleet', '${fleet.length} aircraft'),
-                if (idleAircraft > 0)
-                  _InfoRow('Idle aircraft', idleAircraft.toString()),
-                if (maintenanceAircraft > 0)
-                  _InfoRow('In maintenance', maintenanceAircraft.toString()),
-                _InfoRow('Routes', '${routes.length} total'),
-                _InfoRow('Active routes', activeRoutes.toString()),
-                if (inactiveRoutes > 0)
-                  _InfoRow('Inactive routes', inactiveRoutes.toString()),
-                _InfoRow(
-                  'Hubs',
-                  player.hubIatas.isEmpty ? 'None' : player.hubIatas.join(', '),
-                ),
-                if (today != null) ...[
-                  const Divider(height: 20),
-                  const Text(
-                    "Today's P&L",
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                const SizedBox(height: 10),
+                _Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _InfoRow('Cash', money(player.cashUSD, currency)),
+                      if (player.totalDebt > 0)
+                        _InfoRow('Debt', money(player.totalDebt, currency)),
+                      _InfoRow(
+                        'Reputation',
+                        '${player.reputationScore.toStringAsFixed(0)}/100',
+                      ),
+                      _InfoRow(
+                        'Market share',
+                        '${player.marketSharePercent.toStringAsFixed(1)}%',
+                      ),
+                      _InfoRow(
+                        'All-time share',
+                        '${allTimeShare.toStringAsFixed(1)}%',
+                      ),
+                      _InfoRow(
+                        'Passengers',
+                        _formatCount(player.totalPassengersAllTime),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  _InfoRow('Revenue', money(today.revenue, currency)),
-                  _InfoRow('Costs', money(today.costs, currency)),
-                  _InfoRow('Profit', money(today.profit, currency)),
-                  _InfoRow('Passengers', _formatCount(today.passengers)),
-                ],
-                const Divider(height: 20),
-                DropdownButtonFormField<CurrencyOption>(
-                  initialValue: currency,
-                  decoration: const InputDecoration(
-                    labelText: 'Display currency',
-                    isDense: true,
+                ),
+                _Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _InfoRow('Fleet', '${fleet.length} aircraft'),
+                      if (idleAircraft > 0)
+                        _InfoRow('Idle aircraft', idleAircraft.toString()),
+                      if (maintenanceAircraft > 0)
+                        _InfoRow('In maintenance', maintenanceAircraft.toString()),
+                      _InfoRow('Routes', '${routes.length} total'),
+                      _InfoRow('Active routes', activeRoutes.toString()),
+                      if (inactiveRoutes > 0)
+                        _InfoRow('Inactive routes', inactiveRoutes.toString()),
+                      _InfoRow(
+                        'Hubs',
+                        player.hubIatas.isEmpty ? 'None' : player.hubIatas.join(', '),
+                      ),
+                    ],
                   ),
-                  items: currencyOptions
-                      .map(
-                        (option) => DropdownMenuItem(
-                          value: option,
-                          child: Text('${option.code} · ${option.symbol}'),
+                ),
+                if (today != null)
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Today's P&L",
+                          style: TextStyle(fontWeight: FontWeight.w900),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    onCurrency(value);
-                    closeMenu();
-                  },
+                        const SizedBox(height: 8),
+                        _InfoRow('Revenue', money(today.revenue, currency)),
+                        _InfoRow('Costs', money(today.costs, currency)),
+                        _InfoRow('Profit', money(today.profit, currency)),
+                        _InfoRow('Passengers', _formatCount(today.passengers)),
+                      ],
+                    ),
+                  ),
+                _Card(
+                  child: DropdownButtonFormField<CurrencyOption>(
+                    initialValue: currency,
+                    decoration: const InputDecoration(
+                      labelText: 'Display currency',
+                      isDense: true,
+                    ),
+                    items: currencyOptions
+                        .map(
+                          (option) => DropdownMenuItem(
+                            value: option,
+                            child: Text('${option.code} · ${option.symbol}'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      onCurrency(value);
+                      closeMenu();
+                    },
+                  ),
                 ),
-                const SizedBox(height: 12),
                 // ── Primary actions (full-width pair) ────────────────────
                 Row(
                   children: [
@@ -1799,6 +1920,8 @@ class _AirlineProfileDropdown extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
     );
   }
 }
@@ -7742,6 +7865,7 @@ class _FinanceView extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
         _Card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -12909,7 +13033,7 @@ class _AppBtnState extends State<_AppBtn> {
               border: border,
               boxShadow: _pressed ? const [] : shadows,
             ),
-            child: Center(widthFactor: 1, child: content),
+            child: Center(child: content),
           ),
         ),
       ),
