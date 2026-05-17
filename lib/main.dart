@@ -1542,30 +1542,15 @@ class _AirlineProfileDropdown extends StatelessWidget {
     final width = math.min(430.0, MediaQuery.sizeOf(context).width - 24);
     void closeMenu() => MenuController.maybeOf(context)?.close();
 
-    return Material(
-      color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: width,
-          maxHeight: MediaQuery.sizeOf(context).height - 92,
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: _chromeSurface(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _hairline(context)),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 28,
-                offset: Offset(0, 16),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: width,
+        maxHeight: MediaQuery.sizeOf(context).height - 92,
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -1814,8 +1799,6 @@ class _AirlineProfileDropdown extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
     );
   }
 }
