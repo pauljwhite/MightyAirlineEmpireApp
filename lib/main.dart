@@ -52,7 +52,6 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   final _navigatorKey = GlobalKey<NavigatorState>();
   Timer? _gameLoop;
   DateTime? _lastTickAt;
-  var _initialNewGameDialogShown = false;
   var _autoSaveChecked = false;
   var currency = currencyOptions.first;
   Airport? selectedAirport;
@@ -96,32 +95,21 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
             currency = restoredCurrency;
             _autoSaveChecked = true;
           });
-          _initialNewGameDialogShown = true;
           return;
         } catch (_) {
           // Corrupt save — fall through to show new-game dialog
         }
       }
-      // No save or corrupt save: mark checked so build() can open the dialog
+      // No save or corrupt save: show splash screen
       setState(() => _autoSaveChecked = true);
     });
   }
 
-  void _scheduleInitialNewGameDialog() {
-    if (_initialNewGameDialogShown || game.hasStarted) return;
-    _initialNewGameDialogShown = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || game.hasStarted) return;
-      final dialogContext = _navigatorKey.currentContext ?? context;
-      _showNewGameDialog(
-        dialogContext,
-        game,
-        currency,
-        (v) => setState(() => currency = v),
-        forceStart: true,
-        onGameStart: () => setState(() => selectedAirport = null),
-      );
-    });
+  Future<void> _resetToSplash() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('mighty_airline_autosave');
+    game.resetToPreStart();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -565,7 +553,6 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
       animation: game,
       builder: (context, _) {
         final lightMode = game.themeMode == ThemeModeSetting.light;
-        if (_autoSaveChecked) _scheduleInitialNewGameDialog();
         final theme = lightMode
             ? (_cachedLightTheme ??= _buildTheme(true))
             : (_cachedDarkTheme ??= _buildTheme(false));
@@ -635,6 +622,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                   () => mobileSearchOpen = !mobileSearchOpen,
                                 ),
                                 onGameStart: () => setState(() => selectedAirport = null),
+                                onReset: _resetToSplash,
                               ),
                             ),
                             Positioned(
@@ -734,28 +722,12 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                   ),
                 ),
                 )
-              : Scaffold(
-                  body: SafeArea(
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.flight_takeoff, size: 54),
-                          const SizedBox(height: 14),
-                          Text(
-                            'Mighty Airline Empire',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Set up your airline to begin.',
-                            style: TextStyle(color: Color(0xff9e9e9e)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+              : _SplashScreen(
+                  game: game,
+                  currency: currency,
+                  onCurrency: (v) => setState(() => currency = v),
+                  onGameStart: () => setState(() => selectedAirport = null),
+                  ready: _autoSaveChecked,
                 ),
         );
       },
@@ -985,6 +957,76 @@ class _OutcomeStat extends StatelessWidget {
   }
 }
 
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen({
+    required this.game,
+    required this.currency,
+    required this.onCurrency,
+    required this.onGameStart,
+    required this.ready,
+  });
+
+  final GameController game;
+  final CurrencyOption currency;
+  final ValueChanged<CurrencyOption> onCurrency;
+  final VoidCallback onGameStart;
+  /// False while the auto-save check is still in flight — hides buttons
+  /// to prevent interaction before we know whether a save exists.
+  final bool ready;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/icon.png', width: 100),
+            const SizedBox(height: 20),
+            const Text(
+              'Mighty Airline Empire',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            if (ready) ...[
+              const SizedBox(height: 32),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _AppBtn(
+                    variant: _BtnVariant.ghost,
+                    onPressed: () =>
+                        _showImportDialog(context, game, onCurrency),
+                    icon: const Icon(Icons.download),
+                    child: const Text('Import save'),
+                  ),
+                  const SizedBox(width: 12),
+                  _AppBtn(
+                    onPressed: () => _showNewGameDialog(
+                      context,
+                      game,
+                      currency,
+                      onCurrency,
+                      forceStart: true,
+                      onGameStart: onGameStart,
+                    ),
+                    icon: const Icon(Icons.add),
+                    child: const Text('Start new game'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.game,
@@ -998,6 +1040,7 @@ class _TopBar extends StatelessWidget {
     required this.onAirport,
     required this.onSearchToggle,
     required this.onGameStart,
+    required this.onReset,
   });
   final GameController game;
   final bool compact;
@@ -1012,6 +1055,7 @@ class _TopBar extends StatelessWidget {
   final ValueChanged<Airport> onAirport;
   final VoidCallback onSearchToggle;
   final VoidCallback onGameStart;
+  final VoidCallback onReset;
   @override
   Widget build(BuildContext context) {
     final search = _SearchBox(onAirport: onAirport);
@@ -1041,6 +1085,7 @@ class _TopBar extends StatelessWidget {
                   onCurrency: onCurrency,
                   compact: compact,
                   onGameStart: onGameStart,
+                  onReset: onReset,
                 ),
                 const SizedBox(width: 6),
                 _DateBadge(game: game, compact: compact),
@@ -1416,12 +1461,14 @@ class _AirlineBadge extends StatefulWidget {
     required this.onCurrency,
     required this.compact,
     required this.onGameStart,
+    required this.onReset,
   });
   final GameController game;
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
   final bool compact;
   final VoidCallback onGameStart;
+  final VoidCallback onReset;
 
   @override
   State<_AirlineBadge> createState() => _AirlineBadgeState();
@@ -1500,6 +1547,7 @@ class _AirlineBadgeState extends State<_AirlineBadge>
                   currency: widget.currency,
                   onCurrency: widget.onCurrency,
                   onGameStart: widget.onGameStart,
+                  onReset: widget.onReset,
                   stableContext: stableCtx,
                   onClose: _closeMenu,
                 ),
@@ -1591,6 +1639,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
     required this.currency,
     required this.onCurrency,
     required this.onGameStart,
+    required this.onReset,
     required this.stableContext,
     required this.onClose,
   });
@@ -1599,6 +1648,7 @@ class _AirlineProfileDropdown extends StatelessWidget {
   final CurrencyOption currency;
   final ValueChanged<CurrencyOption> onCurrency;
   final VoidCallback onGameStart;
+  final VoidCallback onReset;
   // Context from _AirlineBadge — lives in the main tree, not the menu overlay,
   // so it stays mounted after closeMenu() removes the dropdown from the overlay.
   final BuildContext stableContext;
@@ -1843,21 +1893,6 @@ class _AirlineProfileDropdown extends StatelessWidget {
                         onPressed: () {
                           closeMenu();
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (stableContext.mounted)
-                              _showImportDialog(stableContext, game, onCurrency);
-                          });
-                        },
-                        icon: const Icon(Icons.download),
-                        child: const Text('Import'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () {
-                          closeMenu();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (!stableContext.mounted) return;
                             if (game.gameDay > 0) {
                               showDialog<bool>(
@@ -1889,25 +1924,11 @@ class _AirlineProfileDropdown extends StatelessWidget {
                               ).then((confirmed) {
                                 if (confirmed == true &&
                                     stableContext.mounted) {
-                                  _showNewGameDialog(
-                                    stableContext,
-                                    game,
-                                    currency,
-                                    onCurrency,
-                                    cancellable: true,
-                                    onGameStart: onGameStart,
-                                  );
+                                  onReset();
                                 }
                               });
                             } else {
-                              _showNewGameDialog(
-                                stableContext,
-                                game,
-                                currency,
-                                onCurrency,
-                                cancellable: true,
-                                onGameStart: onGameStart,
-                              );
+                              onReset();
                             }
                           });
                         },
