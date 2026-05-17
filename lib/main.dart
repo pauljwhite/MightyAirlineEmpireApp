@@ -958,6 +958,140 @@ class _OutcomeStat extends StatelessWidget {
   }
 }
 
+// ── Splash screen plane ticker data ──────────────────────────────────────────
+const _splashAmericanPlanes = <String>[
+  'assets/planes/B707-320.png',
+  'assets/planes/B727-200.png',
+  'assets/planes/B737-800.png',
+  'assets/planes/B737Max8.png',
+  'assets/planes/B747-400.png',
+  'assets/planes/B747-8i.png',
+  'assets/planes/B757-200.png',
+  'assets/planes/B767-300er.png',
+  'assets/planes/B777-200er.png',
+  'assets/planes/B787-9.png',
+  'assets/planes/B777-9.png',
+];
+
+const _splashTupolevPlanes = <String>[
+  'assets/planes/Tu104.png',
+  'assets/planes/Tu124.png',
+  'assets/planes/Tu134.png',
+  'assets/planes/Tu144.png',
+  'assets/planes/Tu154.png',
+  'assets/planes/Tu204.png',
+  'assets/planes/Tu214.png',
+];
+
+const _splashIlyushinPlanes = <String>[
+  'assets/planes/IL18.png',
+  'assets/planes/IL62.png',
+  'assets/planes/IL86.png',
+  'assets/planes/IL96.png',
+  'assets/planes/Yak40.png',
+  'assets/planes/Yak42.png',
+  'assets/planes/An24.png',
+];
+
+class _SplashPlaneTicker extends StatefulWidget {
+  const _SplashPlaneTicker({
+    required this.planes,
+    required this.direction,
+    required this.duration,
+  });
+  final List<String> planes;
+  /// -1 = scroll left, 1 = scroll right.
+  final int direction;
+  final Duration duration;
+
+  @override
+  State<_SplashPlaneTicker> createState() => _SplashPlaneTickerState();
+}
+
+class _SplashPlaneTickerState extends State<_SplashPlaneTicker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  static const _cardW = 160.0;
+  static const _cardH = 90.0;
+  static const _gap = 10.0;
+
+  double get _singleW => widget.planes.length * (_cardW + _gap);
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: SizedBox(
+        height: _cardH,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, _) {
+            final t = _ctrl.value;
+            // Left: slides from 0 → -_singleW; right: -_singleW → 0
+            final dx = widget.direction < 0
+                ? -(t * _singleW)
+                : -(1.0 - t) * _singleW;
+            return OverflowBox(
+              maxWidth: double.infinity,
+              alignment: Alignment.centerLeft,
+              child: Transform.translate(
+                offset: Offset(dx, 0),
+                child: Row(
+                  children: [
+                    // Duplicate list so the loop is seamless
+                    for (final path in [...widget.planes, ...widget.planes])
+                      Padding(
+                        padding: const EdgeInsets.only(right: _gap),
+                        child: _SplashPlaneCard(path: path),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SplashPlaneCard extends StatelessWidget {
+  const _SplashPlaneCard({required this.path});
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      height: 90,
+      decoration: BoxDecoration(
+        color: const Color(0x18ffffff),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x22ffffff)),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Image.asset(
+        path,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen({
     required this.game,
@@ -979,55 +1113,74 @@ class _SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SvgPicture.asset(
-              'assets/map_planes/widebody.svg',
-              width: 100,
-              height: 100,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── Plane tickers ───────────────────────────────────────────────
+          const _SplashPlaneTicker(
+            planes: _splashAmericanPlanes,
+            direction: -1,
+            duration: Duration(seconds: 28),
+          ),
+          const SizedBox(height: 10),
+          const _SplashPlaneTicker(
+            planes: _splashTupolevPlanes,
+            direction: 1,
+            duration: Duration(seconds: 32),
+          ),
+          const SizedBox(height: 10),
+          const _SplashPlaneTicker(
+            planes: _splashIlyushinPlanes,
+            direction: -1,
+            duration: Duration(seconds: 25),
+          ),
+          // ── Logo + title + buttons ──────────────────────────────────────
+          const SizedBox(height: 44),
+          SvgPicture.asset(
+            'assets/map_planes/widebody.svg',
+            width: 100,
+            height: 100,
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Mighty Airline Empire',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Mighty Airline Empire',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
+          ),
+          if (ready) ...[
+            const SizedBox(height: 32),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AppBtn(
+                  variant: _BtnVariant.ghost,
+                  onPressed: () =>
+                      _showImportDialog(context, game, onCurrency),
+                  icon: const Icon(Icons.download),
+                  child: const Text('Import save'),
+                ),
+                const SizedBox(width: 12),
+                _AppBtn(
+                  onPressed: () => _showNewGameDialog(
+                    context,
+                    game,
+                    currency,
+                    onCurrency,
+                    forceStart: true,
+                    onGameStart: onGameStart,
+                  ),
+                  icon: const Icon(Icons.add),
+                  child: const Text('Start new game'),
+                ),
+              ],
             ),
-            if (ready) ...[
-              const SizedBox(height: 32),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _AppBtn(
-                    variant: _BtnVariant.ghost,
-                    onPressed: () =>
-                        _showImportDialog(context, game, onCurrency),
-                    icon: const Icon(Icons.download),
-                    child: const Text('Import save'),
-                  ),
-                  const SizedBox(width: 12),
-                  _AppBtn(
-                    onPressed: () => _showNewGameDialog(
-                      context,
-                      game,
-                      currency,
-                      onCurrency,
-                      forceStart: true,
-                      onGameStart: onGameStart,
-                    ),
-                    icon: const Icon(Icons.add),
-                    child: const Text('Start new game'),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
