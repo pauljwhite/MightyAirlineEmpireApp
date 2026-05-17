@@ -973,24 +973,33 @@ const _splashAmericanPlanes = <String>[
   'assets/planes/B777-9.png',
 ];
 
-const _splashTupolevPlanes = <String>[
+const _splashRussianPlanes = <String>[
   'assets/planes/Tu104.png',
-  'assets/planes/Tu124.png',
   'assets/planes/Tu134.png',
   'assets/planes/Tu144.png',
   'assets/planes/Tu154.png',
-  'assets/planes/Tu204.png',
   'assets/planes/Tu214.png',
-];
-
-const _splashIlyushinPlanes = <String>[
-  'assets/planes/IL18.png',
   'assets/planes/IL62.png',
   'assets/planes/IL86.png',
   'assets/planes/IL96.png',
   'assets/planes/Yak40.png',
   'assets/planes/Yak42.png',
   'assets/planes/An24.png',
+];
+
+const _splashEuropeanPlanes = <String>[
+  'assets/planes/Concorde.png',
+  'assets/planes/A220-300.png',
+  'assets/planes/A319neo.png',
+  'assets/planes/A320neo.png',
+  'assets/planes/A321xlr.png',
+  'assets/planes/A330-900neo.png',
+  'assets/planes/A340-600.png',
+  'assets/planes/A350-900.png',
+  'assets/planes/A380-800.png',
+  'assets/planes/ATR72-600.png',
+  'assets/planes/BAe146-200.png',
+  'assets/planes/AvroRJ100.png',
 ];
 
 class _SplashPlaneTicker extends StatefulWidget {
@@ -1125,23 +1134,29 @@ class _SplashScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const _SplashPlaneTicker(
-            planes: _splashTupolevPlanes,
+            planes: _splashRussianPlanes,
             direction: 1,
             duration: Duration(seconds: 32),
           ),
           const SizedBox(height: 10),
           const _SplashPlaneTicker(
-            planes: _splashIlyushinPlanes,
+            planes: _splashEuropeanPlanes,
             direction: -1,
             duration: Duration(seconds: 25),
           ),
           // ── Logo + title + buttons ──────────────────────────────────────
           const SizedBox(height: 44),
-          SvgPicture.asset(
-            'assets/map_planes/widebody.svg',
-            width: 100,
-            height: 100,
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Transform.scale(
+              scale: 1.12,
+              child: Image.asset(
+                'assets/icon.png',
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
           const SizedBox(height: 20),
           const Text(
