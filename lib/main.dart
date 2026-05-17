@@ -2571,7 +2571,6 @@ void _showNewGameDialog(
     Difficulty.hard: 15000000.0,
   };
   var activeSection = 0;
-  var importing = false;
 
   showDialog<void>(
     context: context,
@@ -3074,33 +3073,6 @@ void _showNewGameDialog(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
-              _AppBtn(
-                variant: _BtnVariant.ghost,
-                onPressed: importing
-                    ? null
-                    : () async {
-                        setState(() => importing = true);
-                        try {
-                          final rawJson = await _openProgressFile();
-                          if (rawJson == null) return;
-                          _applyImportedJson(game, rawJson, onCurrency);
-                          onGameStart?.call();
-                          if (context.mounted) Navigator.pop(context);
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Could not load that save file.'),
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (context.mounted) setState(() => importing = false);
-                        }
-                      },
-                icon: const Icon(Icons.folder_open),
-                child: Text(importing ? 'Loading...' : 'Import save'),
-              ),
               _AppBtn(
                 onPressed: activeSection < 2 ? null : () {
                   final name = nameController.text.trim();
