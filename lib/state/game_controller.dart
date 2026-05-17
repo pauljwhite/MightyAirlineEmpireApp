@@ -2857,17 +2857,51 @@ class GameController extends ChangeNotifier {
             dest == null) {
           continue;
         }
+
+        // Compute a hard cost-based price ceiling so prices cannot compound
+        // indefinitely day-over-day. Ceiling = costPerSeat × 2.2 × personality
+        // multiplier (e.g. aggressive ≈ 2×, premium ≈ 2.7×).
+        final flightCosts = computeFlightCost(
+          route,
+          ac,
+          type,
+          origin,
+          dest,
+          globalFuelPrice,
+          currentGameDay: gameDay,
+        );
+        final totalSeats = type.seatsEconomy + type.seatsBusiness;
+        final costPerSeat =
+            totalSeats > 0 ? flightCosts.totalCost / totalSeats : 200.0;
+        final priceMultiplier = _aiPriceMultiplier(airline.personality);
+        final maxEco =
+            math.max(50, (costPerSeat * 2.2 * priceMultiplier).round());
+        final maxBiz =
+            type.seatsBusiness > 0 ? (maxEco * 4.0).round() : 0;
+
+        // Clamp the base prices down to the ceiling before sweeping — this
+        // immediately corrects routes that drifted above it in old saves.
+        final baseEco = route.priceEconomy.clamp(50, maxEco);
+        final baseBiz = type.seatsBusiness > 0
+            ? route.priceBusiness.clamp(0, maxBiz)
+            : 0;
+
         final allRoutes = routes.values.toList(growable: false);
         final allAirlines = airlines.values.toList(growable: false);
-        // 8-step sweep: 0.84x to 1.20x of current price
+        // 8-step sweep: 0.84× to 1.20× of current price, clamped to ceiling.
         const steps = [0.84, 0.90, 0.96, 1.00, 1.04, 1.08, 1.14, 1.20];
         var bestProfit = -double.infinity;
-        var bestEco = route.priceEconomy;
-        var bestBiz = route.priceBusiness;
+        var bestEco = baseEco;
+        var bestBiz = baseBiz;
         for (final mult in steps) {
+          final trialEco =
+              (baseEco * mult).round().clamp(50, maxEco);
+          final trialBiz = type.seatsBusiness > 0
+              ? (baseBiz * mult).round().clamp(0, maxBiz)
+              : 0;
           final trialRoute = route.copyWith(
-            priceEconomy: (route.priceEconomy * mult).round(),
-            priceBusiness: (route.priceBusiness * mult).round(),
+            priceEconomy: trialEco,
+            priceBusiness: trialBiz,
           );
           final result = calculateRouteEconomics(
             route: trialRoute,
@@ -2884,13 +2918,14 @@ class GameController extends ChangeNotifier {
           );
           if (result.profit > bestProfit) {
             bestProfit = result.profit;
-            bestEco = trialRoute.priceEconomy;
-            bestBiz = trialRoute.priceBusiness;
+            bestEco = trialEco;
+            bestBiz = trialBiz;
           }
         }
-        // Only update if change exceeds 2.5%
-        final ecoChange = (bestEco - route.priceEconomy).abs() / route.priceEconomy;
-        if (ecoChange > 0.025) {
+        // Update if price changed meaningfully, or if we must clamp it down.
+        final ecoChange =
+            (bestEco - route.priceEconomy).abs() / route.priceEconomy;
+        if (ecoChange > 0.025 || route.priceEconomy > maxEco) {
           routes[routeId] = route.copyWith(
             priceEconomy: bestEco,
             priceBusiness: bestBiz,
