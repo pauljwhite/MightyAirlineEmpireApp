@@ -53,6 +53,59 @@ class NetworkOptimisationPreview {
   bool get hasChanges => optimisableCount > 0;
 }
 
+/// Single-pass aggregated finance figures for the player. Cached on the
+/// controller and rebuilt only when state changes (i.e. on the next
+/// `notifyListeners()`).
+class PlayerFinanceSnapshot {
+  const PlayerFinanceSnapshot({
+    required this.totalDailyRevenue,
+    required this.totalDailyCost,
+    required this.fuelCost,
+    required this.maintenanceCost,
+    required this.crewCost,
+    required this.airportFees,
+    required this.profitableRoutes,
+    required this.losingRoutes,
+    required this.activeRouteCount,
+    required this.averageLoadFactor,
+    required this.averageCondition,
+    required this.groundedAircraft,
+    required this.topRoutesByProfit,
+    required this.shareholdingsValue,
+    required this.projectedDividends,
+    required this.dividendSources,
+  });
+
+  final double totalDailyRevenue;
+  final double totalDailyCost;
+  final double fuelCost;
+  final double maintenanceCost;
+  final double crewCost;
+  final double airportFees;
+  final int profitableRoutes;
+  final int losingRoutes;
+  final int activeRouteCount;
+  final double averageLoadFactor;
+  final double averageCondition;
+  final int groundedAircraft;
+  final List<RoutePlan> topRoutesByProfit;
+  final double shareholdingsValue;
+  final double projectedDividends;
+  final List<PlayerDividendSource> dividendSources;
+}
+
+class PlayerDividendSource {
+  const PlayerDividendSource({
+    required this.airline,
+    required this.stake,
+    required this.dividend,
+  });
+
+  final Airline airline;
+  final double stake;
+  final double dividend;
+}
+
 class _AiSeed {
   const _AiSeed(
     this.name,
@@ -2104,10 +2157,107 @@ class GameController extends ChangeNotifier {
 
   final Map<String, RouteOptimisationResult?> _routeOptCache = {};
   NetworkOptimisationPreview? _networkOptCache;
+  PlayerFinanceSnapshot? _playerFinanceSnapshot;
 
   void _invalidateOptimisationCaches() {
     _routeOptCache.clear();
     _networkOptCache = null;
+    _playerFinanceSnapshot = null;
+  }
+
+  /// Aggregated finance figures for the player, computed in one pass and
+  /// cached until the next `notifyListeners()` call. The Finance tab used
+  /// to crash at 35+ routes because its `build()` did ~10 separate
+  /// `.where()` / `.fold()` traversals plus a full sort over `playerRoutes`
+  /// every frame.
+  PlayerFinanceSnapshot get playerFinanceSnapshot =>
+      _playerFinanceSnapshot ??= _computePlayerFinanceSnapshot();
+
+  PlayerFinanceSnapshot _computePlayerFinanceSnapshot() {
+    final routes = playerRoutes;
+    final fleet = playerFleet;
+
+    var totalDailyRevenue = 0.0;
+    var totalDailyCost = 0.0;
+    var fuelCost = 0.0;
+    var maintenanceCost = 0.0;
+    var crewCost = 0.0;
+    var airportFees = 0.0;
+    var profitableRoutes = 0;
+    var losingRoutes = 0;
+    var activeRouteCount = 0;
+    var loadFactorSum = 0.0;
+    for (final route in routes) {
+      totalDailyRevenue += route.dailyRevenue;
+      totalDailyCost += route.dailyCost;
+      fuelCost += route.dailyFuelCost;
+      maintenanceCost += route.dailyMaintenanceCost;
+      crewCost += route.dailyCrewCost;
+      airportFees += route.dailyAirportFees;
+      if (route.isActive) {
+        activeRouteCount += 1;
+        loadFactorSum += route.loadFactorEconomy;
+        if (route.dailyProfit > 0) profitableRoutes += 1;
+        else if (route.dailyProfit < 0) losingRoutes += 1;
+      }
+    }
+    final averageLoadFactor =
+        activeRouteCount == 0 ? 0.0 : loadFactorSum / activeRouteCount;
+
+    var conditionSum = 0.0;
+    var grounded = 0;
+    for (final ac in fleet) {
+      conditionSum += ac.condition;
+      if (ac.status == AircraftStatus.maintenance ||
+          ac.status == AircraftStatus.crashed) {
+        grounded += 1;
+      }
+    }
+    final averageCondition = fleet.isEmpty ? 0.0 : conditionSum / fleet.length;
+
+    final topRoutesByProfit = [...routes]
+      ..sort((a, b) => b.dailyProfit.compareTo(a.dailyProfit));
+
+    // Shareholdings / dividends across competitors.
+    var shareholdingsValue = 0.0;
+    var projectedDividends = 0.0;
+    final dividendSources = <PlayerDividendSource>[];
+    for (final airline in competitors) {
+      final stake = playerStakeIn(airline.id);
+      if (stake > 0) {
+        shareholdingsValue += companyValue(airline.id) * stake / 100;
+        if (airline.lastDailyProfit > 0) {
+          projectedDividends += airline.lastDailyProfit * stake / 100;
+        }
+        dividendSources.add(
+          PlayerDividendSource(
+            airline: airline,
+            stake: stake,
+            dividend: math.max(0, airline.lastDailyProfit) * stake / 100,
+          ),
+        );
+      }
+    }
+    dividendSources.sort((a, b) => b.dividend.compareTo(a.dividend));
+
+    return PlayerFinanceSnapshot(
+      totalDailyRevenue: totalDailyRevenue,
+      totalDailyCost: totalDailyCost,
+      fuelCost: fuelCost,
+      maintenanceCost: maintenanceCost,
+      crewCost: crewCost,
+      airportFees: airportFees,
+      profitableRoutes: profitableRoutes,
+      losingRoutes: losingRoutes,
+      activeRouteCount: activeRouteCount,
+      averageLoadFactor: averageLoadFactor,
+      averageCondition: averageCondition,
+      groundedAircraft: grounded,
+      topRoutesByProfit: topRoutesByProfit,
+      shareholdingsValue: shareholdingsValue,
+      projectedDividends: projectedDividends,
+      dividendSources: dividendSources,
+    );
   }
 
   RouteOptimisationResult? previewRouteOptimisationCached(String routeId) {

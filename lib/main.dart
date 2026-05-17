@@ -7955,8 +7955,6 @@ class _FinanceView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = game.player;
-    final routes = game.playerRoutes;
-    final fleet = game.playerFleet;
     final last = player.dailyStats.lastOrNull;
     final lastProfit = last?.profit ?? player.lastDailyProfit;
     final revenue30 = player.dailyStats.fold<double>(
@@ -7981,94 +7979,39 @@ class _FinanceView extends StatelessWidget {
     final companyValue = game.companyValue(player.id);
     final creditLimit = game.playerLoanCreditLimit();
     final creditRemaining = math.max(0, creditLimit - player.totalDebt);
-    final activeRoutes = routes.where((route) => route.isActive).toList();
-    final profitableRoutes = activeRoutes
-        .where((route) => route.dailyProfit > 0)
-        .length;
-    final losingRoutes = activeRoutes
-        .where((route) => route.dailyProfit < 0)
-        .length;
-    final averageLoadFactor = activeRoutes.isEmpty
-        ? 0.0
-        : activeRoutes.fold<double>(
-                0,
-                (sum, route) => sum + route.loadFactorEconomy,
-              ) /
-              activeRoutes.length;
-    final averageCondition = fleet.isEmpty
-        ? 0.0
-        : fleet.fold<double>(0, (sum, ac) => sum + ac.condition) / fleet.length;
-    final groundedAircraft = fleet
-        .where(
-          (ac) =>
-              ac.status == AircraftStatus.maintenance ||
-              ac.status == AircraftStatus.crashed,
-        )
-        .length;
+    // Single-pass snapshot — replaces ~10 separate folds + a sort that used to
+    // run on every Finance-tab build and crashed at 35+ routes.
+    final snapshot = game.playerFinanceSnapshot;
+    final profitableRoutes = snapshot.profitableRoutes;
+    final losingRoutes = snapshot.losingRoutes;
+    final averageLoadFactor = snapshot.averageLoadFactor;
+    final averageCondition = snapshot.averageCondition;
+    final groundedAircraft = snapshot.groundedAircraft;
     final dailyPassengers = last?.passengers ?? 0;
-    final totalDailyRevenue = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyRevenue,
-    );
-    final totalDailyCost = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyCost,
-    );
-    final exactFuelCost = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyFuelCost,
-    );
-    final exactMaintenanceCost = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyMaintenanceCost,
-    );
-    final exactCrewCost = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyCrewCost,
-    );
-    final exactAirportFees = routes.fold<double>(
-      0,
-      (sum, route) => sum + route.dailyAirportFees,
-    );
-    final exactCostTotal =
-        exactFuelCost + exactMaintenanceCost + exactCrewCost + exactAirportFees;
-    final fuelCost = exactCostTotal > 0 ? exactFuelCost : totalDailyCost * 0.35;
+    final totalDailyRevenue = snapshot.totalDailyRevenue;
+    final totalDailyCost = snapshot.totalDailyCost;
+    final exactCostTotal = snapshot.fuelCost +
+        snapshot.maintenanceCost +
+        snapshot.crewCost +
+        snapshot.airportFees;
+    // Same fallback as before: prefer the exact per-component figures if the
+    // route engine has populated them, otherwise pro-rate the total cost.
+    final fuelCost = exactCostTotal > 0
+        ? snapshot.fuelCost
+        : totalDailyCost * 0.35;
     final maintenanceCost = exactCostTotal > 0
-        ? exactMaintenanceCost
+        ? snapshot.maintenanceCost
         : totalDailyCost * 0.25;
-    final crewCost = exactCostTotal > 0 ? exactCrewCost : totalDailyCost * 0.25;
+    final crewCost = exactCostTotal > 0
+        ? snapshot.crewCost
+        : totalDailyCost * 0.25;
     final airportFees = exactCostTotal > 0
-        ? exactAirportFees
+        ? snapshot.airportFees
         : totalDailyCost * 0.15;
-    final topRoutes = [...routes]
-      ..sort((a, b) => b.dailyProfit.compareTo(a.dailyProfit));
-    final shareholdingsValue = game.competitors.fold<double>(
-      0,
-      (sum, airline) =>
-          sum +
-          game.companyValue(airline.id) * game.playerStakeIn(airline.id) / 100,
-    );
-    final projectedDividends = game.competitors.fold<double>(0, (sum, airline) {
-      final stake = game.playerStakeIn(airline.id);
-      return stake <= 0 || airline.lastDailyProfit <= 0
-          ? sum
-          : sum + airline.lastDailyProfit * stake / 100;
-    });
-    final dividendSources =
-        game.competitors
-            .map(
-              (airline) => (
-                airline: airline,
-                stake: game.playerStakeIn(airline.id),
-                dividend:
-                    math.max(0, airline.lastDailyProfit) *
-                    game.playerStakeIn(airline.id) /
-                    100,
-              ),
-            )
-            .where((item) => item.stake > 0)
-            .toList()
-          ..sort((a, b) => b.dividend.compareTo(a.dividend));
+    final topRoutes = snapshot.topRoutesByProfit;
+    final shareholdingsValue = snapshot.shareholdingsValue;
+    final projectedDividends = snapshot.projectedDividends;
+    final dividendSources = snapshot.dividendSources;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -8253,12 +8196,12 @@ class _FinanceView extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
-              _InfoRow('Routes', '${activeRoutes.length} active'),
+              _InfoRow('Routes', '${snapshot.activeRouteCount} active'),
               _InfoRow(
                 'Route health',
                 '$profitableRoutes profitable · $losingRoutes losing',
               ),
-              _InfoRow('Fleet', '${fleet.length} aircraft'),
+              _InfoRow('Fleet', '${game.playerFleet.length} aircraft'),
               _InfoRow(
                 'Average condition',
                 '${averageCondition.toStringAsFixed(1)}%',
