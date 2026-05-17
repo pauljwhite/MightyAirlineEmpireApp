@@ -23,7 +23,7 @@ const optimiseAllCostPerRouteUSD = 2500000.0;
 const gameDayMs = 86400000;
 const _airportEventSampleSize = 220;
 const _eventScale = 0.6;
-const _maxAiAirlines = 16;
+const _maxAiAirlines = 25;
 const _aiSpawnIntervalDays = 15;
 const _aiCashStressThreshold = 15000000.0;
 const _aiCriticalCashThreshold = 5000000.0;
@@ -96,59 +96,187 @@ class _AirportEventDef {
   final Set<AirportSize> sizesAffected;
 }
 
-const _aiNamePrefixes = [
-  'Atlas',
-  'Nordic',
-  'Pacific',
-  'Horizon',
-  'Stellar',
-  'Astra',
-  'Pinnacle',
-  'Summit',
-  'Cardinal',
-  'Zenith',
-  'Liberty',
-  'Frontier',
-  'Pioneer',
-  'Vanguard',
-  'Polar',
-  'Tropic',
-  'Alpine',
-  'Sahara',
-  'Orient',
-  'Andean',
-  'Caspian',
-  'Baltic',
-  'Adriatic',
-  'Iberian',
-  'Boreal',
-  'Austral',
-  'Solar',
-  'Nova',
-  'Apex',
-  'Crown',
-  'Omega',
-  'Aegean',
-  'Amber',
-  'Azure',
-  'Borealis',
-  'Cascade',
-  'Equinox',
-  'Falcon',
-  'Indigo',
-  'Jade',
-  'Kestrel',
-  'Lodestar',
-  'Magellan',
-  'Nimbus',
-  'Orion',
-  'Pegasus',
-  'Quest',
-  'Solaris',
-  'Tasman',
-  'Venture',
-  'Windward',
-  'Zephyr',
+/// Country-specific name prefixes keyed by ISO 3166-1 alpha-2 code.
+const _aiCountryNamePrefixes = <String, List<String>>{
+  // ── Russia / CIS ─────────────────────────────────────────────────────────
+  'RU': [
+    'Siberia', 'Ural', 'Volga', 'Baikal', 'Taiga', 'Angara', 'Lena',
+    'Amur', 'Neva', 'Kavkaz', 'Vostok', 'Polyarny', 'Don', 'Ob',
+    'Yenisei', 'Sakhalin', 'Kolyma', 'Irtysh', 'Pechora', 'Severnaya',
+  ],
+  'UA': [
+    'Dnieper', 'Dnister', 'Carpathian', 'Steppe', 'Khortytsia', 'Poltava',
+  ],
+  'KZ': [
+    'Steppe', 'Altai', 'Syr', 'Balkhash', 'Aral', 'Caspian', 'Ural',
+    'Tengri', 'Ili', 'Irtysh',
+  ],
+  'UZ': [
+    'Silk', 'Samarkand', 'Ferghana', 'Amu', 'Zeravshan', 'Tashkent',
+  ],
+  'AZ': ['Caspian', 'Caucasus', 'Kura', 'Apsheron', 'Baku'],
+  'GE': ['Caucasus', 'Colchis', 'Rioni', 'Kartli', 'Tbilisi'],
+  // ── Africa – West ─────────────────────────────────────────────────────────
+  'NG': [
+    'Niger', 'Benue', 'Harmattan', 'Lagos', 'Savanna', 'Sahel', 'Volta',
+    'Ogun', 'Kaduna', 'Kano',
+  ],
+  'GH': ['Volta', 'Accra', 'Ashanti', 'Sahel', 'Harmattan', 'Savanna'],
+  'SN': ['Sahel', 'Dakar', 'Casamance', 'Gambia', 'Harmattan'],
+  'CI': ['Abidjan', 'Lagoon', 'Savanna', 'Ivory', 'Bandama'],
+  'CM': ['Wouri', 'Douala', 'Bight', 'Sanaga', 'Cameroon'],
+  // ── Africa – East ─────────────────────────────────────────────────────────
+  'KE': [
+    'Rift', 'Kilimanjaro', 'Serengeti', 'Nairobi', 'Tana', 'Turkana',
+    'Acacia', 'Masai', 'Lamu',
+  ],
+  'ET': [
+    'Addis', 'Abyssinia', 'Blue Nile', 'Rift', 'Awash', 'Simien',
+    'Harar', 'Lalibela',
+  ],
+  'TZ': ['Kilimanjaro', 'Serengeti', 'Zanzibar', 'Rufiji', 'Mara', 'Kagera'],
+  // ── Africa – North ────────────────────────────────────────────────────────
+  'EG': ['Nile', 'Pharaoh', 'Cairo', 'Delta', 'Sinai', 'Sahara', 'Luxor'],
+  'MA': ['Atlas', 'Sahara', 'Casablanca', 'Marrakech', 'Rif', 'Sous'],
+  'DZ': ['Algiers', 'Sahara', 'Kabylie', 'Ahaggar', 'Aurès', 'Mitidja'],
+  'TN': ['Carthage', 'Tunis', 'Sahara', 'Medjerda', 'Chott'],
+  // ── Africa – Southern ─────────────────────────────────────────────────────
+  'ZA': [
+    'Drakensberg', 'Cape', 'Highveld', 'Kalahari', 'Limpopo', 'Karoo',
+    'Lowveld', 'Bushveld',
+  ],
+  'ZM': ['Zambezi', 'Luangwa', 'Lusaka', 'Kafue', 'Victoria'],
+  // ── Middle East ───────────────────────────────────────────────────────────
+  'AE': ['Arabian', 'Gulf', 'Desert', 'Falcon', 'Oasis', 'Mirage', 'Dunes'],
+  'QA': ['Gulf', 'Doha', 'Arabian', 'Crescent', 'Falcon', 'Pearl'],
+  'SA': ['Arabian', 'Najd', 'Hejaz', 'Oasis', 'Falcon', 'Rub', 'Desert'],
+  'KW': ['Gulf', 'Arabian', 'Crescent', 'Kuwait', 'Falcon'],
+  'OM': ['Muscat', 'Arabian', 'Gulf', 'Dhofar', 'Frankincense', 'Hajar'],
+  'JO': ['Jordan', 'Petra', 'Aqaba', 'Desert', 'Levant', 'Wadi'],
+  'LB': ['Cedar', 'Levant', 'Beirut', 'Mediterranean', 'Phoenician'],
+  'IQ': ['Tigris', 'Euphrates', 'Mesopotamia', 'Babylon', 'Basra'],
+  // ── Turkey ────────────────────────────────────────────────────────────────
+  'TR': [
+    'Bosphorus', 'Anatolian', 'Marmara', 'Taurus', 'Aegean',
+    'Cappadocia', 'Ottoman', 'Pontic',
+  ],
+  // ── South Asia ────────────────────────────────────────────────────────────
+  'IN': [
+    'Indus', 'Ganges', 'Deccan', 'Himalayan', 'Monsoon', 'Lotus',
+    'Bengal', 'Malabar', 'Coromandel', 'Kaveri', 'Godavari',
+    'Thar', 'Vindhya', 'Western Ghats',
+  ],
+  'PK': [
+    'Karakoram', 'Indus', 'Punjab', 'Sindh', 'Khyber', 'Baloch',
+    'Hindukush',
+  ],
+  // ── East Asia ─────────────────────────────────────────────────────────────
+  'CN': [
+    'Dragon', 'Jade', 'Lotus', 'Pearl', 'Yangtze', 'Yellow River',
+    'Silk', 'Phoenix', 'Golden', 'Celestial', 'Orient', 'Ming',
+    'Sichuan', 'Yunnan',
+  ],
+  'JP': [
+    'Fuji', 'Sakura', 'Nippon', 'Yamato', 'Sunrise', 'Asahi',
+    'Tokai', 'Ryukyu',
+  ],
+  'KR': ['Hangang', 'Baekdu', 'Silla', 'Joseon', 'Sunrise', 'Golden Bell'],
+  // ── South-East Asia ───────────────────────────────────────────────────────
+  'TH': ['Chao Phraya', 'Mekong', 'Siam', 'Lotus', 'Golden', 'Andaman'],
+  'VN': ['Mekong', 'Red River', 'Saigon', 'Halong', 'Indochina', 'Bien'],
+  'MY': ['Borneo', 'Malacca', 'Monsoon', 'Kinabalu', 'Langkawi'],
+  'ID': ['Garuda', 'Java', 'Sumatra', 'Borneo', 'Bali', 'Sulawesi', 'Komodo'],
+  'PH': ['Pacific', 'Philippine', 'Luzon', 'Visayas', 'Mindanao', 'Coral'],
+  'SG': ['Singapore', 'Straits', 'Raffles', 'Maritime'],
+  // ── Oceania ───────────────────────────────────────────────────────────────
+  'AU': [
+    'Tasman', 'Outback', 'Reef', 'Southern Cross', 'Coral', 'Kimberley',
+    'Pilbara', 'Arnhem', 'Murray',
+  ],
+  'NZ': ['Tasman', 'Southern', 'Kiwi', 'Aotearoa', 'Marlborough', 'Fiordland'],
+  // ── Europe ────────────────────────────────────────────────────────────────
+  'DE': ['Rhine', 'Bavarian', 'Elbe', 'Weser', 'Danube', 'Hanseatic'],
+  'FR': ['Rhone', 'Provence', 'Breton', 'Alsace', 'Garonne', 'Loire'],
+  'GB': ['Britannia', 'Caledonian', 'Severn', 'Pennine', 'Albion', 'Celtic'],
+  'ES': ['Iberian', 'Andalusian', 'Cantabrian', 'Balearic', 'Ebro'],
+  'IT': ['Adriatic', 'Tyrrhenian', 'Alpine', 'Apennine', 'Venetian', 'Sicilian'],
+  'NL': ['Delta', 'Frisian', 'Polder', 'Rhine', 'Batavian'],
+  'SE': ['Nordic', 'Svealand', 'Norrland', 'Vasa', 'Viking', 'Midnight Sun'],
+  'NO': ['Nordic', 'Fjord', 'Viking', 'Midnight Sun', 'Boreal', 'Polar'],
+  'DK': ['Nordic', 'Viking', 'Baltic', 'Oresund', 'Jutland'],
+  'FI': ['Nordic', 'Boreal', 'Saimaa', 'Lapland', 'Aurora'],
+  'PL': ['Vistula', 'Mazovian', 'Silesian', 'Baltic', 'Tatra'],
+  'RO': ['Danube', 'Carpathian', 'Transylvania', 'Pontic', 'Moldavian'],
+  'BG': ['Danube', 'Balkan', 'Thracian', 'Black Sea', 'Rhodope'],
+  'RS': ['Danube', 'Balkan', 'Sava', 'Morava', 'Adriatic'],
+  'HU': ['Danube', 'Pannonian', 'Tisza', 'Carpathian', 'Balaton'],
+  'CZ': ['Bohemian', 'Moravian', 'Vltava', 'Sudeten', 'Elbe'],
+  'GR': ['Aegean', 'Olympian', 'Hellas', 'Ionian', 'Dodecanese', 'Peloponnese'],
+  'PT': ['Tagus', 'Atlantic', 'Lusitanian', 'Douro', 'Algarve'],
+  'CH': ['Alpine', 'Helvetic', 'Rhone', 'Rhine', 'Bernese'],
+  'AT': ['Alpine', 'Danubian', 'Vienna', 'Tyrolean', 'Styrian'],
+  // ── Latin America ─────────────────────────────────────────────────────────
+  'BR': [
+    'Amazon', 'Parana', 'Rio', 'Pantanal', 'Cerrado', 'Sertão',
+    'Atlantic', 'Iguazu',
+  ],
+  'MX': ['Aztec', 'Maya', 'Pacific', 'Gulf', 'Yucatan', 'Oaxacan', 'Sonoran'],
+  'CO': ['Andean', 'Amazon', 'Pacific', 'Llanos', 'Magdalena', 'Cauca'],
+  'PE': ['Andean', 'Amazon', 'Pacific', 'Inca', 'Titicaca', 'Ucayali'],
+  'CL': ['Andean', 'Patagonian', 'Atacama', 'Pacific', 'Austral', 'Araucanian'],
+  'AR': ['Patagonian', 'Pampas', 'Andean', 'Parana', 'Atlantic', 'Austral'],
+  'UY': ['Pampas', 'Uruguay', 'Atlantic', 'Platense', 'Banda Oriental'],
+  'BO': ['Altiplano', 'Andean', 'Amazon', 'Titicaca', 'Chaco', 'Chapare'],
+  // ── North America ─────────────────────────────────────────────────────────
+  'US': [
+    'Eagle', 'Falcon', 'Frontier', 'Pioneer', 'Liberty', 'Coastal',
+    'Mesa', 'Prairie', 'Continental', 'Summit', 'Cascade', 'Ozark',
+  ],
+  'CA': [
+    'Boreal', 'Arctic', 'Pacific', 'Prairie', 'Maritime', 'Laurentian',
+    'Yukon', 'Rockies', 'Maple',
+  ],
+};
+
+/// Region-level fallback prefixes when no country-specific pool exists.
+const _aiRegionNamePrefixes = <String, List<String>>{
+  'europe': [
+    'Nordic', 'Alpine', 'Iberian', 'Adriatic', 'Baltic', 'Boreal',
+    'Aegean', 'Amber', 'Danube', 'Rhine', 'Atlantic', 'Polar',
+    'Borealis', 'Continental', 'Horizon',
+  ],
+  'northAmerica': [
+    'Eagle', 'Falcon', 'Frontier', 'Pioneer', 'Liberty', 'Coastal',
+    'Continental', 'Summit', 'Cascade', 'Prairie', 'Mesa', 'Boreal',
+  ],
+  'latinAmerica': [
+    'Condor', 'Amazon', 'Andean', 'Parana', 'Inca', 'Maya', 'Aztec',
+    'Pampas', 'Llanos', 'Patagonian', 'Atlantic', 'Pacific',
+  ],
+  'asiaPacific': [
+    'Orient', 'Jade', 'Lotus', 'Monsoon', 'Pacific', 'Mekong',
+    'Typhoon', 'Bamboo', 'Silk', 'Pearl', 'Dragon', 'Golden',
+  ],
+  'middleEast': [
+    'Arabian', 'Gulf', 'Desert', 'Oasis', 'Crescent', 'Falcon',
+    'Mirage', 'Dunes', 'Levant',
+  ],
+  'africa': [
+    'Sahara', 'Nile', 'Congo', 'Kilimanjaro', 'Baobab', 'Savanna',
+    'Sahel', 'Kalahari', 'Rift', 'Harmattan', 'Victoria',
+  ],
+  'oceania': [
+    'Tasman', 'Southern', 'Coral', 'Outback', 'Reef', 'Pacific',
+    'Aotearoa',
+  ],
+};
+
+/// Global fallback prefixes for any region not covered above.
+const _aiGlobalNamePrefixes = [
+  'Atlas', 'Horizon', 'Stellar', 'Astra', 'Pinnacle', 'Summit', 'Cardinal',
+  'Zenith', 'Vanguard', 'Polar', 'Tropic', 'Austral', 'Solar', 'Nova',
+  'Apex', 'Omega', 'Azure', 'Equinox', 'Indigo', 'Lodestar', 'Magellan',
+  'Nimbus', 'Orion', 'Pegasus', 'Solaris', 'Venture', 'Zephyr', 'Windward',
 ];
 
 const _aiNameSuffixes = [
@@ -166,59 +294,40 @@ const _aiNameSuffixes = [
   'Sky',
   'Aero',
   'Fly',
+  'Regional',
+  'Charter',
 ];
 
 const _aiSpawnHubs = [
-  'JFK',
-  'LAX',
-  'LHR',
-  'CDG',
-  'FRA',
-  'AMS',
-  'NRT',
-  'HKG',
-  'SIN',
-  'DXB',
-  'SYD',
-  'GRU',
-  'MEX',
-  'JNB',
-  'BOM',
-  'PEK',
-  'ICN',
-  'BKK',
-  'KUL',
-  'IST',
-  'ATL',
-  'ORD',
-  'DFW',
-  'MIA',
-  'SFO',
-  'YYZ',
-  'MAD',
-  'BCN',
-  'FCO',
-  'MUC',
-  'ZRH',
-  'VIE',
-  'CPH',
-  'OSL',
-  'ARN',
-  'WAW',
-  'LIS',
-  'ATH',
-  'CAI',
-  'NBO',
-  'CPT',
-  'DEL',
-  'BLR',
-  'MNL',
-  'CGK',
-  'AKL',
-  'SCL',
-  'BOG',
-  'LIM',
-  'YVR',
+  // ── North America ────────────────────────────────────────────────────────
+  'JFK', 'LAX', 'ATL', 'ORD', 'DFW', 'MIA', 'SFO', 'YYZ', 'YVR',
+  // ── Europe – major ───────────────────────────────────────────────────────
+  'LHR', 'CDG', 'FRA', 'AMS', 'MAD', 'BCN', 'FCO', 'MUC', 'ZRH',
+  'VIE', 'CPH', 'OSL', 'ARN', 'WAW', 'LIS', 'ATH',
+  // ── Europe – regional ────────────────────────────────────────────────────
+  'OTP', 'SOF', 'BEG', 'BUD', 'PRG', 'KBP', 'RIX',
+  // ── Russia – major ───────────────────────────────────────────────────────
+  'SVO', 'DME', 'VKO', 'LED',
+  // ── Russia – regional (Ural, Siberia, Far East) ───────────────────────
+  'SVX', 'OVB', 'KJA', 'IKT', 'KHV', 'VVO', 'AER',
+  // ── Middle East ──────────────────────────────────────────────────────────
+  'DXB', 'DOH', 'IST', 'AMM', 'BEY', 'MCT', 'KWI',
+  // ── Africa – major ───────────────────────────────────────────────────────
+  'CAI', 'NBO', 'JNB', 'CPT', 'CMN', 'ADD',
+  // ── Africa – regional ────────────────────────────────────────────────────
+  'LOS', 'ACC', 'ABV', 'DKR', 'ALG', 'LUN', 'DAR', 'ABJ', 'DLA',
+  // ── South Asia ───────────────────────────────────────────────────────────
+  'BOM', 'DEL', 'BLR', 'HYD', 'MAA', 'CCU',
+  // ── Central Asia ─────────────────────────────────────────────────────────
+  'ALA', 'TAS', 'GYD',
+  // ── East Asia ────────────────────────────────────────────────────────────
+  'PEK', 'HKG', 'NRT', 'ICN',
+  // ── South-East Asia ──────────────────────────────────────────────────────
+  'BKK', 'SIN', 'KUL', 'MNL', 'CGK', 'SGN', 'HAN',
+  // ── Oceania ──────────────────────────────────────────────────────────────
+  'SYD', 'MEL', 'BNE', 'PER', 'AKL',
+  // ── Latin America ────────────────────────────────────────────────────────
+  'GRU', 'MEX', 'BOG', 'LIM', 'SCL', 'MVD', 'LPB',
 ];
 
 const _aiSpawnLogos = [
@@ -3254,7 +3363,7 @@ class GameController extends ChangeNotifier {
 
     final hub = airportByIata(availableHubs[rng.nextInt(availableHubs.length)]);
     if (hub == null) return;
-    final name = _generateSpawnedAirlineName(existingNames, rng);
+    final name = _generateSpawnedAirlineName(existingNames, rng, hub: hub);
     final prefix = name
         .split(' ')
         .where((part) => part.isNotEmpty)
@@ -3330,14 +3439,24 @@ class GameController extends ChangeNotifier {
 
   String _generateSpawnedAirlineName(
     Set<String> existingNames,
-    math.Random rng,
-  ) {
-    for (var i = 0; i < 30; i++) {
-      final candidate =
-          '${_aiNamePrefixes[rng.nextInt(_aiNamePrefixes.length)]} ${_aiNameSuffixes[rng.nextInt(_aiNameSuffixes.length)]}';
+    math.Random rng, {
+    Airport? hub,
+  }) {
+    // Build a prefix pool: country-specific first, then region fallback, then global.
+    final country = hub?.country;
+    final region = hub?.region.name; // e.g. 'europe', 'africa', etc.
+    final prefixes = [
+      if (country != null) ...?_aiCountryNamePrefixes[country],
+      if (region != null) ...?_aiRegionNamePrefixes[region],
+      ..._aiGlobalNamePrefixes,
+    ];
+    for (var i = 0; i < 50; i++) {
+      final prefix = prefixes[rng.nextInt(prefixes.length)];
+      final suffix = _aiNameSuffixes[rng.nextInt(_aiNameSuffixes.length)];
+      final candidate = '$prefix $suffix';
       if (!existingNames.contains(candidate)) return candidate;
     }
-    return 'New entrant ${_nextAirline + 1}';
+    return 'New Entrant ${_nextAirline + 1}';
   }
 
   /// Builds a mixed candidate pool for AI route expansion.
