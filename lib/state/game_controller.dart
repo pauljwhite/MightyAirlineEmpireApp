@@ -32,6 +32,12 @@ const _aiBuyoutIntervalDays = 90;
 const _aiDissolveIntervalDays = 30;
 const _aiDissolveThreshold = -50000000.0;
 const _aiShareSaleCashThreshold = 8000000.0;
+const _aiSharePurchaseIntervalDays = 45;
+/// Minimum cash an AI must hold above its expansion reserve before it
+/// considers buying minority stakes in rivals.
+const _aiSharePurchaseCashFloor = 40000000.0;
+/// Maximum combined stake an AI airline will hold in any single rival.
+const _aiSharePurchaseMaxStake = 20.0;
 
 class NetworkOptimisationPreview {
   const NetworkOptimisationPreview({
@@ -2969,6 +2975,77 @@ class GameController extends ChangeNotifier {
     }
     if (gameDay > 0 && gameDay % _aiDissolveIntervalDays == 0) {
       _dissolveHopelessAIAirlines();
+    }
+    if (gameDay > 0 && gameDay % _aiSharePurchaseIntervalDays == 0) {
+      _maybeRunAISharePurchases();
+    }
+  }
+
+  /// AI airlines with spare cash occasionally buy small minority stakes in
+  /// rivals. Aggressive and balanced personalities are most active; premium
+  /// and conservative participate rarely; budget airlines don't bother.
+  void _maybeRunAISharePurchases() {
+    final rng = math.Random(gameDay * 31337);
+    for (final buyer in competitors) {
+      if (buyer.isInsolvent) continue;
+      // Gate by personality — not all types are acquisitive.
+      final purchaseChance = switch (buyer.personality) {
+        AirlinePersonality.aggressive => 0.65,
+        AirlinePersonality.balanced => 0.40,
+        AirlinePersonality.premium => 0.20,
+        AirlinePersonality.conservative => 0.15,
+        AirlinePersonality.budget => 0.0,
+      };
+      if (rng.nextDouble() > purchaseChance) continue;
+      // Must have meaningful surplus above the cash floor.
+      if (buyer.cashUSD < _aiSharePurchaseCashFloor) continue;
+      // Pick a random solvent rival that isn't the buyer itself.
+      final candidates = competitors
+          .where(
+            (t) =>
+                t.id != buyer.id &&
+                !t.isInsolvent &&
+                // Don't double-down beyond the stake cap.
+                (t.shareholders[buyer.id] ?? 0) < _aiSharePurchaseMaxStake,
+          )
+          .toList(growable: false);
+      if (candidates.isEmpty) continue;
+      final target = candidates[rng.nextInt(candidates.length)];
+      // Buy a modest slug: 3–8 % chosen randomly, capped by remaining float
+      // and the per-airline stake ceiling.
+      final currentStake = target.shareholders[buyer.id] ?? 0.0;
+      final maxBuy = math.min(
+        8.0,
+        _aiSharePurchaseMaxStake - currentStake,
+      );
+      if (maxBuy < 3) continue;
+      final slug = (3 + rng.nextInt((maxBuy - 3 + 1).toInt())).toDouble();
+      // Check there is enough market float to absorb the purchase.
+      final totalIssued = target.shareholders.values.fold<double>(0, (s, v) => s + v);
+      final float = 100.0 - totalIssued;
+      if (float < slug) continue;
+      // Price it the same way the player market does.
+      final cost = calculateSharePrice(
+        percentToBuy: slug,
+        currentPlayerPercent: currentStake,
+        airline: target,
+        aircraft: aircraft,
+        routes: routes,
+        currentGameDay: gameDay,
+        fromSecondaryMarket: false,
+      );
+      if (buyer.cashUSD - cost < _aiSharePurchaseCashFloor) continue;
+      // Commit the transaction.
+      final nextShareholders = Map<String, double>.from(target.shareholders);
+      nextShareholders[buyer.id] = currentStake + slug;
+      airlines[buyer.id] = buyer.copyWith(cashUSD: buyer.cashUSD - cost);
+      airlines[target.id] = target.copyWith(
+        cashUSD: target.cashUSD + cost,
+        shareholders: nextShareholders,
+      );
+      pushNewsItem(
+        '${buyer.name} acquires ${slug.toStringAsFixed(0)}% stake in ${target.name}.',
+      );
     }
   }
 
