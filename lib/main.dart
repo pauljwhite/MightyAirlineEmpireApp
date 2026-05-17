@@ -3927,6 +3927,17 @@ class _WorldMapState extends State<_WorldMap> {
               );
             },
           ),
+          // 1. Airport dots — visual only, below route lines
+          IgnorePointer(
+            child: RepaintBoundary(
+              child: ValueListenableBuilder<int>(
+                valueListenable: widget.game.airportStateVersion,
+                builder: (context, _, _) =>
+                    MarkerLayer(markers: _airportVisualMarkers()),
+              ),
+            ),
+          ),
+          // 2. Route lines — drawn above airport dots
           MouseRegion(
             hitTestBehavior: HitTestBehavior.deferToChild,
             cursor: SystemMouseCursors.click,
@@ -3950,11 +3961,13 @@ class _WorldMapState extends State<_WorldMap> {
               ),
             ),
           ),
+          // 3. Invisible airport hit-targets — above route lines so taps
+          //    always reach the airport even where routes overlap the dot
           RepaintBoundary(
             child: ValueListenableBuilder<int>(
               valueListenable: widget.game.airportStateVersion,
               builder: (context, _, _) =>
-                  MarkerLayer(markers: _airportMarkers()),
+                  MarkerLayer(markers: _airportHitMarkers()),
             ),
           ),
           ValueListenableBuilder<int>(
@@ -4001,63 +4014,89 @@ class _WorldMapState extends State<_WorldMap> {
     return lines;
   }
 
-  List<Marker> _airportMarkers() => airports
-      .map((a) {
-        final airport = widget.game.airportByIata(a.iata) ?? a;
-        final closedUntil = airport.closedUntilGameDay;
-        final isClosed =
-            closedUntil != null && closedUntil >= widget.game.gameDay;
-        final selected = widget.selectedAirport?.iata == a.iata;
-        final playerHub = widget.game.player.hubIatas.contains(a.iata);
-        final aiHub = widget.game.competitors.any(
-          (airline) => airline.hubIatas.contains(a.iata),
-        );
-        final radius = switch (a.size) {
-          AirportSize.small => 2.2,
-          AirportSize.medium => 3.0,
-          AirportSize.large => 4.0,
-          AirportSize.major => 5.3,
-        };
-        final playerColor = _MapPainter._colorFromHex(
-          widget.game.player.color,
-        );
-        final color = selected
-            ? const Color(0xffffd166)
-            : isClosed
-            ? const Color(0xffff6b6b)
-            : playerHub
-            ? playerColor
-            : aiHub
-            ? const Color(0xff2dd4bf)
-            : const Color(0xff58a6ff);
+  // ── Shared airport metadata ────────────────────────────────────────────────
+  ({Color color, double dotSize, Airport airport}) _airportMeta(Airport a) {
+    final airport = widget.game.airportByIata(a.iata) ?? a;
+    final closedUntil = airport.closedUntilGameDay;
+    final isClosed =
+        closedUntil != null && closedUntil >= widget.game.gameDay;
+    final selected = widget.selectedAirport?.iata == a.iata;
+    final playerHub = widget.game.player.hubIatas.contains(a.iata);
+    final aiHub = widget.game.competitors.any(
+      (airline) => airline.hubIatas.contains(a.iata),
+    );
+    final radius = switch (a.size) {
+      AirportSize.small => 2.2,
+      AirportSize.medium => 3.0,
+      AirportSize.large => 4.0,
+      AirportSize.major => 5.3,
+    };
+    final playerColor = _MapPainter._colorFromHex(widget.game.player.color);
+    final color = selected
+        ? const Color(0xffffd166)
+        : isClosed
+        ? const Color(0xffff6b6b)
+        : playerHub
+        ? playerColor
+        : aiHub
+        ? const Color(0xff2dd4bf)
+        : const Color(0xff58a6ff);
+    return (
+      color: color,
+      dotSize: selected ? radius * 2 + 8 : radius * 2,
+      airport: airport,
+    );
+  }
 
-        final dotSize = selected ? radius * 2 + 8 : radius * 2;
-        return Marker(
-          point: LatLng(a.lat, a.lon),
-          width: 36,
-          height: 36,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onAirportSelected(airport),
-            child: Center(
-              child: Container(
-                width: dotSize,
-                height: dotSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                  border: isClosed
-                      ? Border.all(color: const Color(0xffffb3b3), width: 2)
-                      : selected || playerHub || aiHub
-                      ? Border.all(color: Colors.white70, width: 1.2)
-                      : null,
-                ),
-              ),
-            ),
+  // Visual-only dots — rendered BELOW route lines, not interactive.
+  List<Marker> _airportVisualMarkers() => airports.map((a) {
+    final meta = _airportMeta(a);
+    final airport = widget.game.airportByIata(a.iata) ?? a;
+    final closedUntil = airport.closedUntilGameDay;
+    final isClosed =
+        closedUntil != null && closedUntil >= widget.game.gameDay;
+    final selected = widget.selectedAirport?.iata == a.iata;
+    final playerHub = widget.game.player.hubIatas.contains(a.iata);
+    final aiHub = widget.game.competitors.any(
+      (airline) => airline.hubIatas.contains(a.iata),
+    );
+    return Marker(
+      point: LatLng(a.lat, a.lon),
+      width: 36,
+      height: 36,
+      child: Center(
+        child: Container(
+          width: meta.dotSize,
+          height: meta.dotSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: meta.color,
+            border: isClosed
+                ? Border.all(color: const Color(0xffffb3b3), width: 2)
+                : selected || playerHub || aiHub
+                ? Border.all(color: Colors.white70, width: 1.2)
+                : null,
           ),
-        );
-      })
-      .toList(growable: false);
+        ),
+      ),
+    );
+  }).toList(growable: false);
+
+  // Invisible hit-targets — rendered ABOVE route lines so taps reach airports
+  // even when a route line overlaps the dot.
+  List<Marker> _airportHitMarkers() => airports.map((a) {
+    final meta = _airportMeta(a);
+    return Marker(
+      point: LatLng(a.lat, a.lon),
+      width: 36,
+      height: 36,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => widget.onAirportSelected(meta.airport),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }).toList(growable: false);
 
 }
 
