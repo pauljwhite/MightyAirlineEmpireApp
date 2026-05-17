@@ -983,7 +983,12 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icon.png', width: 100),
+            SvgPicture.asset(
+              'assets/map_planes/widebody.svg',
+              width: 100,
+              height: 100,
+              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            ),
             const SizedBox(height: 20),
             const Text(
               'Mighty Airline Empire',
