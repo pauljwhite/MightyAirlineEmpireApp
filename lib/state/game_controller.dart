@@ -2181,8 +2181,7 @@ class GameController extends ChangeNotifier {
   DailySnapshot runDailyTick() {
     _clearExpiredAirportClosures();
     final nextAirportPax = <String, double>{};
-    final allRoutes = routes.values.toList(growable: false);
-    final allAirlines = airlines.values.toList(growable: false);
+    final routeIndex = RouteIndex.build(routes.values, airlines.values);
     final snapshots = <String, DailySnapshot>{};
     final passengerTotals = <String, int>{};
     final netProfits = <String, double>{};
@@ -2216,8 +2215,7 @@ class GameController extends ChangeNotifier {
           origin: origin,
           destination: destination,
           airline: airline,
-          allRoutes: allRoutes,
-          allAirlines: allAirlines,
+          index: routeIndex,
           globalFuelPrice: globalFuelPrice,
           gameDay: gameDay,
           airportDailyPax: airportDailyPax,
@@ -2842,8 +2840,7 @@ class GameController extends ChangeNotifier {
           .whereType<RoutePlan>()
           .map((route) => route.destinationIata)
           .toSet();
-      final allRoutes = routes.values.toList(growable: false);
-      final allAirlines = airlines.values.toList(growable: false);
+      final routeIndex = RouteIndex.build(routes.values, airlines.values);
       final candidates = _buildAIRouteCandidates(hub, existingDestinations);
       for (final candidate in candidates) {
         final type = _pickAircraftForAI(airline, hub, candidate.airport);
@@ -2931,8 +2928,7 @@ class GameController extends ChangeNotifier {
           origin: hub,
           destination: candidate.airport,
           airline: airline,
-          allRoutes: allRoutes,
-          allAirlines: allAirlines,
+          index: routeIndex,
           globalFuelPrice: globalFuelPrice,
           gameDay: gameDay,
           airportDailyPax: airportDailyPax,
@@ -2980,6 +2976,10 @@ class GameController extends ChangeNotifier {
   }
 
   void _adjustAIPrices() {
+    // Build the lookup index ONCE per call — not per AI route. Previously each
+    // route allocated fresh `allRoutes.toList()` / `allAirlines.toList()` and
+    // marketShareForCabin scanned them linearly, giving O(routes² × steps).
+    final routeIndex = RouteIndex.build(routes.values, airlines.values);
     for (final airline in competitors) {
       if (airline.isInsolvent) continue;
       for (final routeId in airline.routeIds) {
@@ -3027,8 +3027,6 @@ class GameController extends ChangeNotifier {
             ? route.priceBusiness.clamp(0, maxBiz)
             : 0;
 
-        final allRoutes = routes.values.toList(growable: false);
-        final allAirlines = airlines.values.toList(growable: false);
         // 8-step sweep: 0.84× to 1.20× of current price, clamped to ceiling.
         const steps = [0.84, 0.90, 0.96, 1.00, 1.04, 1.08, 1.14, 1.20];
         var bestProfit = -double.infinity;
@@ -3051,8 +3049,7 @@ class GameController extends ChangeNotifier {
             origin: origin,
             destination: dest,
             airline: airline,
-            allRoutes: allRoutes,
-            allAirlines: allAirlines,
+            index: routeIndex,
             globalFuelPrice: globalFuelPrice,
             gameDay: gameDay,
             airportDailyPax: airportDailyPax,

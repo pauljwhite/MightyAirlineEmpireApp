@@ -10384,8 +10384,10 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
             origin: origin,
             destination: destination,
             airline: widget.game.player,
-            allRoutes: widget.game.routes.values.toList(growable: false),
-            allAirlines: widget.game.airlines.values.toList(growable: false),
+            index: RouteIndex.build(
+              widget.game.routes.values,
+              widget.game.airlines.values,
+            ),
             globalFuelPrice: widget.game.globalFuelPrice,
             gameDay: widget.game.gameDay,
           );
@@ -11156,8 +11158,10 @@ class _CreateRouteDialogState extends State<_CreateRouteDialog> {
             origin: origin,
             destination: destination,
             airline: widget.game.player,
-            allRoutes: widget.game.routes.values.toList(growable: false),
-            allAirlines: widget.game.airlines.values.toList(growable: false),
+            index: RouteIndex.build(
+              widget.game.routes.values,
+              widget.game.airlines.values,
+            ),
             globalFuelPrice: widget.game.globalFuelPrice,
             gameDay: widget.game.gameDay,
           );

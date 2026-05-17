@@ -70,6 +70,49 @@ double repPricePremium(double reputationScore) =>
 String routePairKey(String origin, String dest) =>
     origin.compareTo(dest) < 0 ? origin + ':' + dest : dest + ':' + origin;
 
+/// Per-tick (or per-preview) lookup index for routes and airlines.
+///
+/// Built once and reused across many [marketShareForCabin] /
+/// [calculateRouteEconomics] calls so we avoid scanning the full route and
+/// airline collections for every cabin price evaluation. With N routes and
+/// K airlines this turns each market-share lookup from O(N+K) into O(routes
+/// on this pair) ≈ O(1–3).
+class RouteIndex {
+  RouteIndex._(
+    this.activeRoutesByPair,
+    this.airlinesById,
+    this.reputationPremiumById,
+  );
+
+  /// `routePairKey(origin, dest)` → all *active* routes serving that pair.
+  /// Inactive routes are excluded at build time so market-share filters don't
+  /// need to re-check `isActive`.
+  final Map<String, List<RoutePlan>> activeRoutesByPair;
+  final Map<String, Airline> airlinesById;
+
+  /// Pre-computed `repPricePremium(airline.reputationScore)` keyed by airline id.
+  final Map<String, double> reputationPremiumById;
+
+  factory RouteIndex.build(
+    Iterable<RoutePlan> routes,
+    Iterable<Airline> airlines,
+  ) {
+    final byPair = <String, List<RoutePlan>>{};
+    for (final r in routes) {
+      if (!r.isActive) continue;
+      final key = routePairKey(r.originIata, r.destinationIata);
+      (byPair[key] ??= <RoutePlan>[]).add(r);
+    }
+    final byId = <String, Airline>{};
+    final premiums = <String, double>{};
+    for (final a in airlines) {
+      byId[a.id] = a;
+      premiums[a.id] = repPricePremium(a.reputationScore);
+    }
+    return RouteIndex._(byPair, byId, premiums);
+  }
+}
+
 double aircraftAirportFeeMultiplier(AircraftType type) =>
     switch (type.category) {
       AircraftCategory.regional => 0.45,
@@ -151,46 +194,50 @@ FlightCost computeFlightCost(
 double marketShareForCabin({
   required RoutePlan route,
   required int price,
-  required List<RoutePlan> allRoutes,
-  required List<Airline> allAirlines,
+  required RouteIndex index,
   required double referencePrice,
   required String airlineId,
   required String cabin,
   String? excludeRouteId,
 }) {
-  int cabinPrice(RoutePlan r) =>
-      cabin == 'business' ? r.priceBusiness : r.priceEconomy;
-  final routesOnPair = allRoutes
-      .where(
-        (candidate) =>
-            candidate.isActive &&
-            candidate.id != excludeRouteId &&
-            routePairKey(candidate.originIata, candidate.destinationIata) ==
-                routePairKey(route.originIata, route.destinationIata) &&
-            (cabin == 'economy' || cabinPrice(candidate) > 0),
-      )
-      .toList();
-  final airline = allAirlines.where((a) => a.id == airlineId).firstOrNull;
-  final premium = airline == null
-      ? 1
-      : repPricePremium(airline.reputationScore);
+  final isBusiness = cabin == 'business';
+  int cabinPrice(RoutePlan r) => isBusiness ? r.priceBusiness : r.priceEconomy;
+  final pairKey = routePairKey(route.originIata, route.destinationIata);
+  final pairRoutes = index.activeRoutesByPair[pairKey];
+  final premium = index.reputationPremiumById[airlineId] ?? 1;
   final effectivePrice = price / premium;
-  if (routesOnPair.isEmpty)
+
+  // Collect the competing routes (active by construction; filter out the
+  // excluded route and business-cabin gating).
+  List<RoutePlan> routesOnPair;
+  if (pairRoutes == null || pairRoutes.isEmpty) {
+    routesOnPair = const [];
+  } else {
+    routesOnPair = <RoutePlan>[];
+    for (final candidate in pairRoutes) {
+      if (candidate.id == excludeRouteId) continue;
+      if (isBusiness && candidate.priceBusiness <= 0) continue;
+      routesOnPair.add(candidate);
+    }
+  }
+
+  if (routesOnPair.isEmpty) {
     return getSoloPriceDemandShare(effectivePrice, referencePrice);
-  final avgPrice =
-      routesOnPair.fold<double>(0, (sum, r) => sum + cabinPrice(r)) /
-      routesOnPair.length;
+  }
+  var priceSum = 0.0;
+  for (final r in routesOnPair) {
+    priceSum += cabinPrice(r);
+  }
+  final avgPrice = priceSum / routesOnPair.length;
   final ownScore = getCompetitivenessScore(effectivePrice, avgPrice);
-  final totalScore = routesOnPair.fold<double>(0, (sum, r) {
-    final competitor = allAirlines
-        .where((a) => a.id == r.airlineId)
-        .firstOrNull;
-    final competitorPremium = competitor == null
-        ? 1
-        : repPricePremium(competitor.reputationScore);
-    return sum +
-        getCompetitivenessScore(cabinPrice(r) / competitorPremium, avgPrice);
-  });
+  var totalScore = 0.0;
+  for (final r in routesOnPair) {
+    final competitorPremium = index.reputationPremiumById[r.airlineId] ?? 1;
+    totalScore += getCompetitivenessScore(
+      cabinPrice(r) / competitorPremium,
+      avgPrice,
+    );
+  }
   return totalScore > 0 ? ownScore / totalScore : 1;
 }
 
@@ -201,8 +248,7 @@ RouteEconomicsResult calculateRouteEconomics({
   required Airport origin,
   required Airport destination,
   required Airline airline,
-  required List<RoutePlan> allRoutes,
-  required List<Airline> allAirlines,
+  required RouteIndex index,
   required double globalFuelPrice,
   required int gameDay,
   Map<String, double> airportDailyPax = const {},
@@ -262,8 +308,7 @@ RouteEconomicsResult calculateRouteEconomics({
   final ecoShare = marketShareForCabin(
     route: route,
     price: route.priceEconomy,
-    allRoutes: allRoutes,
-    allAirlines: allAirlines,
+    index: index,
     referencePrice: ecoReference,
     airlineId: airline.id,
     cabin: 'economy',
@@ -282,8 +327,7 @@ RouteEconomicsResult calculateRouteEconomics({
       ? marketShareForCabin(
           route: route,
           price: route.priceBusiness,
-          allRoutes: allRoutes,
-          allAirlines: allAirlines,
+          index: index,
           referencePrice: bizReference,
           airlineId: airline.id,
           cabin: 'business',
