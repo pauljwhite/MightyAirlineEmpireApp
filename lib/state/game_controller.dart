@@ -694,6 +694,7 @@ class GameController extends ChangeNotifier {
   void notifyListeners() {
     routesStructureVersion.value += 1;
     airportStateVersion.value += 1;
+    _invalidateOptimisationCaches();
     super.notifyListeners();
   }
 
@@ -2088,6 +2089,34 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  // ─── Cached optimisation previews ────────────────────────────────────────
+  // The Routes tab calls `previewRouteOptimisation` from every card's build
+  // *and* `previewNetworkOptimisation` from the tab header on every rebuild.
+  // The optimiser itself is expensive (21 flight-frequency steps × dozens
+  // of candidate prices per cabin), so opening the tab with 35+ routes was
+  // doing 100+ optimiser runs before the first frame and crashing.
+  //
+  // We memoise results against a `_optGeneration` that we invalidate
+  // whenever route-relevant state changes (route mutation, fuel price
+  // change, day rolled over). Within a single notifyListeners cycle the
+  // cache stays warm, so a Routes-tab rebuild costs O(routes) hashtable
+  // lookups instead of O(routes) optimiser runs.
+
+  final Map<String, RouteOptimisationResult?> _routeOptCache = {};
+  NetworkOptimisationPreview? _networkOptCache;
+
+  void _invalidateOptimisationCaches() {
+    _routeOptCache.clear();
+    _networkOptCache = null;
+  }
+
+  RouteOptimisationResult? previewRouteOptimisationCached(String routeId) {
+    if (_routeOptCache.containsKey(routeId)) return _routeOptCache[routeId];
+    final result = previewRouteOptimisation(routeId);
+    _routeOptCache[routeId] = result;
+    return result;
+  }
+
   RouteOptimisationResult optimiseRoute(String routeId) =>
       _optimiseRouteForAirline(routeId, 'player');
 
@@ -2115,39 +2144,45 @@ class GameController extends ChangeNotifier {
   Map<String, RouteOptimisationResult> _networkOptimisationChanges() {
     final changes = <String, RouteOptimisationResult>{};
     for (final route in playerRoutes) {
-      try {
-        final input = _optimisationInputForRoute(route.id, 'player');
-        final result = optimiseRouteSettings(input);
-        if (!_matchesOptimisedResult(input.route, result)) {
-          changes[route.id] = result;
-        }
-      } catch (_) {
-        continue;
-      }
+      final cached = previewRouteOptimisationCached(route.id);
+      if (cached != null) changes[route.id] = cached;
     }
     return changes;
   }
 
-  int _networkOptimisationEligibleCount() {
-    var count = 0;
+  /// Single pass over `playerRoutes` that fills the per-route cache and
+  /// counts eligibility — replaces the previous "loop twice and run the
+  /// optimiser N×2 times" pattern.
+  ({int eligible, Map<String, RouteOptimisationResult> changes})
+      _primeOptimisationCache() {
+    final changes = <String, RouteOptimisationResult>{};
+    var eligible = 0;
     for (final route in playerRoutes) {
       try {
         _optimisationInputForRoute(route.id, 'player');
-        count += 1;
+        eligible += 1;
       } catch (_) {
+        // Route can't be optimised (no aircraft etc.) — skip eligibility,
+        // and ensure the cache returns null without re-throwing later.
+        _routeOptCache[route.id] = null;
         continue;
       }
+      final cached = previewRouteOptimisationCached(route.id);
+      if (cached != null) changes[route.id] = cached;
     }
-    return count;
+    return (eligible: eligible, changes: changes);
   }
 
   NetworkOptimisationPreview previewNetworkOptimisation() {
-    final changes = _networkOptimisationChanges();
+    final cached = _networkOptCache;
+    if (cached != null) return cached;
+    final primed = _primeOptimisationCache();
+    final changes = primed.changes;
     final cost = changes.isEmpty
         ? 0.0
         : optimiseAllBaseCostUSD + changes.length * optimiseAllCostPerRouteUSD;
-    return NetworkOptimisationPreview(
-      eligibleCount: _networkOptimisationEligibleCount(),
+    return _networkOptCache = NetworkOptimisationPreview(
+      eligibleCount: primed.eligible,
       optimisableCount: changes.length,
       costUSD: cost,
     );

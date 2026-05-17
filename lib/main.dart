@@ -5837,8 +5837,8 @@ class _RoutesView extends StatelessWidget {
     final optimisation = game.previewNetworkOptimisation();
     final canOptimiseAll =
         optimisation.hasChanges && game.player.cashUSD >= optimisation.costUSD;
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
@@ -5954,8 +5954,36 @@ class _RoutesView extends StatelessWidget {
           const _EmptyState(
             'No routes yet. Create one from this panel or from an airport destination.',
           ),
-        ...routes.map(
-          (route) => _RouteCard(game: game, route: route, currency: currency),
+      ],
+    );
+
+    // Virtualized list: only the cards currently on-screen are built and
+    // laid out. With 35+ routes each `_RouteCard` is an `ExpansionTile` that
+    // does non-trivial work in build() (incl. an optimiser preview lookup),
+    // so eager rendering of all of them used to spike memory and crash the
+    // tab on open.
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          sliver: SliverToBoxAdapter(child: header),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          sliver: SliverList.builder(
+            itemCount: routes.length,
+            itemBuilder: (context, index) {
+              final route = routes[index];
+              return RepaintBoundary(
+                key: ValueKey(route.id),
+                child: _RouteCard(
+                  game: game,
+                  route: route,
+                  currency: currency,
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -5988,7 +6016,7 @@ class _RouteCardState extends State<_RouteCard> {
         ? null
         : game.aircraft[route.aircraftId!];
     final type = ac == null ? null : aircraftTypesById[ac.typeId];
-    final optimisation = game.previewRouteOptimisation(route.id);
+    final optimisation = game.previewRouteOptimisationCached(route.id);
     final inactiveReason = route.isActive
         ? null
         : route.aircraftId == null
