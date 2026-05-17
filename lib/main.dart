@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/gestures.dart';
@@ -3372,6 +3373,28 @@ Future<void> _saveProgressFile(
   ).showSnackBar(SnackBar(content: Text('Progress saved to $fileName')));
 }
 
+Future<void> _shareProgressFile(
+  BuildContext context,
+  GameController game,
+) async {
+  final fileName =
+      '${_fileSafeName(game.player.name)}-day-${game.gameDay}-progress.json';
+  final bytes = Uint8List.fromList(utf8.encode(game.exportProgressJson()));
+  final file = XFile.fromData(
+    bytes,
+    mimeType: 'application/json',
+    name: fileName,
+  );
+  final box = context.findRenderObject() as RenderBox?;
+  await Share.shareXFiles(
+    [file],
+    subject: fileName,
+    sharePositionOrigin: box == null
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size,
+  );
+}
+
 Future<String?> _openProgressFile() async {
   try {
     final file = await openFile(acceptedTypeGroups: const [_jsonTypeGroup]);
@@ -3423,24 +3446,31 @@ void _showExportDialog(BuildContext context, GameController game) {
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
-          if (Platform.isMacOS || Platform.isWindows || Platform.isLinux)
-            _AppBtn(
-              variant: _BtnVariant.ghost,
-              onPressed: saving
-                  ? null
-                  : () async {
-                      setState(() => saving = true);
-                      try {
+          _AppBtn(
+            variant: _BtnVariant.ghost,
+            onPressed: saving
+                ? null
+                : () async {
+                    setState(() => saving = true);
+                    try {
+                      if (Platform.isIOS || Platform.isAndroid) {
+                        await _shareProgressFile(context, game);
+                      } else {
                         await _saveProgressFile(context, game);
-                      } finally {
-                        if (dialogContext.mounted) {
-                          setState(() => saving = false);
-                        }
                       }
-                    },
-              icon: const Icon(Icons.save_alt),
-              child: Text(saving ? 'Saving...' : 'Save file'),
+                    } finally {
+                      if (dialogContext.mounted) {
+                        setState(() => saving = false);
+                      }
+                    }
+                  },
+            icon: Icon(
+              (Platform.isIOS || Platform.isAndroid)
+                  ? Icons.ios_share
+                  : Icons.save_alt,
             ),
+            child: Text(saving ? 'Saving...' : 'Save file'),
+          ),
           _AppBtn(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: json));
