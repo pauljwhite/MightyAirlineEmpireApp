@@ -7386,6 +7386,54 @@ const _aircraftImageAssets = <String, String>{
   'b717-200':     'assets/planes/B717-200.png',
   'b727-100':     'assets/planes/B727-100.png',
   'b727-200':     'assets/planes/B727-200.png',
+  'b737-100':     'assets/planes/B737-100.png',
+  'b737-200':     'assets/planes/B737-200.png',
+  'b737-600':     'assets/planes/B737-600.png',
+  'b737-700':     'assets/planes/B737-700.png',
+  'b737-800':     'assets/planes/B737-800.png',
+  'b737-900er':   'assets/planes/B737-900er.png',
+  'b737max7':     'assets/planes/B737Max7.png',
+  'b737max8':     'assets/planes/B737Max8.png',
+  'b737max9':     'assets/planes/B737Max9.png',
+  'b737max10':    'assets/planes/B737Max10.png',
+  'b757-200':     'assets/planes/B757-200.png',
+  'b757-300':     'assets/planes/B757-300.png',
+
+  // ── Boeing wide-body ──────────────────────────────────────────────────────
+  'b747-100':     'assets/planes/B747-100.png',
+  'b747-200':     'assets/planes/B747-200.png',
+  'b747-300':     'assets/planes/B747-300.png',
+  'b747-400':     'assets/planes/B747-400.png',
+  'b747-8i':      'assets/planes/B747-8i.png',
+  'b767-200er':   'assets/planes/B767-200er.png',
+  'b767-300er':   'assets/planes/B767-300er.png',
+  'b767-400er':   'assets/planes/B767-400er.png',
+  'b777-200':     'assets/planes/B777-200.png',
+  'b777-200er':   'assets/planes/B777-200er.png',
+  'b777-200lr':   'assets/planes/B777-200lr.png',
+  'b777-300er':   'assets/planes/B777-300er.png',
+  'b777-9':       'assets/planes/B777-9.png',
+  'b787-8':       'assets/planes/B787-8.png',
+  'b787-9':       'assets/planes/B787-9.png',
+  'b787-10':      'assets/planes/B787-10.png',
+
+  // ── Bombardier CRJ ────────────────────────────────────────────────────────
+  'crj200':       'assets/planes/CRJ200.png',
+  'crj700':       'assets/planes/CRJ700.png',
+  'crj900':       'assets/planes/CRJ900.png',
+  'crj1000':      'assets/planes/CRJ1000.png',
+
+  // ── Bombardier Q Series ───────────────────────────────────────────────────
+  'q400':         'assets/planes/Q400.png',
+
+  // ── Cessna ───────────────────────────────────────────────────────────────
+  'c208':         'assets/planes/C208.png',
+  'c208b':        'assets/planes/C208b.png',
+
+  // ── COMAC ─────────────────────────────────────────────────────────────────
+  'c919':         'assets/planes/C919.png',
+  'arj21-700':    'assets/planes/ARJ21-700.png',
+  'arj21-900':    'assets/planes/ARJ21-900.png',
 
   // ── Antonov turboprops ────────────────────────────────────────────────────
   'an24':         'assets/planes/An24.png',
