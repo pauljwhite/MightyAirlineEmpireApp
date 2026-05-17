@@ -4064,10 +4064,28 @@ class _WorldMapState extends State<_WorldMap> {
   var _gameHasStarted = false;
   List<RoutePlan> _cachedDrawableRoutes = const [];
 
+  // ── Map camera-aware culling ────────────────────────────────────────────
+  // Tracking the camera lets us draw only the airports actually visible at
+  // the current zoom + viewport. Previously the layer rendered all ~4,125
+  // airports (×2 markers, visual + hit-target) every rebuild, which made
+  // panning at low zoom chug to a few FPS.
+  final ValueNotifier<int> _mapCameraVersion = ValueNotifier<int>(0);
+  StreamSubscription<MapEvent>? _mapEventsSub;
+  double _currentZoom = 2.05;
+  int _currentZoomBucket = 0; // 0: <3, 1: <5, 2: ≥5
+  LatLngBounds? _currentBounds;
+  // Pre-built sets — recomputed on `airportStateVersion` /
+  // `routesStructureVersion` changes — let `_airportMeta` skip its
+  // per-airport `competitors.any(...)` scan.
+  Set<String> _hubIatas = const <String>{};
+  Set<String> _routeEndpointIatas = const <String>{};
+
   @override
   void initState() {
     super.initState();
     widget.game.routesStructureVersion.addListener(_refreshRouteCache);
+    widget.game.airportStateVersion.addListener(_rebuildHubIatas);
+    _rebuildHubIatas();
     _refreshRouteCache();
   }
 
@@ -4077,6 +4095,43 @@ class _WorldMapState extends State<_WorldMap> {
       if (widget.showAiOnMap) return true;
       return widget.game.airlines[r.airlineId]?.isPlayer == true;
     }).toList(growable: false);
+    final endpoints = <String>{};
+    for (final r in _cachedDrawableRoutes) {
+      endpoints.add(r.originIata);
+      endpoints.add(r.destinationIata);
+    }
+    _routeEndpointIatas = endpoints;
+  }
+
+  void _rebuildHubIatas() {
+    final hubs = <String>{...widget.game.player.hubIatas};
+    for (final airline in widget.game.competitors) {
+      hubs.addAll(airline.hubIatas);
+    }
+    _hubIatas = hubs;
+  }
+
+  int _zoomBucket(double z) => z < 3.0 ? 0 : z < 5.0 ? 1 : 2;
+
+  void _onMapEvent(MapEvent event) {
+    final camera = event.camera;
+    _currentZoom = camera.zoom;
+    _currentBounds = camera.visibleBounds;
+    final bucket = _zoomBucket(camera.zoom);
+    // Bump on zoom-bucket change immediately (visible airport set + route
+    // detail level change); on pan/zoom *end* we also bump so the new
+    // viewport's airports get re-filtered. Continuous-pan events
+    // intentionally do NOT bump — we keep the previously-culled marker set
+    // visible while panning to avoid per-frame rebuild churn.
+    final isEndEvent =
+        event is MapEventMoveEnd ||
+        event is MapEventDoubleTapZoomEnd ||
+        event is MapEventFlingAnimationEnd ||
+        event is MapEventScrollWheelZoom;
+    if (bucket != _currentZoomBucket || isEndEvent) {
+      _currentZoomBucket = bucket;
+      _mapCameraVersion.value += 1;
+    }
   }
 
   @override
@@ -4105,6 +4160,9 @@ class _WorldMapState extends State<_WorldMap> {
   @override
   void dispose() {
     widget.game.routesStructureVersion.removeListener(_refreshRouteCache);
+    widget.game.airportStateVersion.removeListener(_rebuildHubIatas);
+    _mapEventsSub?.cancel();
+    _mapCameraVersion.dispose();
     _routeHitNotifier.dispose();
     _mapController.dispose();
     super.dispose();
@@ -4141,6 +4199,12 @@ class _WorldMapState extends State<_WorldMap> {
 
   void _handleMapReady() {
     _mapReady = true;
+    _currentZoom = _mapController.camera.zoom;
+    _currentZoomBucket = _zoomBucket(_currentZoom);
+    _currentBounds = _mapController.camera.visibleBounds;
+    _mapEventsSub = _mapController.mapEventStream.listen(_onMapEvent);
+    // Force a first cull pass now that we have real bounds.
+    _mapCameraVersion.value += 1;
     _focusSelectedAirport();
   }
 
@@ -4260,9 +4324,12 @@ class _WorldMapState extends State<_WorldMap> {
           // 1. Airport dots — visual only, below route lines
           IgnorePointer(
             child: RepaintBoundary(
-              child: ValueListenableBuilder<int>(
-                valueListenable: widget.game.airportStateVersion,
-                builder: (context, _, _) =>
+              child: ListenableBuilder(
+                listenable: Listenable.merge([
+                  widget.game.airportStateVersion,
+                  _mapCameraVersion,
+                ]),
+                builder: (context, _) =>
                     MarkerLayer(markers: _airportVisualMarkers()),
               ),
             ),
@@ -4278,13 +4345,23 @@ class _WorldMapState extends State<_WorldMap> {
                 if (route != null) widget.onRouteSelected(route);
               },
               child: RepaintBoundary(
-                child: ValueListenableBuilder<int>(
-                  valueListenable: widget.game.routesStructureVersion,
-                  builder: (context, _, _) => PolylineLayer<RoutePlan>(
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([
+                    widget.game.routesStructureVersion,
+                    _mapCameraVersion,
+                  ]),
+                  builder: (context, _) => PolylineLayer<RoutePlan>(
                     hitNotifier: _routeHitNotifier,
                     minimumHitbox: 28,
                     drawInSingleWorld: true,
-                    simplificationTolerance: 0,
+                    // Let flutter_map's built-in Douglas-Peucker drop
+                    // redundant points at low zoom (the old value `0`
+                    // disabled it entirely).
+                    simplificationTolerance: _currentZoomBucket == 0
+                        ? 8.0
+                        : _currentZoomBucket == 1
+                        ? 3.0
+                        : 0.5,
                     polylines: _routePolylines(_cachedDrawableRoutes),
                   ),
                 ),
@@ -4294,9 +4371,12 @@ class _WorldMapState extends State<_WorldMap> {
           // 3. Invisible airport hit-targets — above route lines so taps
           //    always reach the airport even where routes overlap the dot
           RepaintBoundary(
-            child: ValueListenableBuilder<int>(
-              valueListenable: widget.game.airportStateVersion,
-              builder: (context, _, _) =>
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                widget.game.airportStateVersion,
+                _mapCameraVersion,
+              ]),
+              builder: (context, _) =>
                   MarkerLayer(markers: _airportHitMarkers()),
             ),
           ),
@@ -4320,6 +4400,15 @@ class _WorldMapState extends State<_WorldMap> {
   }
 
   List<Polyline<RoutePlan>> _routePolylines(List<RoutePlan> drawableRoutes) {
+    // Lower zoom → fewer interpolation points along each great-circle arc.
+    // At zoom < 3 the 18-point arc collapsed to a single pixel anyway, so
+    // dropping it to 6 points has no visual cost and roughly thirds the
+    // polyline geometry the renderer has to process.
+    final arcPoints = _currentZoomBucket == 0
+        ? 6
+        : _currentZoomBucket == 1
+        ? 10
+        : 18;
     final lines = <Polyline<RoutePlan>>[];
     for (final route in drawableRoutes) {
       final origin = airportsByIata[route.originIata];
@@ -4328,7 +4417,11 @@ class _WorldMapState extends State<_WorldMap> {
       final airline = widget.game.airlines[route.airlineId];
       final isPlayer = airline?.isPlayer == true;
       final color = _colorFromHex(airline?.color ?? '#2f8cff');
-      for (final segment in _routeArcLatLngSegments(origin, dest)) {
+      for (final segment in _routeArcLatLngSegments(
+        origin,
+        dest,
+        pointCount: arcPoints,
+      )) {
         lines.add(
           Polyline<RoutePlan>(
             points: segment,
@@ -4344,6 +4437,51 @@ class _WorldMapState extends State<_WorldMap> {
     return lines;
   }
 
+  // ── Airport visibility filter ──────────────────────────────────────────
+  // At low zoom we draw only major airports plus everything important
+  // (hubs and route endpoints). At medium zoom we additionally include
+  // large airports. At high zoom we include everything but cull to a
+  // padded version of the current viewport so off-screen markers don't
+  // get re-projected per pan frame.
+  bool _airportIsImportant(Airport a) =>
+      a.size == AirportSize.major ||
+      _hubIatas.contains(a.iata) ||
+      _routeEndpointIatas.contains(a.iata);
+
+  Iterable<Airport> _visibleAirports() {
+    final bucket = _currentZoomBucket;
+    final bounds = _currentBounds;
+    if (bucket == 0) {
+      // <3: only the most important markers, regardless of viewport — the
+      // user just zoomed out to see the world, they shouldn't see every
+      // small airfield in the visible region.
+      return airports.where(_airportIsImportant);
+    }
+    if (bucket == 1) {
+      // <5: importance + large airports, no viewport filter.
+      return airports.where(
+        (a) => _airportIsImportant(a) || a.size == AirportSize.large,
+      );
+    }
+    // ≥5: everything, but bounds-cull so off-screen markers don't cost
+    // anything. Pad the bounds 50 % so light panning stays inside the
+    // culled set.
+    if (bounds == null) return airports;
+    final padLat = (bounds.north - bounds.south).abs() * 0.5;
+    final padLon = (bounds.east - bounds.west).abs() * 0.5;
+    final minLat = bounds.south - padLat;
+    final maxLat = bounds.north + padLat;
+    final minLon = bounds.west - padLon;
+    final maxLon = bounds.east + padLon;
+    return airports.where(
+      (a) =>
+          a.lat >= minLat &&
+          a.lat <= maxLat &&
+          a.lon >= minLon &&
+          a.lon <= maxLon,
+    );
+  }
+
   // ── Shared airport metadata ────────────────────────────────────────────────
   ({Color color, double dotSize, Airport airport}) _airportMeta(Airport a) {
     final airport = widget.game.airportByIata(a.iata) ?? a;
@@ -4352,9 +4490,10 @@ class _WorldMapState extends State<_WorldMap> {
         closedUntil != null && closedUntil >= widget.game.gameDay;
     final selected = widget.selectedAirport?.iata == a.iata;
     final playerHub = widget.game.player.hubIatas.contains(a.iata);
-    final aiHub = widget.game.competitors.any(
-      (airline) => airline.hubIatas.contains(a.iata),
-    );
+    // Use pre-built `_hubIatas` set rather than scanning all competitors
+    // per airport. `_hubIatas` already includes the player so we infer
+    // AI-hub status by subtraction.
+    final aiHub = !playerHub && _hubIatas.contains(a.iata);
     final radius = switch (a.size) {
       AirportSize.small => 2.2,
       AirportSize.medium => 3.0,
@@ -4379,54 +4518,64 @@ class _WorldMapState extends State<_WorldMap> {
   }
 
   // Visual-only dots — rendered BELOW route lines, not interactive.
-  List<Marker> _airportVisualMarkers() => airports.map((a) {
-    final meta = _airportMeta(a);
-    final airport = widget.game.airportByIata(a.iata) ?? a;
-    final closedUntil = airport.closedUntilGameDay;
-    final isClosed =
-        closedUntil != null && closedUntil >= widget.game.gameDay;
-    final selected = widget.selectedAirport?.iata == a.iata;
-    final playerHub = widget.game.player.hubIatas.contains(a.iata);
-    final aiHub = widget.game.competitors.any(
-      (airline) => airline.hubIatas.contains(a.iata),
-    );
-    return Marker(
-      point: LatLng(a.lat, a.lon),
-      width: 36,
-      height: 36,
-      child: Center(
-        child: Container(
-          width: meta.dotSize,
-          height: meta.dotSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: meta.color,
-            border: isClosed
-                ? Border.all(color: const Color(0xffffb3b3), width: 2)
-                : selected || playerHub || aiHub
-                ? Border.all(color: Colors.white70, width: 1.2)
-                : null,
+  List<Marker> _airportVisualMarkers() {
+    final markers = <Marker>[];
+    for (final a in _visibleAirports()) {
+      final meta = _airportMeta(a);
+      final airport = widget.game.airportByIata(a.iata) ?? a;
+      final closedUntil = airport.closedUntilGameDay;
+      final isClosed =
+          closedUntil != null && closedUntil >= widget.game.gameDay;
+      final selected = widget.selectedAirport?.iata == a.iata;
+      final playerHub = widget.game.player.hubIatas.contains(a.iata);
+      final aiHub = !playerHub && _hubIatas.contains(a.iata);
+      markers.add(
+        Marker(
+          point: LatLng(a.lat, a.lon),
+          width: 36,
+          height: 36,
+          child: Center(
+            child: Container(
+              width: meta.dotSize,
+              height: meta.dotSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: meta.color,
+                border: isClosed
+                    ? Border.all(color: const Color(0xffffb3b3), width: 2)
+                    : selected || playerHub || aiHub
+                    ? Border.all(color: Colors.white70, width: 1.2)
+                    : null,
+              ),
+            ),
           ),
         ),
-      ),
-    );
-  }).toList(growable: false);
+      );
+    }
+    return markers;
+  }
 
   // Invisible hit-targets — rendered ABOVE route lines so taps reach airports
   // even when a route line overlaps the dot.
-  List<Marker> _airportHitMarkers() => airports.map((a) {
-    final meta = _airportMeta(a);
-    return Marker(
-      point: LatLng(a.lat, a.lon),
-      width: 36,
-      height: 36,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => widget.onAirportSelected(meta.airport),
-        child: const SizedBox.expand(),
-      ),
-    );
-  }).toList(growable: false);
+  List<Marker> _airportHitMarkers() {
+    final markers = <Marker>[];
+    for (final a in _visibleAirports()) {
+      final meta = _airportMeta(a);
+      markers.add(
+        Marker(
+          point: LatLng(a.lat, a.lon),
+          width: 36,
+          height: 36,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onAirportSelected(meta.airport),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+    }
+    return markers;
+  }
 
 }
 
