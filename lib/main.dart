@@ -7696,31 +7696,46 @@ class _FinanceView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _FinanceMetric(
-              label: 'Cash',
-              value: money(player.cashUSD, currency),
-              accent: const Color(0xff3af083),
+            Expanded(
+              child: _FinanceMetric(
+                label: 'Cash',
+                value: money(player.cashUSD, currency),
+                accent: const Color(0xff3af083),
+              ),
             ),
-            _FinanceMetric(
-              label: 'Last daily profit',
-              value: money(lastProfit, currency),
-              accent: lastProfit >= 0
-                  ? const Color(0xff3af083)
-                  : const Color(0xffff6b6b),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _FinanceMetric(
+                label: 'Last daily profit',
+                value: money(lastProfit, currency),
+                accent: lastProfit >= 0
+                    ? const Color(0xff3af083)
+                    : const Color(0xffff6b6b),
+              ),
             ),
-            _FinanceMetric(
-              label: 'Company value',
-              value: money(companyValue, currency),
-              accent: const Color(0xff77c9ff),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _FinanceMetric(
+                label: 'Company value',
+                value: money(companyValue, currency),
+                accent: const Color(0xff77c9ff),
+              ),
             ),
-            _FinanceMetric(
-              label: 'Debt',
-              value: money(player.totalDebt, currency),
-              accent: const Color(0xffffd166),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _FinanceMetric(
+                label: 'Debt',
+                value: money(player.totalDebt, currency),
+                accent: const Color(0xffffd166),
+              ),
             ),
           ],
         ),
@@ -8446,26 +8461,23 @@ class _FinanceMetric extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 190,
-    child: _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: accent,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
+  Widget build(BuildContext context) => _Card(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xff9e9e9e))),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: accent,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 }
