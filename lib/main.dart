@@ -1126,26 +1126,7 @@ class _SplashScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ── Plane tickers ───────────────────────────────────────────────
-          const _SplashPlaneTicker(
-            planes: _splashAmericanPlanes,
-            direction: -1,
-            duration: Duration(seconds: 28),
-          ),
-          const SizedBox(height: 10),
-          const _SplashPlaneTicker(
-            planes: _splashRussianPlanes,
-            direction: 1,
-            duration: Duration(seconds: 32),
-          ),
-          const SizedBox(height: 10),
-          const _SplashPlaneTicker(
-            planes: _splashEuropeanPlanes,
-            direction: -1,
-            duration: Duration(seconds: 25),
-          ),
-          // ── Logo + title + buttons ──────────────────────────────────────
-          const SizedBox(height: 44),
+          // ── Logo + title ────────────────────────────────────────────────
           ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: Transform.scale(
@@ -1166,6 +1147,25 @@ class _SplashScreen extends StatelessWidget {
               fontWeight: FontWeight.w900,
               color: Colors.white,
             ),
+          ),
+          // ── Plane tickers ───────────────────────────────────────────────
+          const SizedBox(height: 44),
+          const _SplashPlaneTicker(
+            planes: _splashAmericanPlanes,
+            direction: -1,
+            duration: Duration(seconds: 28),
+          ),
+          const SizedBox(height: 10),
+          const _SplashPlaneTicker(
+            planes: _splashRussianPlanes,
+            direction: 1,
+            duration: Duration(seconds: 32),
+          ),
+          const SizedBox(height: 10),
+          const _SplashPlaneTicker(
+            planes: _splashEuropeanPlanes,
+            direction: -1,
+            duration: Duration(seconds: 25),
           ),
           if (ready) ...[
             const SizedBox(height: 32),
