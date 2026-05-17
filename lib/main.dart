@@ -1813,25 +1813,44 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     ),
                   ),
                 _Card(
-                  child: DropdownButtonFormField<CurrencyOption>(
+                  child: PopupMenuButton<CurrencyOption>(
                     initialValue: currency,
-                    decoration: const InputDecoration(
-                      labelText: 'Display currency',
-                      isDense: true,
-                    ),
-                    items: currencyOptions
+                    onSelected: (value) {
+                      onCurrency(value);
+                      closeMenu();
+                    },
+                    itemBuilder: (ctx) => currencyOptions
                         .map(
-                          (option) => DropdownMenuItem(
+                          (option) => PopupMenuItem(
                             value: option,
                             child: Text('${option.code} · ${option.symbol}'),
                           ),
                         )
                         .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      onCurrency(value);
-                      closeMenu();
-                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Display currency',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _mutedText(context),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${currency.code} · ${currency.symbol}',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: _mutedText(context)),
+                      ],
+                    ),
                   ),
                 ),
                 // ── Primary actions (full-width pair) ────────────────────
