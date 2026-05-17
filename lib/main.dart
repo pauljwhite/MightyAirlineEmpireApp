@@ -3345,7 +3345,8 @@ String _fileSafeName(String name) {
 const _jsonTypeGroup = XTypeGroup(
   label: 'JSON',
   extensions: ['json'],
-  mimeTypes: ['application/json'],
+  mimeTypes: ['application/json', 'text/plain'],
+  uniformTypeIdentifiers: ['public.json', 'public.text'],
 );
 
 Future<void> _saveProgressFile(
@@ -3372,9 +3373,15 @@ Future<void> _saveProgressFile(
 }
 
 Future<String?> _openProgressFile() async {
-  final file = await openFile(acceptedTypeGroups: const [_jsonTypeGroup]);
-  if (file == null) return null;
-  return file.readAsString();
+  try {
+    final file = await openFile(acceptedTypeGroups: const [_jsonTypeGroup]);
+    if (file == null) return null;
+    return await file.readAsString();
+  } on PlatformException {
+    rethrow;
+  } catch (_) {
+    rethrow;
+  }
 }
 
 void _applyImportedJson(
