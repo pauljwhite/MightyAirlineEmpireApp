@@ -10218,117 +10218,15 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                             },
                     ),
                     const SizedBox(height: 12),
-                    if (!_showBuyShop)
-                      _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () => setState(() {
-                          _showBuyShop = true;
-                          _buyShopError = null;
-                        }),
-                        icon: const Icon(Icons.add),
-                        child: const Text('Buy New Plane'),
-                      )
-                    else ...[
-                      () {
-                        final allShopAircraft = aircraftTypes
-                            .where((t) => t.yearIntroduced <= currentYear)
-                            .toList()
-                          ..sort((a, b) {
-                            final aOk = origin != null &&
-                                destination != null &&
-                                a.rangeKm >= route.distanceKm &&
-                                canAirportHandleAircraft(origin, a) &&
-                                canAirportHandleAircraft(destination, a);
-                            final bOk = origin != null &&
-                                destination != null &&
-                                b.rangeKm >= route.distanceKm &&
-                                canAirportHandleAircraft(origin, b) &&
-                                canAirportHandleAircraft(destination, b);
-                            if (aOk != bOk) return aOk ? -1 : 1;
-                            return a.purchasePrice.compareTo(b.purchasePrice);
-                          });
-                        final manufacturers =
-                            <String>{
-                              'All',
-                              ...allShopAircraft.map((t) => t.manufacturer),
-                            }.toList()
-                              ..sort((a, b) {
-                                if (a == 'All') return -1;
-                                if (b == 'All') return 1;
-                                return a
-                                    .toLowerCase()
-                                    .compareTo(b.toLowerCase());
-                              });
-                        final shopTypes = _buyShopManufacturer == 'All'
-                            ? allShopAircraft
-                            : allShopAircraft
-                                  .where((t) =>
-                                      t.manufacturer == _buyShopManufacturer)
-                                  .toList();
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Buy a new aircraft',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () => setState(() {
-                                    _showBuyShop = false;
-                                    _buyShopError = null;
-                                  }),
-                                  child: const Text('Cancel'),
-                                ),
-                              ],
-                            ),
-                            if (origin != null && destination != null)
-                              _InlineAircraftShop(
-                                types: shopTypes,
-                                manufacturers: manufacturers,
-                                selectedManufacturer: _buyShopManufacturer,
-                                selectedTypeId: null,
-                                distanceKm: route.distanceKm,
-                                cash: widget.game.player.cashUSD,
-                                origin: origin,
-                                destination: destination,
-                                currency: widget.currency,
-                                onManufacturerChanged: (m) => setState(
-                                    () => _buyShopManufacturer = m),
-                                onSelected: (type) {
-                                  try {
-                                    final ac =
-                                        widget.game.buyAircraft(type.id);
-                                    widget.game.assignAircraftToRoute(
-                                        ac.id, route.id);
-                                    setState(() {
-                                      _showBuyShop = false;
-                                      _buyShopError = null;
-                                      aircraftError = null;
-                                    });
-                                  } catch (e) {
-                                    setState(() => _buyShopError = e
-                                        .toString()
-                                        .replaceFirst('Bad state: ', ''));
-                                  }
-                                },
-                              ),
-                            if (_buyShopError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  _buyShopError!,
-                                  style: const TextStyle(
-                                      color: Color(0xffff6b6b)),
-                                ),
-                              ),
-                          ],
-                        );
-                      }(),
-                    ],
+                    _AppBtn(
+                      variant: _BtnVariant.ghost,
+                      onPressed: () => setState(() {
+                        _showBuyShop = !_showBuyShop;
+                        _buyShopError = null;
+                      }),
+                      icon: Icon(_showBuyShop ? Icons.close : Icons.add),
+                      child: Text(_showBuyShop ? 'Cancel' : 'Buy New Plane'),
+                    ),
                     if (aircraftError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -10340,6 +10238,89 @@ class _RouteEditDialogState extends State<_RouteEditDialog> {
                   ],
                 ),
               ),
+
+              // ── Aircraft shop (shown below assignment card) ──
+              if (_showBuyShop && origin != null && destination != null) ...[
+                const SizedBox(height: 12),
+                () {
+                  final allShopAircraft = aircraftTypes
+                      .where((t) => t.yearIntroduced <= currentYear)
+                      .toList()
+                    ..sort((a, b) {
+                      final aOk = a.rangeKm >= route.distanceKm &&
+                          canAirportHandleAircraft(origin, a) &&
+                          canAirportHandleAircraft(destination, a);
+                      final bOk = b.rangeKm >= route.distanceKm &&
+                          canAirportHandleAircraft(origin, b) &&
+                          canAirportHandleAircraft(destination, b);
+                      if (aOk != bOk) return aOk ? -1 : 1;
+                      return a.purchasePrice.compareTo(b.purchasePrice);
+                    });
+                  final manufacturers = <String>{
+                    'All',
+                    ...allShopAircraft.map((t) => t.manufacturer),
+                  }.toList()
+                    ..sort((a, b) {
+                      if (a == 'All') return -1;
+                      if (b == 'All') return 1;
+                      return a.toLowerCase().compareTo(b.toLowerCase());
+                    });
+                  final shopTypes = _buyShopManufacturer == 'All'
+                      ? allShopAircraft
+                      : allShopAircraft
+                          .where((t) => t.manufacturer == _buyShopManufacturer)
+                          .toList();
+                  return _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Buy a new aircraft',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 8),
+                        _InlineAircraftShop(
+                          types: shopTypes,
+                          manufacturers: manufacturers,
+                          selectedManufacturer: _buyShopManufacturer,
+                          selectedTypeId: null,
+                          distanceKm: route.distanceKm,
+                          cash: widget.game.player.cashUSD,
+                          origin: origin,
+                          destination: destination,
+                          currency: widget.currency,
+                          onManufacturerChanged: (m) =>
+                              setState(() => _buyShopManufacturer = m),
+                          onSelected: (type) {
+                            try {
+                              final ac = widget.game.buyAircraft(type.id);
+                              widget.game.assignAircraftToRoute(
+                                  ac.id, route.id);
+                              setState(() {
+                                _showBuyShop = false;
+                                _buyShopError = null;
+                                aircraftError = null;
+                              });
+                            } catch (e) {
+                              setState(() => _buyShopError =
+                                  e.toString().replaceFirst('Bad state: ', ''));
+                            }
+                          },
+                        ),
+                        if (_buyShopError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _buyShopError!,
+                              style:
+                                  const TextStyle(color: Color(0xffff6b6b)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }(),
+              ],
 
               // ── Pricing section ──
               const Divider(height: 24),
