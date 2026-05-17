@@ -4085,11 +4085,27 @@ class _PlaneIconCache {
     if (isReady || _loading) return;
     _loading = true;
     const logicalSize = 64.0;
-    final px = (logicalSize * devicePixelRatio).round().clamp(32, 256);
+    // Add 15% transparent padding on each side so wing-tips that touch the
+    // SVG viewBox boundary are never pixel-clipped by the image rect.
+    const paddingFraction = 0.15;
+    final innerPx = (logicalSize * devicePixelRatio).round().clamp(32, 220);
+    final paddingPx = (innerPx * paddingFraction).round();
+    final totalPx = innerPx + paddingPx * 2;
     for (final entry in _assets.entries) {
       final info = await vg.loadPicture(SvgAssetLoader(entry.value), null);
-      final img = await info.picture.toImage(px, px);
+      final svgSize = info.size;
+      // Render SVG centred inside a padded canvas.
+      final recorder = ui.PictureRecorder();
+      final padCanvas = ui.Canvas(recorder);
+      final scaleX = innerPx / svgSize.width;
+      final scaleY = innerPx / svgSize.height;
+      padCanvas.translate(paddingPx.toDouble(), paddingPx.toDouble());
+      padCanvas.scale(scaleX, scaleY);
+      padCanvas.drawPicture(info.picture);
       info.picture.dispose();
+      final padded = recorder.endRecording();
+      final img = await padded.toImage(totalPx, totalPx);
+      padded.dispose();
       _cache[entry.key] = img;
     }
   }
@@ -4185,22 +4201,25 @@ class _PlanePainter extends CustomPainter {
       );
 
       final screenPt = camera.getOffsetFromOrigin(LatLng(vp.lat, vp.lon));
-      if (screenPt.dx < -40 ||
-          screenPt.dy < -40 ||
-          screenPt.dx > size.width + 40 ||
-          screenPt.dy > size.height + 40) continue; // off-screen
 
       final airline = game.airlines[route.airlineId];
       final color = _colorFromHex(airline?.color ?? '#ffffff');
       final type = aircraftTypesById[ac.typeId];
       final cat = type?.category;
       final basePx = switch (cat) {
-        AircraftCategory.regional => 14.0,
-        AircraftCategory.widebody => 20.0,
-        AircraftCategory.sst      => 18.0,
-        _                         => 17.0,
+        AircraftCategory.regional => 10.0,
+        AircraftCategory.widebody => 14.0,
+        AircraftCategory.sst      => 12.0,
+        _                         => 12.0,
       };
       final halfPx = basePx * zoomScale;
+      // Skip if the plane's worst-case rotated bounding circle falls
+      // entirely outside the canvas — avoids partial/clipped silhouettes.
+      final reach = halfPx * 1.5; // ≥ half-diagonal of the image square
+      if (screenPt.dx < -reach ||
+          screenPt.dy < -reach ||
+          screenPt.dx > size.width + reach ||
+          screenPt.dy > size.height + reach) continue;
 
       final img = icons[cat ?? AircraftCategory.narrowbody];
       if (img == null) continue;
