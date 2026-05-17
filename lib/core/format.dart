@@ -42,6 +42,22 @@ const currencyOptions = <CurrencyOption>[
   ),
 ];
 
+/// Inserts thousands separators into the integer part of a numeric string,
+/// e.g. "7164196.0" → "7,164,196.0".
+String _addCommas(String s) {
+  final dot = s.indexOf('.');
+  final intPart = dot >= 0 ? s.substring(0, dot) : s;
+  final decPart = dot >= 0 ? s.substring(dot) : '';
+  final buf = StringBuffer();
+  for (var i = 0; i < intPart.length; i++) {
+    if (i > 0 && (intPart.length - i) % 3 == 0 && intPart[i - 1] != '-') {
+      buf.write(',');
+    }
+    buf.write(intPart[i]);
+  }
+  return buf.toString() + decPart;
+}
+
 String money(num usd, CurrencyOption currency, {bool compact = true}) {
   final value = usd * currency.rateFromUsd;
   final abs = value.abs();
@@ -58,5 +74,6 @@ String money(num usd, CurrencyOption currency, {bool compact = true}) {
     suffix = 'K';
   }
   final decimals = shown.abs() >= 100 || shown == shown.roundToDouble() ? 0 : 1;
-  return currency.symbol + shown.toStringAsFixed(decimals) + suffix;
+  final formatted = _addCommas(shown.toStringAsFixed(decimals));
+  return currency.symbol + formatted + suffix;
 }
