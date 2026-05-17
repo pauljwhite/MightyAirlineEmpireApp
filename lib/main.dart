@@ -7804,6 +7804,94 @@ class _FinanceView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
+                'Daily breakdown',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 10),
+              Builder(
+                builder: (context) {
+                  final totalCost = fuelCost +
+                      maintenanceCost +
+                      crewCost +
+                      airportFees +
+                      debtService;
+                  final segments = [
+                    (label: 'Fuel', value: fuelCost, color: const Color(0xffff6b6b)),
+                    (label: 'Maint', value: maintenanceCost, color: const Color(0xffffa94d)),
+                    (label: 'Crew', value: crewCost, color: const Color(0xffffd166)),
+                    (label: 'Airport', value: airportFees, color: const Color(0xff77c9ff)),
+                    (label: 'Debt', value: debtService, color: const Color(0xffff8fab)),
+                  ].where((s) => s.value > 0).toList();
+                  if (totalCost <= 0) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          height: 14,
+                          child: Row(
+                            children: segments.map((seg) => Flexible(
+                              flex: (seg.value / totalCost * 1000).round(),
+                              child: Container(color: seg.color),
+                            )).toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 4,
+                        children: segments.map((seg) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: seg.color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${seg.label} ${(seg.value / totalCost * 100).toStringAsFixed(0)}%',
+                              style: const TextStyle(fontSize: 11, color: Color(0xff9e9e9e)),
+                            ),
+                          ],
+                        )).toList(),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  );
+                },
+              ),
+              _FinanceBreakdownRow(label: 'Revenue', value: totalDailyRevenue, color: const Color(0xff3af083), currency: currency),
+              _FinanceBreakdownRow(label: 'Fuel', value: -fuelCost, color: const Color(0xffff6b6b), currency: currency),
+              _FinanceBreakdownRow(label: 'Maintenance', value: -maintenanceCost, color: const Color(0xffffa94d), currency: currency),
+              _FinanceBreakdownRow(label: 'Crew', value: -crewCost, color: const Color(0xffffd166), currency: currency),
+              _FinanceBreakdownRow(label: 'Airport fees', value: -airportFees, color: const Color(0xff77c9ff), currency: currency),
+              _FinanceBreakdownRow(label: 'Debt service', value: -debtService, color: const Color(0xffff8fab), currency: currency),
+              if (projectedDividends > 0)
+                _FinanceBreakdownRow(label: 'Dividends', value: projectedDividends, color: const Color(0xff2dd4bf), currency: currency),
+              const Divider(height: 20),
+              _FinanceBreakdownRow(
+                label: 'Net',
+                value: lastProfit + projectedDividends,
+                color: lastProfit + projectedDividends >= 0
+                    ? const Color(0xff3af083)
+                    : const Color(0xffff6b6b),
+                currency: currency,
+                strong: true,
+              ),
+            ],
+          ),
+        ),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
                 'Operating performance',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
@@ -7970,156 +8058,6 @@ class _FinanceView extends StatelessWidget {
                     positive: route.dailyProfit >= 0,
                   );
                 }),
-            ],
-          ),
-        ),
-        _Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Daily breakdown',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Builder(
-                builder: (context) {
-                  final totalCost = fuelCost +
-                      maintenanceCost +
-                      crewCost +
-                      airportFees +
-                      debtService;
-                  final segments = [
-                    (
-                      label: 'Fuel',
-                      value: fuelCost,
-                      color: const Color(0xffff6b6b),
-                    ),
-                    (
-                      label: 'Maint',
-                      value: maintenanceCost,
-                      color: const Color(0xffffa94d),
-                    ),
-                    (
-                      label: 'Crew',
-                      value: crewCost,
-                      color: const Color(0xffffd166),
-                    ),
-                    (
-                      label: 'Airport',
-                      value: airportFees,
-                      color: const Color(0xff77c9ff),
-                    ),
-                    (
-                      label: 'Debt',
-                      value: debtService,
-                      color: const Color(0xffff8fab),
-                    ),
-                  ].where((s) => s.value > 0).toList();
-                  if (totalCost <= 0) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: SizedBox(
-                          height: 14,
-                          child: Row(
-                            children: segments.map((seg) {
-                              return Flexible(
-                                flex: (seg.value / totalCost * 1000).round(),
-                                child: Container(color: seg.color),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 4,
-                        children: segments.map((seg) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: seg.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${seg.label} ${(seg.value / totalCost * 100).toStringAsFixed(0)}%',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xff9e9e9e),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  );
-                },
-              ),
-              _FinanceBreakdownRow(
-                label: 'Revenue',
-                value: totalDailyRevenue,
-                color: const Color(0xff3af083),
-                currency: currency,
-              ),
-              _FinanceBreakdownRow(
-                label: 'Fuel',
-                value: -fuelCost,
-                color: const Color(0xffff6b6b),
-                currency: currency,
-              ),
-              _FinanceBreakdownRow(
-                label: 'Maintenance',
-                value: -maintenanceCost,
-                color: const Color(0xffffa94d),
-                currency: currency,
-              ),
-              _FinanceBreakdownRow(
-                label: 'Crew',
-                value: -crewCost,
-                color: const Color(0xffffd166),
-                currency: currency,
-              ),
-              _FinanceBreakdownRow(
-                label: 'Airport fees',
-                value: -airportFees,
-                color: const Color(0xff77c9ff),
-                currency: currency,
-              ),
-              _FinanceBreakdownRow(
-                label: 'Debt service',
-                value: -debtService,
-                color: const Color(0xffff8fab),
-                currency: currency,
-              ),
-              if (projectedDividends > 0)
-                _FinanceBreakdownRow(
-                  label: 'Dividends',
-                  value: projectedDividends,
-                  color: const Color(0xff2dd4bf),
-                  currency: currency,
-                ),
-              const Divider(height: 20),
-              _FinanceBreakdownRow(
-                label: 'Net',
-                value: lastProfit + projectedDividends,
-                color: lastProfit + projectedDividends >= 0
-                    ? const Color(0xff3af083)
-                    : const Color(0xffff6b6b),
-                currency: currency,
-                strong: true,
-              ),
             ],
           ),
         ),
