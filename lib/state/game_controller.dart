@@ -1025,11 +1025,33 @@ class GameController extends ChangeNotifier {
 
   int _defaultAiFrequency(AirlinePersonality personality) =>
       switch (personality) {
-        AirlinePersonality.aggressive => 12,
-        AirlinePersonality.budget => 14,
+        AirlinePersonality.aggressive => 10,
+        AirlinePersonality.budget => 10,
         AirlinePersonality.premium => 7,
         AirlinePersonality.conservative => 5,
-        AirlinePersonality.balanced => 8,
+        AirlinePersonality.balanced => 7,
+      };
+
+  /// Hard cap on the number of routes an AI airline may operate. Prevents
+  /// unlimited expansion and keeps AI fleet sizes realistic.
+  int _aiMaxRoutes(AirlinePersonality personality) =>
+      switch (personality) {
+        AirlinePersonality.aggressive => 16,
+        AirlinePersonality.balanced => 12,
+        AirlinePersonality.budget => 10,
+        AirlinePersonality.premium => 9,
+        AirlinePersonality.conservative => 7,
+      };
+
+  /// Daily per-aircraft overhead for AI airlines (staff, admin, ground
+  /// handling, and facilities costs not captured in per-flight economics).
+  double _aiOverheadPerAircraftPerDay(AirlinePersonality personality) =>
+      switch (personality) {
+        AirlinePersonality.aggressive => 2200,   // large ops, higher labour
+        AirlinePersonality.balanced => 1800,
+        AirlinePersonality.budget => 1100,        // lean staffing model
+        AirlinePersonality.premium => 2800,       // premium service standards
+        AirlinePersonality.conservative => 1500,
       };
 
   double _aiPriceMultiplier(AirlinePersonality personality) =>
@@ -1918,8 +1940,14 @@ class GameController extends ChangeNotifier {
   ) {
     final input = _optimisationInputForRoute(routeId, airlineId);
     final result = optimiseRouteSettings(input);
+    // For AI airlines, cap flights/week to the personality default so the
+    // optimizer cannot push frequencies beyond what is realistic for each type.
+    final airline = airlines[airlineId];
+    final maxFlights = (airline == null || airline.isPlayer)
+        ? result.flightsPerWeek
+        : _defaultAiFrequency(airline.personality);
     routes[routeId] = input.route.copyWith(
-      flightsPerWeek: result.flightsPerWeek,
+      flightsPerWeek: result.flightsPerWeek.clamp(1, maxFlights),
       priceEconomy: result.priceEconomy,
       priceBusiness: result.priceBusiness,
     );
@@ -2061,6 +2089,13 @@ class GameController extends ChangeNotifier {
           : 0.0;
       totalCost += debtService;
       totalCost += airline.hubIatas.length * hubAnnualFeeUsd / 365;
+      // AI operating overhead: staff, administration, ground handling and
+      // facility costs that the simplified per-flight model omits.
+      if (!airline.isPlayer) {
+        final aiFleetSize = fleetForAirline(airlineId).length;
+        totalCost +=
+            aiFleetSize * _aiOverheadPerAircraftPerDay(airline.personality);
+      }
       final profit = totalRevenue - totalCost;
       final paidLoans = debtService > 0
           ? applyLoanPayment(
@@ -2637,6 +2672,8 @@ class GameController extends ChangeNotifier {
       // Stagger by a deterministic per-airline offset so not all expand at once
       final offset = airline.id.hashCode.abs() % interval;
       if ((gameDay + offset) % interval != 0) continue;
+      // Don't expand beyond the per-personality route cap.
+      if (airline.routeIds.length >= _aiMaxRoutes(airline.personality)) continue;
       final aiCashReserve = 12000000 + airline.fleetIds.length * 2500000.0;
       if (airline.cashUSD < aiCashReserve) {
         continue;
