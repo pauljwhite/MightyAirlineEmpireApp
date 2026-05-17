@@ -674,6 +674,9 @@ class GameController extends ChangeNotifier {
   int _nextLoan = 1;
   int _nextTicker = 1;
   int _nextAirline = 1;
+  /// Unique entropy seed generated once per new game. Used to vary AI names,
+  /// colors, and logos so every playthrough feels different.
+  int gameSeed = 0;
   int _animFrameSkip = 0;
   int _lastAutoSaveRealMs = 0;
 
@@ -1039,6 +1042,7 @@ class GameController extends ChangeNotifier {
 
   void startNewGame([GameSettings? nextSettings]) {
     hasStarted = true;
+    gameSeed = math.Random().nextInt(0x7FFFFFFF);
     settings = nextSettings ?? settings;
     gameDay = 0;
     gameTimeMs = 0;
@@ -1087,20 +1091,43 @@ class GameController extends ChangeNotifier {
   }
 
   void _initAIAirlines() {
+    final rng = math.Random(gameSeed);
     final count = math.min(settings.aiCount, _aiSeeds.length);
+    final existingNames = <String>{};
+    final usedColors = <String>{};
+    final usedPrefixes = <String>{'PLY'}; // player's prefix
     for (var i = 0; i < count; i += 1) {
       final seed = _aiSeeds[i];
       if (!airportsByIata.containsKey(seed.startHub) ||
           !airportsByIata.containsKey(seed.secondHub))
         continue;
+
+      // Generate a unique name seeded by this game's gameSeed so it varies.
+      final hub = airportsByIata[seed.startHub];
+      final name = _generateSpawnedAirlineName(existingNames, rng, hub: hub);
+      existingNames.add(name);
+
+      // Derive IATA prefix from the generated name, or fall back to random letters.
+      final iataPrefix = _deriveIataPrefix(name, usedPrefixes, rng);
+      usedPrefixes.add(iataPrefix);
+
+      // Pick a color not yet used.
+      final color = _aiSpawnColors.firstWhere(
+        (c) => !usedColors.contains(c.toLowerCase()),
+        orElse: () => _aiSpawnColors[rng.nextInt(_aiSpawnColors.length)],
+      );
+      usedColors.add(color.toLowerCase());
+
+      final logo = _aiSpawnLogos[rng.nextInt(_aiSpawnLogos.length)];
+
       final airlineId = 'ai-${i + 1}';
       airlines[airlineId] = Airline(
         id: airlineId,
-        name: seed.name,
-        iataPrefix: seed.iataPrefix,
+        name: name,
+        iataPrefix: iataPrefix,
         isPlayer: false,
-        color: seed.color,
-        logoEmoji: seed.logoEmoji,
+        color: color,
+        logoEmoji: logo,
         cashUSD: seed.cashUSD,
         hubIatas: [seed.startHub],
         personality: seed.personality,
@@ -1128,25 +1155,30 @@ class GameController extends ChangeNotifier {
         // Seed data should be valid, but a skipped AI is better than blocking a new game.
       }
     }
-    _seedAICrossShareholdings();
+    // Cross-shareholdings now use dynamic IDs — skip the hard-coded seed.
   }
 
-  void _seedAICrossShareholdings() {
-    final skyPacific = airlines['ai-8'];
-    final eagleAir = airlines['ai-1'];
-    if (skyPacific != null && eagleAir != null) {
-      airlines[skyPacific.id] = skyPacific.copyWith(
-        shareholders: {...skyPacific.shareholders, eagleAir.id: 8},
-      );
+  /// Derives a 2-character IATA-style prefix from [name], avoiding [used].
+  String _deriveIataPrefix(String name, Set<String> used, math.Random rng) {
+    // Try initials of words first.
+    final initials = name
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .join()
+        .padRight(2, 'X')
+        .substring(0, 2);
+    if (!used.contains(initials)) return initials;
+    // Fall back to random letter pairs.
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    for (var attempt = 0; attempt < 40; attempt++) {
+      final candidate =
+          '${letters[rng.nextInt(letters.length)]}${letters[rng.nextInt(letters.length)]}';
+      if (!used.contains(candidate)) return candidate;
     }
-    final gulfConnect = airlines['ai-5'];
-    final pacificCoast = airlines['ai-2'];
-    if (gulfConnect != null && pacificCoast != null) {
-      airlines[gulfConnect.id] = gulfConnect.copyWith(
-        shareholders: {...gulfConnect.shareholders, pacificCoast.id: 5},
-      );
-    }
+    return initials; // last resort — duplicate is better than crash
   }
+
 
   int _defaultAiFrequency(AirlinePersonality personality) =>
       switch (personality) {
@@ -3344,7 +3376,7 @@ class GameController extends ChangeNotifier {
         .toList(growable: false);
     if (activeCompetitors.length >= _maxAiAirlines) return;
 
-    final rng = math.Random(gameDay * 92821 + activeCompetitors.length * 97);
+    final rng = math.Random(gameSeed ^ gameDay * 92821 ^ activeCompetitors.length * 97);
     final shouldSpawn = activeCompetitors.length < 4 || rng.nextDouble() < 0.5;
     if (!shouldSpawn) return;
 
@@ -3894,6 +3926,7 @@ class GameController extends ChangeNotifier {
     'nextRoute': _nextRoute,
     'nextLoan': _nextLoan,
     'nextAirline': _nextAirline,
+    'gameSeed': gameSeed,
   };
 
   void importJson(String rawJson) {
@@ -4018,6 +4051,7 @@ class GameController extends ChangeNotifier {
     _nextAirline =
         (raw['nextAirline'] as num?)?.round() ??
         airlines.keys.where((id) => id.startsWith('ai-spawned-')).length + 1;
+    gameSeed = (raw['gameSeed'] as num?)?.toInt() ?? math.Random().nextInt(0x7FFFFFFF);
     for (final airline in airlines.values) {
       for (final hubIata in airline.hubIatas) {
         _markAirportHub(hubIata);
