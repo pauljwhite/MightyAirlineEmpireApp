@@ -5670,64 +5670,80 @@ class _RouteCardState extends State<_RouteCard> {
         : ac?.isGrounded == true
         ? 'Grounded'
         : 'Inactive';
+    final statusColor = route.isActive
+        ? const Color(0xff3af083)
+        : const Color(0xff8b95a8);
+    final profitColor = route.dailyProfit >= 0
+        ? const Color(0xff3af083)
+        : const Color(0xffff6b6b);
+
     return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: route.isActive
-                      ? const Color(0xff3af083)
-                      : const Color(0xff8b95a8),
-                  shape: BoxShape.circle,
-                ),
+      padding: EdgeInsets.zero,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${route.originIata} →${route.destinationIata}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Text(
-                money(route.dailyProfit, currency),
-                style: TextStyle(
-                  color: route.dailyProfit >= 0
-                      ? const Color(0xff3af083)
-                      : const Color(0xffff6b6b),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          if (inactiveReason != null) ...[
-            const SizedBox(height: 6),
-            _FleetStatusChip(
-              label: inactiveReason.toUpperCase(),
-              color: const Color(0xffffd166),
             ),
+            const SizedBox(width: 10),
+            Text(
+              '${route.originIata} → ${route.destinationIata}',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (inactiveReason != null)
+              _FleetStatusChip(
+                label: inactiveReason.toUpperCase(),
+                color: const Color(0xffffd166),
+              ),
           ],
-          const SizedBox(height: 6),
-          Text(
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              money(route.dailyProfit, currency),
+              style: TextStyle(
+                color: profitColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 4),
+            // ExpansionTile draws its own chevron after trailing, so we just
+            // leave space for it with a zero-width widget.
+            const SizedBox.shrink(),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
             type == null
-                ? 'No aircraft assigned · ${route.flightsPerWeek}/week'
-                : '${type.displayName} · ${route.flightsPerWeek}/week',
-            style: const TextStyle(color: Color(0xff9e9e9e)),
+                ? 'No aircraft · ${route.flightsPerWeek}/wk'
+                : '${type.displayName} · ${route.flightsPerWeek}/wk',
+            style: const TextStyle(color: Color(0xff9e9e9e), fontSize: 12),
           ),
+        ),
+        children: [
+          const Divider(height: 1),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               _RouteMiniStat('Eco fare', money(route.priceEconomy, currency)),
-              _RouteMiniStat('Biz fare', money(route.priceBusiness, currency)),
+              if (route.priceBusiness > 0)
+                _RouteMiniStat('Biz fare', money(route.priceBusiness, currency)),
               _RouteMiniStat('Revenue', money(route.dailyRevenue, currency)),
               _RouteMiniStat('Cost', money(route.dailyCost, currency)),
             ],
@@ -5781,18 +5797,20 @@ class _RouteCardState extends State<_RouteCard> {
                         setState(() => confirmingDelete = false);
                       },
                       icon: const Icon(Icons.delete_forever),
-                      child: const Text('Confirm delete')
+                      child: const Text('Confirm delete'),
                     )
                   : _AppBtn(
                       variant: _BtnVariant.ghost,
-                      onPressed: () => setState(() => confirmingDelete = true),
+                      onPressed: () =>
+                          setState(() => confirmingDelete = true),
                       icon: const Icon(Icons.delete_outline),
                       child: const Text('Delete'),
                     ),
               if (confirmingDelete)
                 IconButton(
                   tooltip: 'Cancel delete',
-                  onPressed: () => setState(() => confirmingDelete = false),
+                  onPressed: () =>
+                      setState(() => confirmingDelete = false),
                   icon: const Icon(Icons.close),
                 ),
             ],
@@ -11879,12 +11897,13 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.child});
+  const _Card({required this.child, this.padding});
   final Widget child;
+  final EdgeInsetsGeometry? padding;
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
+    padding: padding ?? const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: _cardSurface(context),
       borderRadius: BorderRadius.circular(14),
