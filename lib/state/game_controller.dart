@@ -515,6 +515,16 @@ const _aiSeeds = <_AiSeed>[
   ),
 ];
 
+String _formatCost(int value) {
+  final s = value.abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
+  }
+  return value < 0 ? '-${buf.toString()}' : buf.toString();
+}
+
 class GameController extends ChangeNotifier {
   GameController({bool autoStart = true}) {
     if (autoStart) startNewGame();
@@ -1482,11 +1492,11 @@ class GameController extends ChangeNotifier {
       subheadline:
           '${ac.name} reported a technical issue at ${airport?.city ?? 'base'}',
       paragraphs: [
-        '${airline.name} ${type?.model ?? ac.typeId} ${ac.name} reported a technical issue while operating $routeLabel.',
+        '${airline.name} ${ac.name} reported a technical issue while operating $routeLabel.',
         ground
             ? 'The aircraft has been withdrawn from service pending maintenance. Passengers on affected services may face disruption until the aircraft is cleared.'
             : 'The issue was resolved without grounding, but engineers have logged additional maintenance work.',
-        'Operations control can send the aircraft to maintenance from the fleet panel. The estimated standard maintenance cost is ${maintenanceCost.round()} USD.',
+        'Operations control can send the aircraft to maintenance from the fleet panel. The estimated standard maintenance cost is \$${_formatCost(maintenanceCost.round())} USD.',
       ],
       severity: ground ? 'grounding' : 'technical',
       gameDay: gameDay,

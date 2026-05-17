@@ -8440,6 +8440,17 @@ class _FinanceBreakdownRow extends StatelessWidget {
   );
 }
 
+/// Formats an integer cost with thousands separators, e.g. 809352 → "809,352".
+String _formatCost(int value) {
+  final s = value.abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
+  }
+  return value < 0 ? '-${buf.toString()}' : buf.toString();
+}
+
 String _formatCount(num value) {
   final sign = value < 0 ? '-' : '';
   final abs = value.abs();
@@ -12712,7 +12723,7 @@ void _showHeraldArticle(
                                 },
                                 icon: const Icon(Icons.build),
                                 child: Text(
-                                  'Send to maintenance (${article.actionMaintenanceCost ?? 0} USD)',
+                                  'Send to maintenance (\$${_formatCost(article.actionMaintenanceCost ?? 0)} USD)',
                                 )
                               ),
                               const SizedBox(height: 8),
