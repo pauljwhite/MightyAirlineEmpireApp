@@ -8174,9 +8174,13 @@ class _FinanceView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 2.6,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 children: loanOffers.map((offer) {
                   final available = game.canApplyForLoan(offer);
                   final dailyPayment = calculateDailyLoanPayment(
@@ -8184,54 +8188,52 @@ class _FinanceView extends StatelessWidget {
                     offer.annualInterestRate,
                     offer.termYears,
                   );
-                  return SizedBox(
-                    width: 190,
-                    child: _AppBtn(
-                      variant: _BtnVariant.ghost,
-                      onPressed: available
-                          ? () => showDialog<void>(
-                              context: context,
-                              builder: (ctx) => _GlassDialog(
-                                title: const Text('Confirm Loan'),
-                                content: Text(
-                                  'Apply for a ${money(offer.amountUSD, currency)} loan at ${formatInterestRate(offer.annualInterestRate)} over ${offer.termYears} ${offer.termYears == 1 ? "year" : "years"}?\n\nDaily repayment: ${money(dailyPayment, currency)}/day',
-                                ),
-                                actions: [
-                                  _AppBtn(
-                                    variant: _BtnVariant.plain,
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  _AppBtn(
-                                    onPressed: () {
-                                      Navigator.of(ctx).pop();
-                                      game.applyForLoan(offer);
-                                    },
-                                    child: const Text('Apply'),
-                                  ),
-                                ],
+                  return _AppBtn(
+                    variant: _BtnVariant.ghost,
+                    onPressed: available
+                        ? () => showDialog<void>(
+                            context: context,
+                            builder: (ctx) => _GlassDialog(
+                              title: const Text('Confirm Loan'),
+                              content: Text(
+                                'Apply for a ${money(offer.amountUSD, currency)} loan at ${formatInterestRate(offer.annualInterestRate)} over ${offer.termYears} ${offer.termYears == 1 ? "year" : "years"}?\n\nDaily repayment: ${money(dailyPayment, currency)}/day',
                               ),
-                            )
-                          : null,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            money(offer.amountUSD, currency),
-                            style: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          Text(
-                            '${formatInterestRate(offer.annualInterestRate)} · ${offer.termYears}y · ${money(dailyPayment, currency)}/day',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          if (!available)
-                            const Text(
-                              'credit limit',
-                              style: TextStyle(fontSize: 11),
+                              actions: [
+                                _AppBtn(
+                                  variant: _BtnVariant.plain,
+                                  onPressed: () => Navigator.of(ctx).pop(),
+                                  child: const Text('Cancel'),
+                                ),
+                                _AppBtn(
+                                  onPressed: () {
+                                    Navigator.of(ctx).pop();
+                                    game.applyForLoan(offer);
+                                  },
+                                  child: const Text('Apply'),
+                                ),
+                              ],
                             ),
-                        ],
-                      ),
+                          )
+                        : null,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          money(offer.amountUSD, currency),
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '${formatInterestRate(offer.annualInterestRate)} · ${offer.termYears}y · ${money(dailyPayment, currency)}/day',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        if (!available)
+                          const Text(
+                            'credit limit',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                      ],
                     ),
                   );
                 }).toList(),
