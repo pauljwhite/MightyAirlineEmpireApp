@@ -747,7 +747,11 @@ class GameController extends ChangeNotifier {
   void notifyListeners() {
     routesStructureVersion.value += 1;
     airportStateVersion.value += 1;
-    _invalidateOptimisationCaches();
+    // Optimisation caches are NOT cleared here. Clearing on every notification
+    // means every render frame (triggered by each notifyListeners call) has a
+    // cold cache and must re-run the optimiser for all N routes — 350ms+ per
+    // frame with 35 routes. Instead caches are invalidated only at the natural
+    // boundaries where route economics actually change (see below).
     super.notifyListeners();
   }
 
@@ -1471,6 +1475,7 @@ class GameController extends ChangeNotifier {
       status: routeId == null ? AircraftStatus.idle : AircraftStatus.flying,
       resumeRouteAfterMaintenance: false,
     );
+    _invalidateOptimisationCaches();
     notifyListeners();
   }
 
@@ -2180,6 +2185,7 @@ class GameController extends ChangeNotifier {
       priceBusiness: priceBusiness == null ? null : math.max(0, priceBusiness),
       isActive: isActive,
     );
+    _invalidateOptimisationCaches();
     notifyListeners();
   }
 
@@ -2354,8 +2360,10 @@ class GameController extends ChangeNotifier {
     return result;
   }
 
-  RouteOptimisationResult optimiseRoute(String routeId) =>
-      _optimiseRouteForAirline(routeId, 'player');
+  RouteOptimisationResult optimiseRoute(String routeId) {
+    _invalidateOptimisationCaches();
+    return _optimiseRouteForAirline(routeId, 'player');
+  }
 
   RouteOptimisationResult _optimiseRouteForAirline(
     String routeId,
@@ -2446,11 +2454,17 @@ class GameController extends ChangeNotifier {
       'Network optimisation completed for ${changes.length} routes at a consulting cost of \$${cost.round()}.',
       playerRelated: true,
     );
+    _invalidateOptimisationCaches();
     notifyListeners();
     return true;
   }
 
   DailySnapshot runDailyTick() {
+    // Route economics (prices, conditions, capacities) change each tick, so the
+    // optimisation cache must be rebuilt. Doing it here — rather than in
+    // notifyListeners() — means the cache survives across all intra-day
+    // notifications and rebuilds are cheap (hashmap lookups only).
+    _invalidateOptimisationCaches();
     _clearExpiredAirportClosures();
     final nextAirportPax = <String, double>{};
     final routeIndex = RouteIndex.build(routes.values, airlines.values);
@@ -4346,6 +4360,7 @@ class GameController extends ChangeNotifier {
       }
     }
     _purgeOrphanedRoutes();
+    _invalidateOptimisationCaches();
     notifyListeners();
   }
 
