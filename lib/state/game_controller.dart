@@ -1744,17 +1744,23 @@ class GameController extends ChangeNotifier {
       maintenanceCost(aircraftId, MaintenanceTier.standard);
 
   // Typed aircraft events — (label, probability, conditionHit, reputationHit, ground)
+  // repHit values are deliberately small (0.3–1.5).  Each event is checked
+  // against every aircraft every day, so with a large fleet (35+ planes) the
+  // *expected* daily reputation loss is ~0.14 pts — comfortably below the
+  // +0.35 base recovery so reputation can always climb back.
+  // Old values (2–10) produced ~1 pt/day loss at 35 planes, making recovery
+  // impossible.
   static const _fleetEvents = <(String, double, double, double, bool)>[
-    ('bird strike', 0.0018, 8, 2, false),
-    ('engine fault', 0.0012, 14, 5, true),
-    ('hydraulic issue', 0.0010, 10, 3, true),
-    ('tyre blowout', 0.0016, 6, 2, false),
-    ('fuselage crack', 0.0007, 18, 8, true),
-    ('avionics fault', 0.0009, 8, 4, true),
-    ('fuel leak', 0.0008, 12, 6, true),
-    ('pressurisation fault', 0.0006, 10, 5, true),
-    ('landing gear fault', 0.0011, 12, 5, true),
-    ('fire warning', 0.0005, 16, 10, true),
+    ('bird strike', 0.0018, 8, 0.3, false),
+    ('engine fault', 0.0012, 14, 0.8, true),
+    ('hydraulic issue', 0.0010, 10, 0.5, true),
+    ('tyre blowout', 0.0016, 6, 0.3, false),
+    ('fuselage crack', 0.0007, 18, 1.2, true),
+    ('avionics fault', 0.0009, 8, 0.6, true),
+    ('fuel leak', 0.0008, 12, 0.9, true),
+    ('pressurisation fault', 0.0006, 10, 0.7, true),
+    ('landing gear fault', 0.0011, 12, 0.8, true),
+    ('fire warning', 0.0005, 16, 1.5, true),
   ];
 
   void _maybeRunRandomFleetEvent() {
@@ -1780,9 +1786,12 @@ class GameController extends ChangeNotifier {
           final (label, prob, condHit, repHit, grounds) = evt;
           if (rng.nextDouble() > prob * _eventScale) continue;
           final newCondition = (ac.condition - condHit).clamp(0, 100).toDouble();
+          // Re-read after each event so multiple hits on the same day cumulate
+          // correctly rather than all subtracting from the same original score.
+          final current = airlines[airlineId]!;
           final newReputation =
-              (airline.reputationScore - repHit).clamp(0, 100).toDouble();
-          airlines[airlineId] = airline.copyWith(
+              (current.reputationScore - repHit).clamp(0, 100).toDouble();
+          airlines[airlineId] = current.copyWith(
             reputationScore: newReputation,
           );
           final route = ac.assignedRouteId == null
