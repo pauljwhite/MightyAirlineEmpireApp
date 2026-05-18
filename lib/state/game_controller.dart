@@ -1646,7 +1646,11 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
-  NewsArticle triggerAircraftIncident(String aircraftId, {bool ground = true}) {
+  NewsArticle triggerAircraftIncident(
+    String aircraftId, {
+    bool ground = true,
+    NewsArticle? customArticle,
+  }) {
     final ac = aircraft[aircraftId];
     if (ac == null) throw StateError('Aircraft not found');
     final type = aircraftTypesById[ac.typeId];
@@ -1680,25 +1684,40 @@ class GameController extends ChangeNotifier {
         airline.isPlayer &&
         ground &&
         airline.maintenancePolicy.autoMaintainIssues;
+    // Use a caller-supplied article (e.g. fault-specific content from fleet
+    // events) if available; otherwise fall back to the generic incident article.
+    // Either way, stamp the maintenance action fields so the "Send to
+    // maintenance" button works in the Herald.
+    final baseArticle = customArticle ??
+        NewsArticle(
+          id: 'article-$gameDay-${newsArticles.length + 1}',
+          headline: ground
+              ? '${airline.name} aircraft grounded'
+              : '${airline.name} aircraft technical fault',
+          subheadline:
+              '${ac.name} reported a technical issue at ${airport?.city ?? 'base'}',
+          paragraphs: [
+            '${airline.name} ${ac.name} reported a technical issue while operating $routeLabel.',
+            ground
+                ? 'The aircraft has been withdrawn from service pending maintenance. Passengers on affected services may face disruption until the aircraft is cleared.'
+                : 'The issue was resolved without grounding, but engineers have logged additional maintenance work.',
+            'Operations control can send the aircraft to maintenance from the fleet panel. The estimated standard maintenance cost is \$${_formatCost(maintenanceCost.round())} USD.',
+          ],
+          severity: ground ? 'grounding' : 'technical',
+          gameDay: gameDay,
+          suppressAutoOpen: shouldAutoMaintain,
+        );
     final article = NewsArticle(
-      id: 'article-$gameDay-${newsArticles.length + 1}',
-      headline: ground
-          ? '${airline.name} aircraft grounded'
-          : '${airline.name} aircraft technical fault',
-      subheadline:
-          '${ac.name} reported a technical issue at ${airport?.city ?? 'base'}',
-      paragraphs: [
-        '${airline.name} ${ac.name} reported a technical issue while operating $routeLabel.',
-        ground
-            ? 'The aircraft has been withdrawn from service pending maintenance. Passengers on affected services may face disruption until the aircraft is cleared.'
-            : 'The issue was resolved without grounding, but engineers have logged additional maintenance work.',
-        'Operations control can send the aircraft to maintenance from the fleet panel. The estimated standard maintenance cost is \$${_formatCost(maintenanceCost.round())} USD.',
-      ],
-      severity: ground ? 'grounding' : 'technical',
-      gameDay: gameDay,
+      id: baseArticle.id,
+      headline: baseArticle.headline,
+      subheadline: baseArticle.subheadline,
+      paragraphs: baseArticle.paragraphs,
+      severity: baseArticle.severity,
+      gameDay: baseArticle.gameDay,
       actionAircraftId: aircraftId,
       actionMaintenanceCost: maintenanceCost.round(),
       suppressAutoOpen: shouldAutoMaintain,
+      playerRelated: true,
     );
     _publishNewsArticle(article);
     pushNewsItem(
@@ -1759,9 +1778,31 @@ class GameController extends ChangeNotifier {
           airlines[airlineId] = airline.copyWith(
             reputationScore: newReputation,
           );
+          final route = ac.assignedRouteId == null
+              ? null
+              : routes[ac.assignedRouteId!];
+          final routeLabel = route == null
+              ? 'unassigned services'
+              : '${route.originIata}-${route.destinationIata}';
           if (grounds || newCondition < 30) {
             if (airline.isPlayer) {
-              triggerAircraftIncident(ac.id, ground: grounds);
+              // Generate the fault-specific rich article and pass it into
+              // triggerAircraftIncident so the Herald shows full content.
+              final faultArticle = generateFleetEventArticle(
+                id: 'fleet-${ac.id}-$gameDay',
+                airlineName: airline.name,
+                aircraftName: ac.name,
+                faultLabel: label,
+                routeLabel: routeLabel,
+                grounds: grounds,
+                gameDay: gameDay,
+                seed: ac.id.hashCode ^ gameDay,
+              );
+              triggerAircraftIncident(
+                ac.id,
+                ground: grounds,
+                customArticle: faultArticle,
+              );
             } else {
               aircraft[ac.id] = ac.copyWith(
                 condition: newCondition,
@@ -1771,20 +1812,27 @@ class GameController extends ChangeNotifier {
             }
           } else {
             aircraft[ac.id] = ac.copyWith(condition: newCondition);
+            if (airline.isPlayer) {
+              // Non-grounding minor fault — still show rich article.
+              final faultArticle = generateFleetEventArticle(
+                id: 'fleet-${ac.id}-$gameDay',
+                airlineName: airline.name,
+                aircraftName: ac.name,
+                faultLabel: label,
+                routeLabel: routeLabel,
+                grounds: false,
+                gameDay: gameDay,
+                seed: ac.id.hashCode ^ gameDay,
+              );
+              pushNewsItem(
+                '${ac.name} suffered a $label.',
+                severity: 'fleet',
+                article: faultArticle,
+                playerRelated: true,
+              );
+            }
           }
-          if (airline.isPlayer) {
-            pushNewsItem(
-              '${ac.name} suffered a $label.',
-              severity: 'fleet',
-              playerRelated: true,
-            );
-          } else {
-            final route = ac.assignedRouteId == null
-                ? null
-                : routes[ac.assignedRouteId!];
-            final routeLabel = route == null
-                ? 'unassigned services'
-                : '${route.originIata}-${route.destinationIata}';
+          if (!airline.isPlayer) {
             pushNewsItem(
               '${airline.name}: $label on ${ac.name}.',
               severity: 'fleet',
