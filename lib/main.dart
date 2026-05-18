@@ -9330,13 +9330,19 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // IntrinsicWidth forces the button to its natural content width so
+          // that Center inside _AppBtn doesn't expand to fill the loose
+          // max-width passed down from Align, which made the pill span the
+          // full panel width with the text appearing centered.
           Align(
             alignment: Alignment.centerLeft,
-            child: _AppBtn(
-              variant: _BtnVariant.plain,
-              onPressed: () => setState(() => selected = null),
-              icon: const Icon(Icons.arrow_back),
-              child: const Text('Back'),
+            child: IntrinsicWidth(
+              child: _AppBtn(
+                variant: _BtnVariant.plain,
+                onPressed: () => setState(() => selected = null),
+                icon: const Icon(Icons.arrow_back),
+                child: const Text('Back'),
+              ),
             ),
           ),
           _Card(
