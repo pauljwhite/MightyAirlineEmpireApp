@@ -61,12 +61,17 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   final _autoOpenedArticleIds = <String>{};
   ThemeData? _cachedLightTheme;
   ThemeData? _cachedDarkTheme;
+  ThemeMode _themeMode = ThemeMode.dark;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     game = GameController(autoStart: false);
+    _themeMode = game.themeMode == ThemeModeSetting.light
+        ? ThemeMode.light
+        : ThemeMode.dark;
+    game.addListener(_syncThemeMode);
     _lastTickAt = DateTime.now();
     _gameLoop = Timer.periodic(const Duration(milliseconds: 16), (_) {
       final now = DateTime.now();
@@ -95,6 +100,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
           setState(() {
             currency = restoredCurrency;
             _autoSaveChecked = true;
+            _themeMode = game.themeMode == ThemeModeSetting.light
+                ? ThemeMode.light
+                : ThemeMode.dark;
           });
           return;
         } catch (_) {
@@ -104,6 +112,13 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
       // No save or corrupt save: show splash screen
       setState(() => _autoSaveChecked = true);
     });
+  }
+
+  void _syncThemeMode() {
+    final next = game.themeMode == ThemeModeSetting.light
+        ? ThemeMode.light
+        : ThemeMode.dark;
+    if (next != _themeMode) setState(() => _themeMode = next);
   }
 
   Future<void> _resetToSplash() async {
@@ -550,19 +565,17 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: game,
-      builder: (context, _) {
-        final lightMode = game.themeMode == ThemeModeSetting.light;
-        final theme = lightMode
-            ? (_cachedLightTheme ??= _buildTheme(true))
-            : (_cachedDarkTheme ??= _buildTheme(false));
-        return MaterialApp(
-          navigatorKey: _navigatorKey,
-          debugShowCheckedModeBanner: false,
-          title: 'Mighty Airline Empire',
-          theme: theme,
-          home: game.hasStarted
+    return MaterialApp(
+      navigatorKey: _navigatorKey,
+      debugShowCheckedModeBanner: false,
+      title: 'Mighty Airline Empire',
+      theme: _cachedLightTheme ??= _buildTheme(true),
+      darkTheme: _cachedDarkTheme ??= _buildTheme(false),
+      themeMode: _themeMode,
+      home: AnimatedBuilder(
+        animation: game,
+        builder: (context, _) {
+          return game.hasStarted
               ? PopScope(
                   canPop: panel == null && selectedAirport == null && !mobileSearchOpen,
                   onPopInvokedWithResult: (didPop, _) {
@@ -729,9 +742,9 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                   onCurrency: (v) => setState(() => currency = v),
                   onGameStart: () => setState(() => selectedAirport = null),
                   ready: _autoSaveChecked,
-                ),
-        );
-      },
+                );
+        },
+      ),
     );
   }
 }
