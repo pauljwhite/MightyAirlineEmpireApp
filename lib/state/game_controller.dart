@@ -1146,6 +1146,7 @@ class GameController extends ChangeNotifier {
     pushNewsItem(
       'Welcome to Mighty Airline Empire. Build routes, buy aircraft, and outlast the market.',
     );
+    _invalidateOptimisationCaches();
     notifyListeners();
   }
 
@@ -1527,6 +1528,7 @@ class GameController extends ChangeNotifier {
       '${route.originIata}-${route.destinationIata} route deleted.',
       playerRelated: true,
     );
+    _invalidateOptimisationCaches();
     notifyListeners();
     return true;
   }
@@ -1613,6 +1615,7 @@ class GameController extends ChangeNotifier {
       flightDurationHours: costs.flightDurationHours,
     );
     routes[routeId] = route;
+    _invalidateOptimisationCaches();
     airlines['player'] = player.copyWith(
       routeIds: [...player.routeIds, routeId],
     );
@@ -2460,11 +2463,14 @@ class GameController extends ChangeNotifier {
   }
 
   DailySnapshot runDailyTick() {
-    // Route economics (prices, conditions, capacities) change each tick, so the
-    // optimisation cache must be rebuilt. Doing it here — rather than in
-    // notifyListeners() — means the cache survives across all intra-day
-    // notifications and rebuilds are cheap (hashmap lookups only).
-    _invalidateOptimisationCaches();
+    // Optimisation cache is NOT cleared here. The recommended prices/frequency
+    // for a route depend on its current settings, aircraft type, and fuel price
+    // — none of which change during a tick. Aircraft condition degrades ~0.3/day
+    // which has negligible effect on the optimal price. Keeping the cache warm
+    // across ticks means the routes-panel rebuild after every day change costs
+    // O(N) hashmap lookups rather than O(N) full optimiser runs.
+    // Cache is only invalidated on explicit player actions (see callers of
+    // _invalidateOptimisationCaches) and fuel price / route creation events.
     _clearExpiredAirportClosures();
     final nextAirportPax = <String, double>{};
     final routeIndex = RouteIndex.build(routes.values, airlines.values);
