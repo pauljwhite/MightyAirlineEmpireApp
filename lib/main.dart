@@ -9573,7 +9573,7 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                         child: const Text('Buy / sell shares'),
                       ),
                       _AppBtn(
-                        variant: _BtnVariant.tonal,
+                        variant: _BtnVariant.primary,
                         onPressed:
                             // Insolvent airlines can be taken over at any stake.
                             // Solvent airlines require ≥50% ownership first.
