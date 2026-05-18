@@ -784,7 +784,7 @@ class _GameOutcomeOverlay extends StatelessWidget {
         : player.totalPassengersAllTime / totalPassengers * 100;
     final message = won
         ? game.settings.objective == GameObjective.marketShare
-              ? 'You reached ${allTimeMarketShare.toStringAsFixed(1)}% all-time market share, beating the ${game.settings.targetMarketShare.round()}% target.'
+              ? 'You reached ${player.marketSharePercent.toStringAsFixed(1)}% market share, beating the ${game.settings.targetMarketShare.round()}% target.'
               : 'Every rival airline has collapsed. You are the last airline standing.'
         : '${player.name} accumulated more than ${money(100000000, currency)} in debt and became insolvent.';
     return Material(
@@ -878,7 +878,7 @@ class _GameOutcomeOverlay extends StatelessWidget {
                     ),
                     _OutcomeStat(
                       label: 'Market share',
-                      value: '${allTimeMarketShare.toStringAsFixed(1)}%',
+                      value: '${player.marketSharePercent.toStringAsFixed(1)}%',
                     ),
                     _OutcomeStat(
                       label: 'Reputation',
