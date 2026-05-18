@@ -2524,6 +2524,7 @@ class GameController extends ChangeNotifier {
     _updateMarketShare(passengerTotals);
     _resolveInsolvencies();
     _pruneDistressedAIRoutes();
+    if (gameDay % 7 == 0) _purgeOrphanedRoutes();
     _maybeSellAICrossHoldings();
     _maybeRunAIMarketConsolidation();
     _maybeSpawnNewAI();
@@ -4254,7 +4255,38 @@ class GameController extends ChangeNotifier {
         _markAirportHub(hubIata);
       }
     }
+    _purgeOrphanedRoutes();
     notifyListeners();
+  }
+
+  /// Remove routes whose owning airline no longer exists, and prune stale
+  /// routeId / fleetId entries from any airline that references missing data.
+  /// Called after import (old-format saves may have split aiRoutes) and
+  /// periodically from the tick to catch any in-play desync.
+  void _purgeOrphanedRoutes() {
+    // Remove routes whose airlineId points to a non-existent airline.
+    final orphanRouteIds = routes.keys
+        .where((id) => !airlines.containsKey(routes[id]!.airlineId))
+        .toList(growable: false);
+    for (final id in orphanRouteIds) {
+      routes.remove(id);
+    }
+
+    // Prune stale routeId / fleetId entries from each airline.
+    for (final entry in airlines.entries.toList()) {
+      final airline = entry.value;
+      final cleanRouteIds =
+          airline.routeIds.where(routes.containsKey).toList(growable: false);
+      final cleanFleetIds =
+          airline.fleetIds.where(aircraft.containsKey).toList(growable: false);
+      if (cleanRouteIds.length != airline.routeIds.length ||
+          cleanFleetIds.length != airline.fleetIds.length) {
+        airlines[entry.key] = airline.copyWith(
+          routeIds: cleanRouteIds,
+          fleetIds: cleanFleetIds,
+        );
+      }
+    }
   }
 }
 

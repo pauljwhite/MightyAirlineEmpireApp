@@ -4220,6 +4220,8 @@ class _WorldMapState extends State<_WorldMap> {
   void _refreshRouteCache() {
     _cachedDrawableRoutes = widget.game.routes.values.where((r) {
       if (!r.isActive || r.aircraftId == null) return false;
+      // Skip routes whose owning airline no longer exists (dissolved / orphaned).
+      if (widget.game.airlines[r.airlineId] == null) return false;
       if (widget.showAiOnMap) return true;
       return widget.game.airlines[r.airlineId]?.isPlayer == true;
     }).toList(growable: false);
@@ -9683,14 +9685,24 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                           airline.name,
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
-                        Text(
-                          '${airline.routeIds.length} routes · ${airline.fleetIds.length} aircraft'
-                          '${hubLabel != null ? ' · $hubLabel' : ''}',
-                          style: const TextStyle(
-                            color: Color(0xff9e9e9e),
-                            fontSize: 11,
-                          ),
-                        ),
+                        Builder(builder: (context) {
+                          final activeRouteCount = airline.routeIds
+                              .where((id) =>
+                                  widget.game.routes[id]?.isActive == true)
+                              .length;
+                          final fleetCount = airline.fleetIds
+                              .where((id) =>
+                                  widget.game.aircraft[id] != null)
+                              .length;
+                          return Text(
+                            '$activeRouteCount routes · $fleetCount aircraft'
+                            '${hubLabel != null ? ' · $hubLabel' : ''}',
+                            style: const TextStyle(
+                              color: Color(0xff9e9e9e),
+                              fontSize: 11,
+                            ),
+                          );
+                        }),
                       ],
                     ),
                   ),
