@@ -9983,9 +9983,7 @@ void _showShareTradeDialog(
                   Builder(
                     builder: (context) {
                       final dividendPerDay = airline.lastDailyProfit > 0
-                          ? airline.lastDailyProfit *
-                              (clampedPercent / 100) *
-                              0.3
+                          ? airline.lastDailyProfit * (clampedPercent / 100)
                           : 0.0;
                       if (dividendPerDay <= 0) return const SizedBox.shrink();
                       return _InfoRow(

@@ -2514,7 +2514,7 @@ class GameController extends ChangeNotifier {
         cashUSD: payerCash,
       );
     }
-    if (playerDividendTotal > 500000) {
+    if (playerDividendTotal > 5000) {
       pushNewsItem(
         'Dividends: \$${playerDividendTotal.round()} received from shareholdings today.',
         playerRelated: true,
