@@ -9575,7 +9575,9 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                       _AppBtn(
                         variant: _BtnVariant.tonal,
                         onPressed:
-                            playerStake < 50 ||
+                            // Insolvent airlines can be taken over at any stake.
+                            // Solvent airlines require ≥50% ownership first.
+                            (!airline.isInsolvent && playerStake < 50) ||
                                 widget.game.player.cashUSD < takeoverCost
                             ? null
                             : () => _showTakeoverDialog(
@@ -9589,16 +9591,33 @@ class _CompetitorsViewState extends State<_CompetitorsView> {
                         icon: const Icon(Icons.handshake),
                         child: Text(
                           'Takeover ${money(takeoverCost, widget.currency)}',
-                        )
+                        ),
                       ),
                     ],
                   ),
-                  if (playerStake < 50)
+                  // Contextual hint explaining why the button may be disabled.
+                  if (!airline.isInsolvent && playerStake < 50)
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
                       child: Text(
-                        'Majority stake required for takeover.',
+                        'Majority stake (≥50%) required. Buy more shares to unlock.',
                         style: TextStyle(color: Color(0xff9e9e9e)),
+                      ),
+                    )
+                  else if (airline.isInsolvent && playerStake == 0)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Bankrupt — no majority required. Cost is reduced by your existing stake.',
+                        style: TextStyle(color: Color(0xff9e9e9e)),
+                      ),
+                    )
+                  else if (playerStake > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Your ${playerStake.toStringAsFixed(0)}% stake is credited — full buyout would be ${money(buyout.totalPrice, widget.currency)}.',
+                        style: const TextStyle(color: Color(0xff9e9e9e)),
                       ),
                     ),
                 ],
