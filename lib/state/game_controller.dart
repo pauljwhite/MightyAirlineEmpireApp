@@ -1786,16 +1786,25 @@ class GameController extends ChangeNotifier {
           )
           .toList();
       if (candidates.isEmpty) continue;
+      // Cap total rep damage from fleet events to 0.15/day per airline.
+      // Without a cap, 300 aircraft × 10 event types fires ~1.8 events/day
+      // in expectation, each doing 0.3–1.5 rep damage → ~1.3/day, which
+      // overwhelms the 0.35–0.50/day recovery budget.
+      var repDamageToday = 0.0;
+      const maxRepDamagePerDay = 0.15;
       for (final ac in candidates) {
+        if (repDamageToday >= maxRepDamagePerDay) break;
         for (final evt in _fleetEvents) {
           final (label, prob, condHit, repHit, grounds) = evt;
           if (rng.nextDouble() > prob * _eventScale) continue;
           final newCondition = (ac.condition - condHit).clamp(0, 100).toDouble();
-          // Re-read after each event so multiple hits on the same day cumulate
-          // correctly rather than all subtracting from the same original score.
+          // Apply only as much rep damage as the daily budget allows.
+          final actualRepHit =
+              math.min(repHit, maxRepDamagePerDay - repDamageToday);
+          repDamageToday += actualRepHit;
           final current = airlines[airlineId]!;
           final newReputation =
-              (current.reputationScore - repHit).clamp(0, 100).toDouble();
+              (current.reputationScore - actualRepHit).clamp(0, 100).toDouble();
           airlines[airlineId] = current.copyWith(
             reputationScore: newReputation,
           );
@@ -2594,8 +2603,9 @@ class GameController extends ChangeNotifier {
       // Bonus for running a profitable operation — rewards good management.
       final operationsBonus = profit > 0 ? 0.15 : 0.0;
       // Drain reputation for flying poorly-maintained aircraft (condition < 40).
-      // Per-aircraft coefficient is 0.10 (down from 0.15) so mid-condition fleets
-      // don't immediately saturate the 0.3 cap.  Cap kept at 0.3/day.
+      // Cap lowered to 0.15/day (was 0.30) so that combined with the fleet-event
+      // cap (also 0.15/day) the total daily sink is ≤ 0.30, below the 0.35 base
+      // recovery — guaranteeing net-positive reputation regardless of fleet size.
       final fleet = airline.isPlayer
           ? playerFleet
           : fleetForAirline(airlineId);
@@ -2605,7 +2615,7 @@ class GameController extends ChangeNotifier {
           .fold<double>(0.0, (sum, ac) {
         return sum + ((40 - ac.condition) / 40) * 0.10;
       });
-      final conditionDrain = rawConditionDrain.clamp(0.0, 0.3);
+      final conditionDrain = rawConditionDrain.clamp(0.0, 0.15);
       final newReputation =
           (airline.reputationScore + reputationRecovery + operationsBonus - conditionDrain)
           .clamp(0, 100)
