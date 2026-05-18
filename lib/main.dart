@@ -8746,13 +8746,14 @@ class _FinanceView extends StatelessWidget {
           ),
         _Card(
           child: ExpansionTile(
+            key: const PageStorageKey('finance_loans'),
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
             title: const Text(
               'Loans',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            initiallyExpanded: true,
+            initiallyExpanded: false,
             children: [
               _InfoRow('Total debt', money(player.totalDebt, currency)),
               _InfoRow('Credit remaining', money(creditRemaining, currency)),
@@ -8894,6 +8895,7 @@ class _LoanAccordionTile extends StatelessWidget {
       (label: 'Full', amount: loan.principalUSD),
     ];
     return ExpansionTile(
+      key: PageStorageKey('loan_${loan.id}'),
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 10),
       title: Text(money(loan.principalUSD, currency)),
