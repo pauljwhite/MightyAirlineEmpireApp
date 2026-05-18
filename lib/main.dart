@@ -1677,12 +1677,17 @@ class _AirlineBadge extends StatefulWidget {
 
 class _AirlineBadgeState extends State<_AirlineBadge>
     with SingleTickerProviderStateMixin {
-  final LayerLink _link = LayerLink();
   OverlayEntry? _overlay;
   bool _isOpen = false;
   late final AnimationController _animCtrl;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  // Badge position captured once at open time — no CompositedTransformFollower
+  // needed, which eliminates the RenderFollowerLayer / debugNeedsLayout crash
+  // that occurs when the AnimatedBuilder's 16ms tick updates the
+  // CompositedTransformTarget while the overlay is mid-paint.
+  Offset _badgeOffset = Offset.zero;
+  double _badgeHeight = 40;
 
   @override
   void initState() {
@@ -1719,6 +1724,14 @@ class _AirlineBadgeState extends State<_AirlineBadge>
 
   void _openMenu() {
     if (_isOpen) return;
+    // Snapshot the badge position before opening the overlay so we can use a
+    // plain Positioned instead of CompositedTransformFollower. This eliminates
+    // the RenderFollowerLayer that was causing the debugNeedsLayout crash.
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null) {
+      _badgeOffset = box.localToGlobal(Offset.zero);
+      _badgeHeight = box.size.height;
+    }
     setState(() => _isOpen = true);
     _overlay = OverlayEntry(builder: (ctx) {
       // Capture stable context for dialogs before overlay is built
@@ -1732,13 +1745,10 @@ class _AirlineBadgeState extends State<_AirlineBadge>
               onTap: _closeMenu,
             ),
           ),
-          // Animated dropdown positioned below the badge
-          CompositedTransformFollower(
-            link: _link,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomLeft,
-            followerAnchor: Alignment.topLeft,
-            offset: const Offset(0, 8),
+          // Dropdown pinned to the captured badge position — no CTF pair.
+          Positioned(
+            top: _badgeOffset.dy + _badgeHeight + 8,
+            left: _badgeOffset.dx,
             child: FadeTransition(
               opacity: _fade,
               child: SlideTransition(
@@ -1767,9 +1777,7 @@ class _AirlineBadgeState extends State<_AirlineBadge>
   @override
   Widget build(BuildContext context) {
     final muted = _mutedText(context);
-    return CompositedTransformTarget(
-      link: _link,
-      child: InkWell(
+    return InkWell(
         borderRadius: BorderRadius.circular(28),
         onTap: _toggleMenu,
         child: Container(
@@ -1829,7 +1837,6 @@ class _AirlineBadgeState extends State<_AirlineBadge>
             ],
           ),
         ),
-      ),
     );
   }
 }
