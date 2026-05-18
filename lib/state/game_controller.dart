@@ -1661,7 +1661,6 @@ class GameController extends ChangeNotifier {
   }) {
     final ac = aircraft[aircraftId];
     if (ac == null) throw StateError('Aircraft not found');
-    final type = aircraftTypesById[ac.typeId];
     final airline = airlines[ac.airlineId] ?? player;
     final route = ac.assignedRouteId == null
         ? null
@@ -2900,7 +2899,7 @@ class GameController extends ChangeNotifier {
         );
       default:
         return (
-          headline: 'Breaking: ${airlineName} $model lost on $routeLabel service',
+          headline: 'Breaking: $airlineName $model lost on $routeLabel service',
           subheadline:
               'Investigators launch inquiry after aircraft fails to arrive at destination',
           paragraphs: [
