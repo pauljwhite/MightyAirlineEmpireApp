@@ -1915,7 +1915,11 @@ class GameController extends ChangeNotifier {
       lastMaintenanceGameDay: gameDay,
       resumeRouteAfterMaintenance: false,
     );
-    pushNewsItem('${ac.name} returned from maintenance.', playerRelated: true);
+    // Only surface maintenance-complete news for player-owned aircraft;
+    // AI fleets cycle through maintenance frequently and would flood the feed.
+    if (ac.airlineId == 'player') {
+      pushNewsItem('${ac.name} returned from maintenance.', playerRelated: true);
+    }
     notifyListeners();
   }
 
@@ -1982,6 +1986,40 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  /// Starts maintenance for an AI-owned aircraft. Mirrors
+  /// [_startMaintenanceInternal] but charges the owning AI airline rather than
+  /// the player, and never touches player state.
+  bool _startAIMaintenance(
+    String aircraftId,
+    String airlineId,
+    MaintenanceTier tier,
+  ) {
+    final ac = aircraft[aircraftId];
+    final airline = airlines[airlineId];
+    if (ac == null || airline == null || airline.isPlayer) return false;
+    if (ac.status == AircraftStatus.maintenance) return true;
+    final cost = maintenanceCost(aircraftId, tier);
+    if (airline.cashUSD < cost) return false;
+    var resumeRoute = false;
+    if (ac.assignedRouteId != null) {
+      final route = routes[ac.assignedRouteId!];
+      if (route != null) {
+        resumeRoute = route.isActive;
+        routes[route.id] = route.copyWith(isActive: false);
+      }
+    }
+    aircraft[aircraftId] = ac.copyWith(
+      status: AircraftStatus.maintenance,
+      isGrounded: true,
+      lastMaintenanceGameDay: gameDay,
+      activeMaintTier: tier,
+      knownFaultRiskMod: 1,
+      resumeRouteAfterMaintenance: resumeRoute,
+    );
+    airlines[airlineId] = airline.copyWith(cashUSD: airline.cashUSD - cost);
+    return true;
+  }
+
   void _applyAIMaintenancePolicy(String airlineId) {
     final airline = airlines[airlineId];
     if (airline == null || airline.isPlayer || airline.isInsolvent) return;
@@ -2008,7 +2046,7 @@ class GameController extends ChangeNotifier {
       }
       final needsMaint = ac.condition <= threshold || ac.isGrounded;
       if (!needsMaint) continue;
-      _startMaintenanceInternal(aircraftId, tier);
+      _startAIMaintenance(aircraftId, airlineId, tier);
     }
   }
 
