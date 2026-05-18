@@ -4015,12 +4015,15 @@ class GameController extends ChangeNotifier {
     final price = math.max(0, valuation.totalPrice - ownedValue).toDouble();
     if (player.cashUSD < price) throw StateError('Not enough cash');
 
+    final policy = player.maintenancePolicy;
     final acquiredFleet = <String>[];
     for (final aircraftId in target.fleetIds) {
       final ac = aircraft[aircraftId];
       if (ac == null) continue;
       final type = aircraftTypesById[ac.typeId];
       final hasRoute = ac.assignedRouteId != null;
+      final nowBelowThreshold =
+          policy.enabled && ac.condition <= policy.threshold;
       aircraft[aircraftId] = ac.copyWith(
         airlineId: 'player',
         name: type == null
@@ -4028,6 +4031,10 @@ class GameController extends ChangeNotifier {
             : '${player.name} ${type.model}',
         isGrounded: false,
         status: hasRoute ? AircraftStatus.flying : AircraftStatus.idle,
+        autoMaintenanceEnabled: policy.enabled,
+        autoMaintenanceThreshold: policy.threshold,
+        autoMaintenanceTier: policy.tier,
+        lastMaintenanceGameDay: nowBelowThreshold ? 0 : null,
       );
       acquiredFleet.add(aircraftId);
     }
