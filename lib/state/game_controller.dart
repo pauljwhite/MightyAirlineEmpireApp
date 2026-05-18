@@ -2226,8 +2226,7 @@ class GameController extends ChangeNotifier {
       destination: destination,
       globalFuelPrice: globalFuelPrice,
       airline: airlines[airlineId] ?? player,
-      allAirlines: airlines.values.toList(),
-      allRoutes: routes.values.toList(),
+      routeIndex: _sharedOptimisationIndex,
       airportDailyPax: airportDailyPax,
       gameDay: gameDay,
     );
@@ -2267,12 +2266,23 @@ class GameController extends ChangeNotifier {
   final Map<String, RouteOptimisationResult?> _routeOptCache = {};
   NetworkOptimisationPreview? _networkOptCache;
   PlayerFinanceSnapshot? _playerFinanceSnapshot;
+  // Shared RouteIndex for all optimisation preview calls within one cache
+  // generation.  Built once (O(N)) then all 300+ per-route optimiser sweeps
+  // share it — replaces the per-call routes.values.toList() + O(N) scans.
+  RouteIndex? _optimisationRouteIndex;
 
   void _invalidateOptimisationCaches() {
     _routeOptCache.clear();
     _networkOptCache = null;
     _playerFinanceSnapshot = null;
+    _optimisationRouteIndex = null;
   }
+
+  RouteIndex get _sharedOptimisationIndex =>
+      _optimisationRouteIndex ??= RouteIndex.build(
+        routes.values,
+        airlines.values,
+      );
 
   /// Aggregated finance figures for the player, computed in one pass and
   /// cached until the next `notifyListeners()` call. The Finance tab used

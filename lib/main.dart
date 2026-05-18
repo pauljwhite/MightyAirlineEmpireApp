@@ -11890,8 +11890,10 @@ child: Text(
         destination: destination,
         globalFuelPrice: widget.game.globalFuelPrice,
         airline: widget.game.player,
-        allAirlines: widget.game.airlines.values.toList(growable: false),
-        allRoutes: widget.game.routes.values.toList(growable: false),
+        routeIndex: RouteIndex.build(
+          widget.game.routes.values,
+          widget.game.airlines.values,
+        ),
         gameDay: widget.game.gameDay,
       ),
     );

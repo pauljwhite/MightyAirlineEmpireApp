@@ -16,8 +16,7 @@ class RouteOptimisationInput {
     required this.destination,
     required this.globalFuelPrice,
     required this.airline,
-    required this.allAirlines,
-    required this.allRoutes,
+    required this.routeIndex,
     this.airportDailyPax = const {},
     this.gameDay = 0,
   });
@@ -28,8 +27,10 @@ class RouteOptimisationInput {
   final Airport destination;
   final double globalFuelPrice;
   final Airline airline;
-  final List<Airline> allAirlines;
-  final List<RoutePlan> allRoutes;
+  /// Pre-built index for O(1) pair lookups — replaces the old flat
+  /// `allRoutes` + `allAirlines` lists that caused O(N) scans inside
+  /// every step of the 21-flight × 2-cabin × ~60-price optimiser loop.
+  final RouteIndex routeIndex;
   final Map<String, double> airportDailyPax;
   final int gameDay;
 }
@@ -126,16 +127,16 @@ double _cabinMarketShare(
 ) {
   final effectivePrice = price / context.playerPremium;
   final route = input.route;
-  final competitors = input.allRoutes
-      .where(
-        (candidate) =>
-            candidate.id != route.id &&
-            candidate.isActive &&
-            routePairKey(candidate.originIata, candidate.destinationIata) ==
-                routePairKey(route.originIata, route.destinationIata) &&
-            (cabin == 'economy' || candidate.priceBusiness > 0),
-      )
-      .toList();
+  final pairKey = routePairKey(route.originIata, route.destinationIata);
+  final pairRoutes = input.routeIndex.activeRoutesByPair[pairKey];
+  final competitors = <RoutePlan>[];
+  if (pairRoutes != null) {
+    for (final candidate in pairRoutes) {
+      if (candidate.id == route.id) continue;
+      if (cabin != 'economy' && candidate.priceBusiness <= 0) continue;
+      competitors.add(candidate);
+    }
+  }
   if (competitors.isEmpty)
     return getSoloPriceDemandShare(effectivePrice, referencePrice);
   int cabinPrice(RoutePlan r) =>
@@ -145,12 +146,7 @@ double _cabinMarketShare(
       competitors.length;
   final ownScore = getCompetitivenessScore(effectivePrice, avgPrice);
   final competitorScore = competitors.fold<double>(0, (sum, r) {
-    final airline = input.allAirlines
-        .where((a) => a.id == r.airlineId)
-        .firstOrNull;
-    final premium = airline == null
-        ? 1
-        : repPricePremium(airline.reputationScore);
+    final premium = input.routeIndex.reputationPremiumById[r.airlineId] ?? 1.0;
     return sum + getCompetitivenessScore(cabinPrice(r) / premium, avgPrice);
   });
   return ownScore / math.max(ownScore + competitorScore, 0.0001);
@@ -256,13 +252,13 @@ List<int> _priceCandidates(
   for (var multiplier = 0.05; multiplier <= 3.0001; multiplier += 0.05) {
     prices.add((referencePrice * multiplier).round());
   }
-  final competitors = input.allRoutes.where(
-    (r) =>
-        r.isActive &&
-        routePairKey(r.originIata, r.destinationIata) ==
-            routePairKey(input.route.originIata, input.route.destinationIata),
+  final pairKey2 = routePairKey(
+    input.route.originIata,
+    input.route.destinationIata,
   );
-  for (final route in competitors) {
+  final pairRoutes2 =
+      input.routeIndex.activeRoutesByPair[pairKey2] ?? const <RoutePlan>[];
+  for (final route in pairRoutes2) {
     final price = cabin == 'business'
         ? route.priceBusiness
         : route.priceEconomy;
@@ -366,6 +362,3 @@ RouteOptimisationResult optimiseRouteSettings(RouteOptimisationInput input) {
       );
 }
 
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}
