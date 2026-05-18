@@ -936,6 +936,7 @@ class GameController extends ChangeNotifier {
   void advanceGameClock(Duration realDelta) {
     if (!hasStarted) return;
     if (isPaused || speed <= 0) return;
+    if (hasWon || hasLost) return;
     final delta = (realDelta.inMilliseconds * speed).round();
     if (delta <= 0) return;
     gameTimeMs += delta;
@@ -2933,13 +2934,9 @@ class GameController extends ChangeNotifier {
     }
 
     var anyCompetitor = false;
-    var allCompetitorsInsolvent = true;
     for (final airline in competitors) {
       anyCompetitor = true;
-      if (airline.cashUSD > aiInsolvencyLimit) {
-        allCompetitorsInsolvent = false;
-        continue;
-      }
+      if (airline.cashUSD > aiInsolvencyLimit) continue;
       if (airline.isInsolvent) continue;
       for (final routeId in airline.routeIds) {
         final route = routes[routeId];
@@ -2961,10 +2958,15 @@ class GameController extends ChangeNotifier {
       );
     }
 
-    if (settings.objective == GameObjective.lastAirlineStanding &&
-        anyCompetitor &&
-        allCompetitorsInsolvent) {
-      hasWon = true;
+    if (settings.objective == GameObjective.lastAirlineStanding) {
+      // Win when every listed competitor is insolvent (flag-based, not cash
+      // threshold, so a newly-marked airline counts immediately) OR all
+      // competitors have been dissolved from the map entirely.
+      final activeCount = competitors.where((a) => !a.isInsolvent).length;
+      if ((anyCompetitor && activeCount == 0) ||
+          (competitors.isEmpty && gameDay > 0)) {
+        hasWon = true;
+      }
     }
   }
 
@@ -2986,8 +2988,10 @@ class GameController extends ChangeNotifier {
     final playerCumulativeShare = totalAllTime <= 0
         ? 0.0
         : playerAllTime / totalAllTime * 100;
+    // Use all-time passengers rather than today's daily share so the win can
+    // still fire even when struggling competitors have 0 passengers today.
     final competitorsWithShare = competitors.any(
-      (airline) => airline.marketSharePercent > 0,
+      (airline) => airline.totalPassengersAllTime > 0,
     );
     if (settings.objective == GameObjective.marketShare &&
         competitorsWithShare &&
@@ -3552,6 +3556,10 @@ class GameController extends ChangeNotifier {
   }
 
   void _maybeSpawnNewAI() {
+    // In "last airline standing" mode new entrants would reset the win
+    // condition indefinitely — the objective is to outlast the initial field,
+    // not to chase an infinite stream of replacements.
+    if (settings.objective == GameObjective.lastAirlineStanding) return;
     if (gameDay == 0 || gameDay % _aiSpawnIntervalDays != 0) return;
     final activeCompetitors = competitors
         .where((airline) => !airline.isInsolvent)
