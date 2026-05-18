@@ -702,6 +702,9 @@ class GameController extends ChangeNotifier {
   bool isPaused = false;
   bool hasWon = false;
   bool hasLost = false;
+  // Set when the player dismisses the win overlay via "Continue Playing".
+  // Prevents the daily win-condition check from re-triggering the overlay.
+  bool winAcknowledged = false;
   bool hasStarted = false;
   ThemeModeSetting themeMode = ThemeModeSetting.dark;
   bool showAiOnMap = true;
@@ -999,6 +1002,7 @@ class GameController extends ChangeNotifier {
   }
 
   void dismissGameOutcome() {
+    if (hasWon) winAcknowledged = true;
     hasWon = false;
     hasLost = false;
     notifyListeners();
@@ -1109,6 +1113,7 @@ class GameController extends ChangeNotifier {
     isPaused = false;
     hasWon = false;
     hasLost = false;
+    winAcknowledged = false;
     showAiOnMap = true;
     globalFuelPrice = fuelPriceUsdPerLiter;
     airlines.clear();
@@ -3087,8 +3092,9 @@ class GameController extends ChangeNotifier {
       // threshold, so a newly-marked airline counts immediately) OR all
       // competitors have been dissolved from the map entirely.
       final activeCount = competitors.where((a) => !a.isInsolvent).length;
-      if ((anyCompetitor && activeCount == 0) ||
-          (competitors.isEmpty && gameDay > 0)) {
+      if (!winAcknowledged &&
+          ((anyCompetitor && activeCount == 0) ||
+              (competitors.isEmpty && gameDay > 0))) {
         hasWon = true;
       }
     }
@@ -3115,7 +3121,8 @@ class GameController extends ChangeNotifier {
     final competitorsActive = competitors.any(
       (airline) => (passengerTotals[airline.id] ?? 0) > 0,
     );
-    if (settings.objective == GameObjective.marketShare &&
+    if (!winAcknowledged &&
+        settings.objective == GameObjective.marketShare &&
         competitorsActive &&
         playerDailyShare >= settings.targetMarketShare) {
       hasWon = true;
@@ -4225,6 +4232,7 @@ class GameController extends ChangeNotifier {
     'isPaused': isPaused,
     'hasWon': hasWon,
     'hasLost': hasLost,
+    'winAcknowledged': winAcknowledged,
     'themeMode': themeMode.name,
     'showAiOnMap': showAiOnMap,
     'globalFuelPrice': globalFuelPrice,
@@ -4263,6 +4271,7 @@ class GameController extends ChangeNotifier {
     isPaused = raw['isPaused'] == true;
     hasWon = raw['hasWon'] == true;
     hasLost = raw['hasLost'] == true;
+    winAcknowledged = raw['winAcknowledged'] == true;
     themeMode = _themeModeFromJson(raw['themeMode']);
     showAiOnMap = raw['showAiOnMap'] != false;
     globalFuelPrice =
