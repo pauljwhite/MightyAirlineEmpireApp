@@ -2562,13 +2562,16 @@ class GameController extends ChangeNotifier {
       netProfits[airlineId] = profit;
       passengerTotals[airlineId] = totalPassengers;
       final penaltyLeft = (airline.crashPenaltyDaysLeft - 1).clamp(0, 9999);
-      const reputationRecovery = 0.15;
-      // Small bonus for running a profitable operation — rewards good management
-      // and provides a natural recovery path beyond passive trickle + PR campaigns.
-      final operationsBonus = profit > 0 ? 0.1 : 0.0;
-      // Drain reputation for operating poorly-maintained aircraft (condition < 40).
-      // Capped at 0.3/day so a large degraded fleet can't create an unrecoverable
-      // spiral — even at maximum drain a PR campaign remains meaningful.
+      // Base recovery is 0.35 — deliberately set above the 0.3 drain cap so
+      // reputation can ALWAYS climb back from 0, even at maximum drain with no
+      // profit.  Worst-case net is +0.05/day; best-case (profit, no drain) is
+      // +0.50/day.
+      const reputationRecovery = 0.35;
+      // Bonus for running a profitable operation — rewards good management.
+      final operationsBonus = profit > 0 ? 0.15 : 0.0;
+      // Drain reputation for flying poorly-maintained aircraft (condition < 40).
+      // Per-aircraft coefficient is 0.10 (down from 0.15) so mid-condition fleets
+      // don't immediately saturate the 0.3 cap.  Cap kept at 0.3/day.
       final fleet = airline.isPlayer
           ? playerFleet
           : fleetForAirline(airlineId);
@@ -2576,7 +2579,7 @@ class GameController extends ChangeNotifier {
           .where((ac) =>
               ac.status == AircraftStatus.flying && ac.condition < 40)
           .fold<double>(0.0, (sum, ac) {
-        return sum + ((40 - ac.condition) / 40) * 0.15;
+        return sum + ((40 - ac.condition) / 40) * 0.10;
       });
       final conditionDrain = rawConditionDrain.clamp(0.0, 0.3);
       final newReputation =
