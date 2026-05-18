@@ -1998,13 +1998,17 @@ class _AirlineProfileDropdown extends StatelessWidget {
               ),
             ],
           ),
-          child: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+          // Column with pinned header + scrollable body + pinned footer.
+          // Flexible on the scroll area lets the panel shrink on large screens
+          // while still scrolling when the content overflows on small ones.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Pinned header ─────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 4, 0),
+                child: Row(
                   children: [
                     _AirlineLogo(logo: player.logoEmoji, size: 38),
                     const SizedBox(width: 10),
@@ -2046,180 +2050,204 @@ class _AirlineProfileDropdown extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                _Card(
+              ),
+              Divider(height: 16, color: _hairline(context)),
+              // ── Scrollable body ───────────────────────────────────────
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _InfoRow('Cash', money(player.cashUSD, currency)),
-                      if (player.totalDebt > 0)
-                        _InfoRow('Debt', money(player.totalDebt, currency)),
-                      _InfoRow(
-                        'Reputation',
-                        '${player.reputationScore.toStringAsFixed(0)}/100',
-                      ),
-                      _InfoRow(
-                        'Market share',
-                        '${player.marketSharePercent.toStringAsFixed(1)}%',
-                      ),
-                      _InfoRow(
-                        'All-time share',
-                        '${allTimeShare.toStringAsFixed(1)}%',
-                      ),
-                      _InfoRow(
-                        'Passengers',
-                        _formatCount(player.totalPassengersAllTime),
-                      ),
-                    ],
-                  ),
-                ),
-                _Card(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _InfoRow('Fleet', '${fleet.length} aircraft'),
-                      if (idleAircraft > 0)
-                        _InfoRow('Idle aircraft', idleAircraft.toString()),
-                      if (maintenanceAircraft > 0)
-                        _InfoRow('In maintenance', maintenanceAircraft.toString()),
-                      _InfoRow('Routes', '${routes.length} total'),
-                      _InfoRow('Active routes', activeRoutes.toString()),
-                      if (inactiveRoutes > 0)
-                        _InfoRow('Inactive routes', inactiveRoutes.toString()),
-                      _InfoRow(
-                        'Hubs',
-                        player.hubIatas.isEmpty ? 'None' : player.hubIatas.join(', '),
-                      ),
-                    ],
-                  ),
-                ),
-                if (today != null)
-                  _Card(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Today's P&L",
-                          style: TextStyle(fontWeight: FontWeight.w900),
+                      _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _InfoRow('Cash', money(player.cashUSD, currency)),
+                            if (player.totalDebt > 0)
+                              _InfoRow('Debt', money(player.totalDebt, currency)),
+                            _InfoRow(
+                              'Reputation',
+                              '${player.reputationScore.toStringAsFixed(0)}/100',
+                            ),
+                            _InfoRow(
+                              'Market share',
+                              '${player.marketSharePercent.toStringAsFixed(1)}%',
+                            ),
+                            _InfoRow(
+                              'All-time share',
+                              '${allTimeShare.toStringAsFixed(1)}%',
+                            ),
+                            _InfoRow(
+                              'Passengers',
+                              _formatCount(player.totalPassengersAllTime),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _InfoRow('Revenue', money(today.revenue, currency)),
-                        _InfoRow('Costs', money(today.costs, currency)),
-                        _InfoRow('Profit', money(today.profit, currency)),
-                        _InfoRow('Passengers', _formatCount(today.passengers)),
+                      ),
+                      _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _InfoRow('Fleet', '${fleet.length} aircraft'),
+                            if (idleAircraft > 0)
+                              _InfoRow('Idle aircraft', idleAircraft.toString()),
+                            if (maintenanceAircraft > 0)
+                              _InfoRow('In maintenance', maintenanceAircraft.toString()),
+                            _InfoRow('Routes', '${routes.length} total'),
+                            _InfoRow('Active routes', activeRoutes.toString()),
+                            if (inactiveRoutes > 0)
+                              _InfoRow('Inactive routes', inactiveRoutes.toString()),
+                            _InfoRow(
+                              'Hubs',
+                              player.hubIatas.isEmpty ? 'None' : player.hubIatas.join(', '),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (today != null)
+                        _Card(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Today's P&L",
+                                style: TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 8),
+                              _InfoRow('Revenue', money(today.revenue, currency)),
+                              _InfoRow('Costs', money(today.costs, currency)),
+                              _InfoRow('Profit', money(today.profit, currency)),
+                              _InfoRow('Passengers', _formatCount(today.passengers)),
+                            ],
+                          ),
+                        ),
+                      _CurrencyPickerCard(
+                        currency: currency,
+                        onCurrency: onCurrency,
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+              ),
+              // ── Pinned footer ─────────────────────────────────────────
+              Divider(height: 1, color: _hairline(context)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Primary actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AppBtn(
+                            variant: _BtnVariant.ghost,
+                            onPressed: () {
+                              closeMenu();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (stableContext.mounted)
+                                  _showRebrandDialog(stableContext, game, currency);
+                              });
+                            },
+                            icon: const Icon(Icons.edit),
+                            child: const Text('Rebrand'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _AppBtn(
+                            variant: _BtnVariant.ghost,
+                            onPressed: () {
+                              closeMenu();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (stableContext.mounted)
+                                  _showPRCampaignDialog(stableContext, game, currency);
+                              });
+                            },
+                            icon: const Icon(Icons.campaign),
+                            child: const Text('PR Campaign'),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                _CurrencyPickerCard(
-                  currency: currency,
-                  onCurrency: onCurrency,
-                ),
-                // ── Primary actions (full-width pair) ────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () {
-                          closeMenu();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (stableContext.mounted)
-                              _showRebrandDialog(stableContext, game, currency);
-                          });
-                        },
-                        icon: const Icon(Icons.edit),
-                        child: const Text('Rebrand'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () {
-                          closeMenu();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (stableContext.mounted)
-                              _showPRCampaignDialog(stableContext, game, currency);
-                          });
-                        },
-                        icon: const Icon(Icons.campaign),
-                        child: const Text('PR Campaign'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // ── Secondary actions ─────────────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () {
-                          closeMenu();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (stableContext.mounted)
-                              _showExportDialog(stableContext, game);
-                          });
-                        },
-                        icon: const Icon(Icons.upload_file),
-                        child: const Text('Export'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _AppBtn(
-                        variant: _BtnVariant.ghost,
-                        onPressed: () {
-                          closeMenu();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!stableContext.mounted) return;
-                            if (game.gameDay > 0) {
-                              showDialog<bool>(
-                                context: stableContext,
-                                builder: (ctx) => _GlassDialog(
-                                  maxWidth: 420,
-                                  title: const Text('Abandon current game?'),
-                                  content: const Padding(
-                                    padding: EdgeInsets.only(top: 8),
-                                    child: Text(
-                                      'Your current progress will be lost and cannot be recovered.',
+                    const SizedBox(height: 8),
+                    // Secondary actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AppBtn(
+                            variant: _BtnVariant.ghost,
+                            onPressed: () {
+                              closeMenu();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (stableContext.mounted)
+                                  _showExportDialog(stableContext, game);
+                              });
+                            },
+                            icon: const Icon(Icons.upload_file),
+                            child: const Text('Export'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _AppBtn(
+                            variant: _BtnVariant.ghost,
+                            onPressed: () {
+                              closeMenu();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!stableContext.mounted) return;
+                                if (game.gameDay > 0) {
+                                  showDialog<bool>(
+                                    context: stableContext,
+                                    builder: (ctx) => _GlassDialog(
+                                      maxWidth: 420,
+                                      title: const Text('Abandon current game?'),
+                                      content: const Padding(
+                                        padding: EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          'Your current progress will be lost and cannot be recovered.',
+                                        ),
+                                      ),
+                                      actions: [
+                                        _AppBtn(
+                                          variant: _BtnVariant.plain,
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        _AppBtn(
+                                          variant: _BtnVariant.danger,
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: const Text('Abandon & restart'),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  actions: [
-                                    _AppBtn(
-                                      variant: _BtnVariant.plain,
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    _AppBtn(
-                                      variant: _BtnVariant.danger,
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, true),
-                                      child: const Text('Abandon & restart'),
-                                    ),
-                                  ],
-                                ),
-                              ).then((confirmed) {
-                                if (confirmed == true &&
-                                    stableContext.mounted) {
+                                  ).then((confirmed) {
+                                    if (confirmed == true &&
+                                        stableContext.mounted) {
+                                      onReset();
+                                    }
+                                  });
+                                } else {
                                   onReset();
                                 }
                               });
-                            } else {
-                              onReset();
-                            }
-                          });
-                        },
-                        icon: const Icon(Icons.restart_alt),
-                        child: const Text('Start again'),
-                      ),
+                            },
+                            icon: const Icon(Icons.restart_alt),
+                            child: const Text('Start again'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
