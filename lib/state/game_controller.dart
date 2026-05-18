@@ -3074,21 +3074,19 @@ class GameController extends ChangeNotifier {
           : ((passengerTotals[entry.key] ?? 0) / total) * 100;
       airlines[entry.key] = entry.value.copyWith(marketSharePercent: share);
     }
-    // Win check uses cumulative all-time passengers (consistent with web app)
-    final totalAllTime = airlines.values
-        .fold<int>(0, (sum, a) => sum + a.totalPassengersAllTime);
-    final playerAllTime = airlines['player']?.totalPassengersAllTime ?? 0;
-    final playerCumulativeShare = totalAllTime <= 0
-        ? 0.0
-        : playerAllTime / totalAllTime * 100;
-    // Use all-time passengers rather than today's daily share so the win can
-    // still fire even when struggling competitors have 0 passengers today.
-    final competitorsWithShare = competitors.any(
-      (airline) => airline.totalPassengersAllTime > 0,
+    // Win check uses today's daily share — this matches what the player sees
+    // in the UI (marketSharePercent). The cumulative all-time figure was used
+    // previously but diverges wildly from the displayed value, making the win
+    // condition appear broken (player sees 65% on screen, win never fires).
+    // Require at least one competitor to have passengers today so a win can't
+    // be claimed against an empty field.
+    final playerDailyShare = airlines['player']?.marketSharePercent ?? 0.0;
+    final competitorsActive = competitors.any(
+      (airline) => (passengerTotals[airline.id] ?? 0) > 0,
     );
     if (settings.objective == GameObjective.marketShare &&
-        competitorsWithShare &&
-        playerCumulativeShare >= settings.targetMarketShare) {
+        competitorsActive &&
+        playerDailyShare >= settings.targetMarketShare) {
       hasWon = true;
     }
   }
