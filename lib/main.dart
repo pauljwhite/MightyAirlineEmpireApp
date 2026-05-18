@@ -572,6 +572,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
       theme: _cachedLightTheme ??= _buildTheme(true),
       darkTheme: _cachedDarkTheme ??= _buildTheme(false),
       themeMode: _themeMode,
+      themeAnimationDuration: Duration.zero,
       home: AnimatedBuilder(
         animation: game,
         builder: (context, _) {
