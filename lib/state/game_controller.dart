@@ -2543,19 +2543,25 @@ class GameController extends ChangeNotifier {
       netProfits[airlineId] = profit;
       passengerTotals[airlineId] = totalPassengers;
       final penaltyLeft = (airline.crashPenaltyDaysLeft - 1).clamp(0, 9999);
-      const reputationRecovery = 0.1;
-      // Drain reputation for operating poorly-maintained aircraft (condition < 40)
+      const reputationRecovery = 0.15;
+      // Small bonus for running a profitable operation — rewards good management
+      // and provides a natural recovery path beyond passive trickle + PR campaigns.
+      final operationsBonus = profit > 0 ? 0.1 : 0.0;
+      // Drain reputation for operating poorly-maintained aircraft (condition < 40).
+      // Capped at 0.3/day so a large degraded fleet can't create an unrecoverable
+      // spiral — even at maximum drain a PR campaign remains meaningful.
       final fleet = airline.isPlayer
           ? playerFleet
           : fleetForAirline(airlineId);
-      final conditionDrain = fleet
+      final rawConditionDrain = fleet
           .where((ac) =>
               ac.status == AircraftStatus.flying && ac.condition < 40)
           .fold<double>(0.0, (sum, ac) {
         return sum + ((40 - ac.condition) / 40) * 0.15;
       });
+      final conditionDrain = rawConditionDrain.clamp(0.0, 0.3);
       final newReputation =
-          (airline.reputationScore + reputationRecovery - conditionDrain)
+          (airline.reputationScore + reputationRecovery + operationsBonus - conditionDrain)
           .clamp(0, 100)
           .toDouble();
       airlines[airlineId] = airline.copyWith(
