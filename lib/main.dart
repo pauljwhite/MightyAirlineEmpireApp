@@ -773,15 +773,6 @@ class _GameOutcomeOverlay extends StatelessWidget {
       0,
       currentYear - game.settings.startingYear,
     );
-    final totalPassengers =
-        player.totalPassengersAllTime +
-        game.competitors.fold<int>(
-          0,
-          (sum, airline) => sum + airline.totalPassengersAllTime,
-        );
-    final allTimeMarketShare = totalPassengers <= 0
-        ? 0.0
-        : player.totalPassengersAllTime / totalPassengers * 100;
     final message = won
         ? game.settings.objective == GameObjective.marketShare
               ? 'You reached ${player.marketSharePercent.toStringAsFixed(1)}% market share, beating the ${game.settings.targetMarketShare.round()}% target.'
