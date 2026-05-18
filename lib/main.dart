@@ -971,6 +971,12 @@ const _splashAmericanPlanes = <String>[
   'assets/planes/B777-200er.png',
   'assets/planes/B787-9.png',
   'assets/planes/B777-9.png',
+  'assets/planes/DC8-50.png',
+  'assets/planes/DC9-30.png',
+  'assets/planes/DC10-10.png',
+  'assets/planes/MD80.png',
+  'assets/planes/MD11.png',
+  'assets/planes/l1011-1.png',
 ];
 
 const _splashRussianPlanes = <String>[
@@ -985,6 +991,9 @@ const _splashRussianPlanes = <String>[
   'assets/planes/Yak40.png',
   'assets/planes/Yak42.png',
   'assets/planes/An24.png',
+  'assets/planes/il14.png',
+  'assets/planes/SSJ-100.png',
+  'assets/planes/MC-21-300.png',
 ];
 
 const _splashEuropeanPlanes = <String>[
@@ -1000,6 +1009,10 @@ const _splashEuropeanPlanes = <String>[
   'assets/planes/ATR72-600.png',
   'assets/planes/BAe146-200.png',
   'assets/planes/AvroRJ100.png',
+  'assets/planes/Fokker100.png',
+  'assets/planes/Saab340.png',
+  'assets/planes/Caravelle.png',
+  'assets/planes/Mercure.png',
 ];
 
 class _SplashPlaneTicker extends StatefulWidget {
@@ -8043,6 +8056,87 @@ const _aircraftImageAssets = <String, String>{
   // ── Yakovlev ──────────────────────────────────────────────────────────────
   'yak40':        'assets/planes/Yak40.png',
   'yak-42d':      'assets/planes/Yak42.png',
+
+  // ── Sukhoi / SSJ ─────────────────────────────────────────────────────────
+  'ssj-100':      'assets/planes/SSJ-100.png',
+
+  // ── Irkut MC-21 ───────────────────────────────────────────────────────────
+  'mc-21-300':    'assets/planes/MC-21-300.png',
+  'mc-21-310':    'assets/planes/MC-21-310.png',
+
+  // ── Ilyushin (additional) ────────────────────────────────────────────────
+  'il14':         'assets/planes/il14.png',
+
+  // ── Douglas ──────────────────────────────────────────────────────────────
+  'dc8-50':       'assets/planes/DC8-50.png',
+  'dc9-10':       'assets/planes/DC9-10.png',
+  'dc9-30':       'assets/planes/DC9-30.png',
+  'dc10-10':      'assets/planes/DC10-10.png',
+  'dc10-30':      'assets/planes/DC10-30.png',
+  'dc10-40':      'assets/planes/DC10-40.png',
+
+  // ── McDonnell Douglas ─────────────────────────────────────────────────────
+  'md11':         'assets/planes/MD11.png',
+  'md80':         'assets/planes/MD80.png',
+
+  // ── Lockheed L-1011 ──────────────────────────────────────────────────────
+  'l1011-1':      'assets/planes/l1011-1.png',
+  'l1011-100':    'assets/planes/l1011-100.png',
+  'l1011-200':    'assets/planes/l1011-200.png',
+  'l1011-500':    'assets/planes/l1011-500.png',
+
+  // ── de Havilland Canada ──────────────────────────────────────────────────
+  'dhc7':         'assets/planes/DHC7.png',
+  'dhc8-100':     'assets/planes/DHC8-100.png',
+  'dhc8-200':     'assets/planes/DHC8-200.png',
+  'dhc8-300':     'assets/planes/DHC8-300.png',
+  'dhc8-400':     'assets/planes/DHC8-400.png',
+
+  // ── Embraer ───────────────────────────────────────────────────────────────
+  'e170':         'assets/planes/E170.png',
+  'e175':         'assets/planes/E175.png',
+  'e190':         'assets/planes/E190.png',
+  'e190-e2':      'assets/planes/E190-E2.png',
+  'e195':         'assets/planes/E195.png',
+  'e195-e2':      'assets/planes/E195-E2.png',
+  'emb120':       'assets/planes/EMB120.png',
+  'erj135':       'assets/planes/ERJ135.png',
+  'erj145':       'assets/planes/ERJ145.png',
+
+  // ── Fokker ────────────────────────────────────────────────────────────────
+  'fokker100':    'assets/planes/Fokker100.png',
+  'fokker50':     'assets/planes/Fokker50.png',
+  'fokker70':     'assets/planes/Fokker70.png',
+
+  // ── Fokker originals ──────────────────────────────────────────────────────
+  'f27-200':      'assets/planes/F27-200.png',
+  'f28-1000':     'assets/planes/F28-1000.png',
+  'f28-4000':     'assets/planes/F28-4000.png',
+
+  // ── Saab ──────────────────────────────────────────────────────────────────
+  'saab2000':     'assets/planes/Saab2000.png',
+  'saab340':      'assets/planes/Saab340.png',
+
+  // ── Dassault Falcon ───────────────────────────────────────────────────────
+  'falcon20':     'assets/planes/Falcon20.png',
+  'falcon2000':   'assets/planes/Falcon2000.png',
+  'falcon50':     'assets/planes/Falcon50.png',
+  'falcon7x':     'assets/planes/Falcon7x.png',
+  'falcon8x':     'assets/planes/Falcon8x.png',
+  'falcon900':    'assets/planes/Falcon900.png',
+
+  // ── Sud Aviation ─────────────────────────────────────────────────────────
+  'caravelle':    'assets/planes/Caravelle.png',
+
+  // ── Dassault Mercure ─────────────────────────────────────────────────────
+  'mercure':      'assets/planes/Mercure.png',
+
+  // ── COMAC C929 ────────────────────────────────────────────────────────────
+  'c929':         'assets/planes/C929.png',
+
+  // ── Piper ─────────────────────────────────────────────────────────────────
+  'pa31':         'assets/planes/PA31.png',
+  'pa42':         'assets/planes/PA42.png',
 };
 
 String? _aircraftImageAsset(String typeId) => _aircraftImageAssets[typeId];
