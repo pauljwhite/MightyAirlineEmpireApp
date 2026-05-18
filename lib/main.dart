@@ -1820,6 +1820,117 @@ class _AirlineBadgeState extends State<_AirlineBadge>
   }
 }
 
+/// Inline currency selector — expands/collapses inside the profile panel.
+/// Avoids PopupMenuButton's overlay, which appeared behind the profile panel.
+class _CurrencyPickerCard extends StatefulWidget {
+  const _CurrencyPickerCard({
+    required this.currency,
+    required this.onCurrency,
+  });
+
+  final CurrencyOption currency;
+  final ValueChanged<CurrencyOption> onCurrency;
+
+  @override
+  State<_CurrencyPickerCard> createState() => _CurrencyPickerCardState();
+}
+
+class _CurrencyPickerCardState extends State<_CurrencyPickerCard> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Header row (always visible) ─────────────────────────────────
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Display currency',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _mutedText(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.currency.code} · ${widget.currency.symbol}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                    color: _mutedText(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ── Option list (visible when open) ─────────────────────────────
+          if (_open) ...[
+            const SizedBox(height: 6),
+            const Divider(height: 1),
+            const SizedBox(height: 4),
+            ...currencyOptions.map((opt) {
+              final selected = opt.code == widget.currency.code;
+              return InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () {
+                  widget.onCurrency(opt);
+                  setState(() => _open = false);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        child: selected
+                            ? Icon(
+                                Icons.check,
+                                size: 15,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${opt.code} · ${opt.symbol}',
+                        style: TextStyle(
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _AirlineProfileDropdown extends StatelessWidget {
   const _AirlineProfileDropdown({
     required this.game,
@@ -1999,46 +2110,9 @@ class _AirlineProfileDropdown extends StatelessWidget {
                       ],
                     ),
                   ),
-                _Card(
-                  child: PopupMenuButton<CurrencyOption>(
-                    initialValue: currency,
-                    onSelected: (value) {
-                      onCurrency(value);
-                      closeMenu();
-                    },
-                    itemBuilder: (ctx) => currencyOptions
-                        .map(
-                          (option) => PopupMenuItem(
-                            value: option,
-                            child: Text('${option.code} · ${option.symbol}'),
-                          ),
-                        )
-                        .toList(),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Display currency',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _mutedText(context),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${currency.code} · ${currency.symbol}',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_drop_down, color: _mutedText(context)),
-                      ],
-                    ),
-                  ),
+                _CurrencyPickerCard(
+                  currency: currency,
+                  onCurrency: onCurrency,
                 ),
                 // ── Primary actions (full-width pair) ────────────────────
                 Row(
