@@ -4367,14 +4367,10 @@ class _WorldMapState extends State<_WorldMap> {
                     hitNotifier: _routeHitNotifier,
                     minimumHitbox: 28,
                     drawInSingleWorld: true,
-                    // Let flutter_map's built-in Douglas-Peucker drop
-                    // redundant points at low zoom (the old value `0`
-                    // disabled it entirely).
-                    simplificationTolerance: _currentZoomBucket == 0
-                        ? 8.0
-                        : _currentZoomBucket == 1
-                        ? 3.0
-                        : 0.5,
+                    // Disable simplification — arc curvature is already
+                    // preserved by controlling pointCount per zoom bucket
+                    // below; Douglas-Peucker on sparse points flattens arcs.
+                    simplificationTolerance: 0,
                     polylines: _routePolylines(_cachedDrawableRoutes),
                   ),
                 ),
@@ -4413,14 +4409,13 @@ class _WorldMapState extends State<_WorldMap> {
   }
 
   List<Polyline<RoutePlan>> _routePolylines(List<RoutePlan> drawableRoutes) {
-    // Lower zoom → fewer interpolation points along each great-circle arc.
-    // At zoom < 3 the 18-point arc collapsed to a single pixel anyway, so
-    // dropping it to 6 points has no visual cost and roughly thirds the
-    // polyline geometry the renderer has to process.
+    // Lower zoom → fewer interpolation points, but keep enough to preserve
+    // the great-circle arc's visible curvature. 6 points was too few —
+    // with no simplification the arc needs ≥12 to look curved at world zoom.
     final arcPoints = _currentZoomBucket == 0
-        ? 6
+        ? 12
         : _currentZoomBucket == 1
-        ? 10
+        ? 14
         : 18;
     final lines = <Polyline<RoutePlan>>[];
     for (final route in drawableRoutes) {
