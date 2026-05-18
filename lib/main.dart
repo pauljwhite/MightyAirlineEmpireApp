@@ -1304,21 +1304,12 @@ class _TopBar extends StatelessWidget {
                   ),
                 ),
               )
-            else if (!compact)
-              // Intermediate width: inline search would be too small — show
-              // an icon button that opens the floating search instead.
-              Expanded(
-                child: Align(
-                  alignment: Alignment.center,
-                  child: IconButton(
-                    tooltip: 'Search airports',
-                    icon: const Icon(Icons.search),
-                    onPressed: onSearchToggle,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              )
             else
+              // No inline search — a floating search row already appears on
+              // the map (visible whenever compact || !showSearch), so just
+              // fill the gap with a spacer.  The old icon-button that sat
+              // here at intermediate widths was clipping into the speed
+              // controls as the window narrowed.
               const Spacer(),
             nav,
           ],
