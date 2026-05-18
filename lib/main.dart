@@ -8399,7 +8399,6 @@ class _FinanceView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -8420,7 +8419,6 @@ class _FinanceView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
         _Card(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
