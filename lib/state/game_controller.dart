@@ -2495,14 +2495,16 @@ class GameController extends ChangeNotifier {
   }
 
   DailySnapshot runDailyTick() {
-    // Optimisation cache is NOT cleared here. The recommended prices/frequency
-    // for a route depend on its current settings, aircraft type, and fuel price
-    // — none of which change during a tick. Aircraft condition degrades ~0.3/day
-    // which has negligible effect on the optimal price. Keeping the cache warm
-    // across ticks means the routes-panel rebuild after every day change costs
-    // O(N) hashmap lookups rather than O(N) full optimiser runs.
-    // Cache is only invalidated on explicit player actions (see callers of
-    // _invalidateOptimisationCaches) and fuel price / route creation events.
+    // Route opt results are flushed every 7 game days so that suggestions stay
+    // current as the competitive environment shifts (competitor prices change
+    // daily via _adjustAIPrices).  The RouteIndex itself is kept — it only
+    // changes when routes are created or deleted, not when prices change.
+    // A full re-evaluation of 300 routes takes ~50–100 ms (acceptable once
+    // a week) vs the original every-tick invalidation which caused hangs.
+    if (gameDay % 7 == 0) {
+      _routeOptCache.clear();
+      _networkOptCache = null;
+    }
     _clearExpiredAirportClosures();
     final nextAirportPax = <String, double>{};
     final routeIndex = RouteIndex.build(routes.values, airlines.values);
@@ -4229,6 +4231,10 @@ class GameController extends ChangeNotifier {
       '${player.name} has acquired ${target.name}.',
       playerRelated: true,
     );
+    // Acquired routes were optimised for the rival's context (reputation, hubs,
+    // personality cap on frequency).  Clear the opt cache so they're re-evaluated
+    // under the player's context when the Routes tab next opens.
+    _invalidateOptimisationCaches();
     notifyListeners();
     return price;
   }
