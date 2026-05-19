@@ -57,6 +57,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
   var currency = currencyOptions.first;
   Airport? selectedAirport;
   _Panel? panel;
+  String? selectedCompetitorId;
   var mobileSearchOpen = false;
   final _autoOpenedArticleIds = <String>{};
   ThemeData? _cachedLightTheme;
@@ -179,8 +180,18 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
     }
     showDialog<void>(
       context: dialogContext,
-      builder: (context) =>
-          _RouteSummaryDialog(game: game, route: route, currency: currency),
+      builder: (context) => _RouteSummaryDialog(
+        game: game,
+        route: route,
+        currency: currency,
+        onViewRival: () {
+          Navigator.pop(context);
+          setState(() {
+            panel = _Panel.competitors;
+            selectedCompetitorId = route.airlineId;
+          });
+        },
+      ),
     );
   }
 
@@ -681,6 +692,7 @@ class _MightyAirlineEmpireAppState extends State<MightyAirlineEmpireApp>
                                       game: game,
                                       panel: panel!,
                                       currency: currency,
+                                      selectedCompetitorId: selectedCompetitorId,
                                       onClose: () =>
                                           setState(() => panel = null),
                                       onCreateRoute: () => _openCreateRoute(),
@@ -6028,12 +6040,14 @@ class _MainPanel extends StatelessWidget {
     required this.currency,
     required this.onClose,
     required this.onCreateRoute,
+    this.selectedCompetitorId,
   });
   final GameController game;
   final _Panel panel;
   final CurrencyOption currency;
   final VoidCallback onClose;
   final VoidCallback onCreateRoute;
+  final String? selectedCompetitorId;
   @override
   Widget build(BuildContext context) => _PanelShell(
     child: Column(
@@ -6074,6 +6088,7 @@ class _MainPanel extends StatelessWidget {
             _Panel.competitors => _CompetitorsView(
               game: game,
               currency: currency,
+              initialSelectedAirlineId: selectedCompetitorId,
             ),
             _Panel.hubs => _HubsView(game: game, currency: currency),
           },
@@ -9177,15 +9192,42 @@ class _ProfitTrendPainter extends CustomPainter {
 }
 
 class _CompetitorsView extends StatefulWidget {
-  const _CompetitorsView({required this.game, required this.currency});
+  const _CompetitorsView({
+    required this.game,
+    required this.currency,
+    this.initialSelectedAirlineId,
+  });
   final GameController game;
   final CurrencyOption currency;
+  final String? initialSelectedAirlineId;
   @override
   State<_CompetitorsView> createState() => _CompetitorsViewState();
 }
 
 class _CompetitorsViewState extends State<_CompetitorsView> {
   Airline? selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialSelection();
+  }
+
+  @override
+  void didUpdateWidget(_CompetitorsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSelectedAirlineId != null &&
+        widget.initialSelectedAirlineId != oldWidget.initialSelectedAirlineId) {
+      _applyInitialSelection();
+    }
+  }
+
+  void _applyInitialSelection() {
+    final id = widget.initialSelectedAirlineId;
+    if (id == null) return;
+    final airline = widget.game.airlines[id];
+    if (airline != null) selected = airline;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10292,11 +10334,13 @@ class _RouteSummaryDialog extends StatelessWidget {
     required this.game,
     required this.route,
     required this.currency,
+    this.onViewRival,
   });
 
   final GameController game;
   final RoutePlan route;
   final CurrencyOption currency;
+  final VoidCallback? onViewRival;
 
   @override
   Widget build(BuildContext context) {
@@ -10493,6 +10537,13 @@ class _RouteSummaryDialog extends StatelessWidget {
         ),
       ),
       actions: [
+        if (onViewRival != null)
+          _AppBtn(
+            variant: _BtnVariant.tonal,
+            onPressed: onViewRival,
+            icon: const Icon(Icons.groups),
+            child: const Text('View rival details'),
+          ),
         _AppBtn(
           variant: _BtnVariant.plain,
           onPressed: () => Navigator.pop(context),
